@@ -15,7 +15,13 @@ export const putBalance = (address: string, balance: structBalance): void => {
 			})
 			return
 		}
-		leveldb.put(address, JSON.stringify(balance), { sync: true })
+		if(balance.timesTransaction === undefined){
+			balance.timesTransaction = 0
+		}
+		leveldb.put(address, JSON.stringify(balance), {
+			sync: true,
+			valueEncoding: 'buffer',
+		})
 	} catch (error) {
 		loggingErr({
 			error: 'Error putting data',
