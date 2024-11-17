@@ -6,7 +6,7 @@ import levelup from 'levelup'
 initFile()
 const dirPath = path.join(__dirname, '../../base/storeData')
 
-export const rocksMempool = levelup(RocksDB(dirPath), {
+export const rocksStoreData = levelup(RocksDB(dirPath), {
 	valueEncoding: 'json', // Store transaction data in JSON format
 	keyEncoding: 'utf-8', // Use UTF-8 encoding for keys
 	cacheSize: 8 * 1024 * 1024, // 8 MB cache for fast access to transactions
