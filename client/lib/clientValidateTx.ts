@@ -1,4 +1,4 @@
-import { validateAddresses } from 'interface/module/isValidAddress'
+﻿import { validateAddresses } from 'interface/module/isValidAddress'
 import { validateAddressLengths } from 'interface/module/isValidAddressLength'
 import { validateTransactionAmount } from 'interface/module/isValidTxAmount'
 import { validateTransactionFees } from 'interface/module/isValidTxFee'
@@ -22,7 +22,7 @@ export const clientSideTxValidate = async (
 			error?.message || 'Invalid transaction amount',
 		)
 	}
-	if (!validateTransactionSignature(transaction)) return false
+	if (!(await validateTransactionSignature(transaction, true))) return false
 
 	if (!validateTransactionSenderReceiver(transaction)) return false
 

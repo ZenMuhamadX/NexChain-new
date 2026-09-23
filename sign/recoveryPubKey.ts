@@ -1,5 +1,6 @@
-import { ec as EC } from 'elliptic'
+﻿import { ec as EC } from 'elliptic'
 import { hashMessage } from './hashMessage'
+import { decodeV } from './chainId'
 
 const ec = new EC('secp256k1')
 
@@ -16,7 +17,8 @@ export const recoverPublicKey = (
 ): { publicKey: string } => {
 	const dataHash = hashMessage(data)
 
-	const recoveryParam = sign.v - 26
+	// EIP-155: decode v (87/88) ke recovery param (0/1)
+	const recoveryParam = decodeV(sign.v)
 
 	// Memulihkan public key
 	const signature = { r: sign.r, s: sign.s }

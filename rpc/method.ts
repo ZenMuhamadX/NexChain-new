@@ -1,4 +1,4 @@
-import { JSONRPCServer } from 'json-rpc-2.0'
+﻿import { JSONRPCServer } from 'json-rpc-2.0'
 import { toNxc } from 'nexchain/nexucoin/toNxc'
 import { getBlockByHash } from 'nexchain/block/query/onChain/block/getBlockByHash'
 import { getBlockByHeight } from 'nexchain/block/query/onChain/block/getBlockByHeight'
@@ -16,6 +16,81 @@ import { ManageContract } from 'contract/manageContract'
 import { getPendingBalance } from 'nexchain/transaction/getPendingBalance'
 import { createNewWalletAddress } from 'account/createNewWallet'
 import { stringToHex } from 'nexchain/hex/stringToHex'
+import { loadMempool } from 'nexchain/storage/mempool/loadMempool'
+import { blockSummary } from 'interface/structBlock'
+import { CHAIN_ID } from 'sign/chainId'
+
+/** Ubah Block penuh menjadi ringkasan untuk list explorer. */
+const toBlockSummary = (block: Block): blockSummary => {
+	const b = block.block
+	return {
+		height: b.height,
+		hash: b.header.hash,
+		previousBlockHash: b.header.previousBlockHash,
+		timestamp: b.header.timestamp,
+		minerId: b.minerId,
+		txCount: b.transactions?.length ?? 0,
+		size: b.size,
+		status: b.status,
+		difficulty: b.header.difficulty,
+		blockReward: b.blockReward,
+		totalReward: b.totalReward,
+	}
+}
+
+/**
+ * Fetch kumpulan blok dari `from` (inklusif) ke bawah sebanyak `count`.
+ * Height yang tidak ada / di bawah 0 dilewati diam-diam.
+ */
+const fetchBlockRange = async (
+	from: number,
+	count: number,
+): Promise<blockSummary[]> => {
+	const limit = Math.min(Math.max(Math.trunc(count) || 10, 1), 50)
+	const start = Math.trunc(from)
+	const heights = Array.from({ length: limit }, (_, i) => start - i).filter(
+		(h) => h >= 0,
+	)
+	const blocks = await Promise.all(
+		heights.map((h) =>
+			getBlockByHeight(h, 'json').catch(() => undefined),
+		),
+	)
+	return blocks
+		.filter((block): block is Block => block !== undefined && block !== null)
+		.map(toBlockSummary)
+}
+
+// Normalisasi params: number | {count} | [count] | undefined → count
+const parseCount = (params: unknown): number | undefined => {
+	if (typeof params === 'number') return params
+	if (Array.isArray(params))
+		return typeof params[0] === 'number' ? params[0] : undefined
+	if (params && typeof params === 'object') {
+		const count = (params as Record<string, unknown>).count
+		return typeof count === 'number' ? count : undefined
+	}
+	return undefined
+}
+
+// Normalisasi params range: {from,count} | [from,count] | number(from)
+const parseRangeParams = (params: unknown): {
+	from: number | undefined
+	count: number | undefined
+} => {
+	const num = (value: unknown): number | undefined =>
+		typeof value === 'number' && Number.isFinite(value)
+			? value
+			: undefined
+	if (typeof params === 'number') return { from: num(params), count: undefined }
+	if (Array.isArray(params))
+		return { from: num(params[0]), count: num(params[1]) }
+	if (params && typeof params === 'object') {
+		const record = params as Record<string, unknown>
+		return { from: num(record.from), count: num(record.count) }
+	}
+	return { from: undefined, count: undefined }
+}
 
 const rpc = new JSONRPCServer()
 
@@ -52,7 +127,31 @@ rpc.addMethod('nex_getCurrentBlock', async () => {
 })
 
 rpc.addMethod('nex_getChainId', async () => {
-	return 26
+	return CHAIN_ID
+})
+
+// Explorer: daftar blok terbaru (dihitung dari currentBlockHeight di state)
+// Params: number(count) | {count} | [count] | kosong
+// Return: blockSummary[] JSON polos (bukan hex)
+rpc.addMethod('nex_getRecentBlocks', async (params?: unknown) => {
+	const state = await getBlockState()
+	if (!state) return []
+	return await fetchBlockRange(state.currentBlockHeight, parseCount(params) ?? 10)
+})
+
+// Explorer: pagination blok dari height `from` ke bawah
+// Params: {from, count} | [from, count] | number(from)
+// Return: blockSummary[] JSON polos (bukan hex)
+rpc.addMethod('nex_getBlocksRange', async (params?: unknown) => {
+	const { from, count } = parseRangeParams(params)
+	if (from === undefined) return []
+	return await fetchBlockRange(from, count ?? 10)
+})
+
+// Explorer: transaksi yang masih menunggu di mempool (maks 100)
+// Return: TxInterface[] JSON polos (bukan hex)
+rpc.addMethod('nex_getMempool', async () => {
+	return await loadMempool()
 })
 
 // Account
@@ -77,9 +176,10 @@ rpc.addMethod('nex_getBalance', async (address: string) => {
 	return stringToHex(`${toNxc(account?.balance!).toFixed(18)} NXC`)
 })
 
+// Nonce akun (angka polos, agar mudah dipakai wallet client)
 rpc.addMethod('nex_getNonceAccount', async (address: string) => {
 	const account = await getAccount(address)
-	return stringToHex(JSON.stringify(account?.nonce))
+	return stringToHex(JSON.stringify(account?.nonce ?? 0))
 })
 
 // Transaction
@@ -100,6 +200,35 @@ rpc.addMethod('nex_getTransactionsByAddress', async (address: string) => {
 rpc.addMethod('nex_sendTransaction', async (data: string) => {
 	const decodedData: TxInterface = decodeTx(data)
 	return await addTxToMempool(decodedData)
+})
+
+// Kirim transaksi yang SUDAH di-sign di client (browser wallet).
+// Node tidak memegang private key — hanya memvalidasi signature & memasukkan ke mempool.
+// Return: { status, txHash, error? }
+rpc.addMethod('nex_sendRawTransaction', async (data: string) => {
+	try {
+		if (typeof data !== 'string' || data.length === 0) {
+			return { status: false, error: 'Invalid raw transaction data' }
+		}
+		const decodedData: TxInterface = decodeTx(data)
+
+		// Pastikan field wajib ada sebelum validasi signature
+		if (!decodedData.txHash || !decodedData.sign) {
+			return { status: false, error: 'Transaction is not signed' }
+		}
+
+		const result = await addTxToMempool(decodedData)
+		return {
+			status: result,
+			txHash: decodedData.txHash,
+			error: result ? undefined : 'Transaction rejected by mempool',
+		}
+	} catch (error) {
+		return {
+			status: false,
+			error: error instanceof Error ? error.message : 'Unknown error',
+		}
+	}
 })
 
 rpc.addMethod('nex_createWallet', async () => {

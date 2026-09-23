@@ -1,9 +1,10 @@
-import { txInterfaceValidator } from './joi/txInterface'
+﻿import { txInterfaceValidator } from './joi/txInterface'
 import { validateTransactionAmount } from 'interface/module/isValidTxAmount'
 import { logError } from 'interface/module/writeLog'
 import { validateTransactionSignature } from 'interface/module/isValidTxSign'
 import { validateTransactionSenderReceiver } from 'interface/module/isValidTxSenderReciever'
 import { validateTransactionFees } from 'interface/module/isValidTxFee'
+import { validateTransactionNonce } from 'interface/module/isValidTxNonce'
 import { validateAddresses } from 'interface/module/isValidAddress'
 import { validateAddressLengths } from 'interface/module/isValidAddressLength'
 import { TxInterface } from 'interface/structTx'
@@ -22,7 +23,7 @@ export const transactionValidator = async (
 			error?.message || 'Invalid transaction amount',
 		)
 	}
-	if (!validateTransactionSignature(transaction)) return false
+	if (!(await validateTransactionSignature(transaction))) return false
 
 	if (!validateTransactionSenderReceiver(transaction)) return false
 
@@ -33,6 +34,9 @@ export const transactionValidator = async (
 	if (!validateAddressLengths(transaction)) return false
 
 	if (!isNexu(transaction.amount)) return false
+
+	// Nonce check: cegah replay & urutan transaksi yang salah
+	if (!(await validateTransactionNonce(transaction))) return false
 
 	if (
 		!(await hasSufficientBalance(

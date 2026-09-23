@@ -1,4 +1,4 @@
-import { createTxnHash } from 'nexchain/transaction/createTxHash'
+﻿import { createTxnHash } from 'nexchain/transaction/createTxHash'
 import { comTxInterface } from 'interface/structComTx'
 import { TxInterface } from 'interface/structTx'
 import { stringToHex } from 'nexchain/hex/stringToHex'
@@ -9,6 +9,7 @@ import { createSignature } from 'sign/createSign'
 import { encodeTx } from 'nexchain/hex/tx/encodeTx'
 import { logToConsole } from 'logging/logging'
 import { generateKeysFromMnemonic } from 'key/genKeyFromMnemonic'
+import { getNonce } from 'client/rpc-client/controller/rpcGetNonce'
 
 export interface returnData {
 	status: boolean
@@ -17,7 +18,9 @@ export interface returnData {
 	rawData: TxInterface | undefined
 }
 
-export const createTransaction = (transaction: comTxInterface): returnData => {
+export const createTransaction = async (
+	transaction: comTxInterface,
+): Promise<returnData> => {
 	let convertedAmount = transaction.amount
 
 	// Konversi amount ke Nexu jika formatnya adalah NXC
@@ -38,8 +41,10 @@ export const createTransaction = (transaction: comTxInterface): returnData => {
 	}
 
 	const isReceiverContract = isContract(transaction.receiver)
-
 	const isSenderContract = isContract(transaction.sender)
+
+	// Query nonce dari node SEBELUM membuat transaksi
+	const nonce = await getNonce(transaction.sender)
 
 	// Buat objek transaksi
 	const completedTx: TxInterface = {
@@ -49,6 +54,7 @@ export const createTransaction = (transaction: comTxInterface): returnData => {
 		sender: transaction.sender,
 		timestamp: transaction.timestamp,
 		fee: transaction.fee!,
+		nonce,
 		isPending: true,
 		isValid: false,
 		extraMessage:

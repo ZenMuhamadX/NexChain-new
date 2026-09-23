@@ -1,5 +1,6 @@
-import { ec as EC } from 'elliptic'
+﻿import { ec as EC } from 'elliptic'
 import { hashMessage } from './hashMessage'
+import { encodeV } from './chainId'
 
 const ec = new EC('secp256k1')
 
@@ -19,9 +20,10 @@ export const createSignature = (
 	// Mendapatkan nilai r, s, dan v dari signature
 	const r = signature.r.toString('hex')
 	const s = signature.s.toString('hex')
-	let v: number = signature.recoveryParam! // Nilai ini adalah 0 atau 1
+	const recoveryParam = signature.recoveryParam! // Nilai ini adalah 0 atau 1
 
-	v += 26
+	// EIP-155: v = recoveryParam + chainId * 2 + 35 (replay protection)
+	const v = encodeV(recoveryParam)
 
 	// Mengembalikan hasil tanda tangan
 	return {

@@ -1,4 +1,4 @@
-import { showHeader } from 'client/figlet/header'
+﻿import { showHeader } from 'client/figlet/header'
 import { askQuestion } from 'client/inquirer/askQuestion'
 import { generateTimestampz } from 'nexchain/lib/generateTimestampz'
 import fs from 'fs'
@@ -111,7 +111,7 @@ export const CLITransfer = async () => {
 	// Jika konfirmasi adalah 'y', lanjutkan transaksi; jika tidak, batalkan
 	if (confirm) {
 		const timestamp = generateTimestampz()
-		const txData = createTransaction({
+		const txData = await createTransaction({
 			amount,
 			format,
 			receiver,

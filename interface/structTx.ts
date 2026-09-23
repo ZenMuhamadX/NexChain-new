@@ -13,6 +13,7 @@ export interface TxInterface extends comTxInterface {
 	txHash?: string // Hash transaksi (opsional)
 	extraMessage: string // Pesan opsional yang disertakan dalam transaksi
 	fee: number // Biaya terkait transaksi (opsional)
+	nonce: number // Nonce untuk replay protection
 	status: 'pending' | 'confirmed' | 'rejected' // Status transaksi
 	isValid: boolean // Menunjukkan apakah transaksi valid
 	isPending: boolean // Menunjukkan apakah transaksi masih pending

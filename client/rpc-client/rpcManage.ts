@@ -1,4 +1,4 @@
-import { structBalance } from 'interface/structBalance'
+﻿import { structBalance } from 'interface/structBalance'
 import { rpcRequest } from './lib/rpcRequest'
 import { comTxInterface } from 'interface/structComTx'
 import { logToConsole } from 'logging/logging'
@@ -60,7 +60,7 @@ export class jsonRpcRequest {
 	public async sendTransaction(
 		transaction: comTxInterface,
 	): Promise<{ sentStatus: boolean }> {
-		const completedTx = createTransaction(transaction)
+		const completedTx = await createTransaction(transaction)
 		try {
 			logToConsole('Validating transaction...')
 			const isValidTx = await clientSideTxValidate(completedTx.rawData!)

@@ -27,3 +27,21 @@ export interface blockStruct {
 	transactions: TxInterface[]
 	contract?: contract[]
 }
+
+/**
+ * Ringkasan blok untuk list/pagination di explorer.
+ * Ringkas supaya satu response banyak blok tidak membengkak.
+ */
+export interface blockSummary {
+	height: number
+	hash: string
+	previousBlockHash: string
+	timestamp: number
+	minerId: string
+	txCount: number
+	size: number
+	status: 'confirmed' | 'pending'
+	difficulty: number
+	blockReward: number
+	totalReward: number
+}

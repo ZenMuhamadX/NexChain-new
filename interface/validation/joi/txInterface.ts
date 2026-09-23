@@ -1,4 +1,4 @@
-import Joi from 'joi'
+﻿import Joi from 'joi'
 
 // Validator for memPoolInterface to ensure valid transaction data
 export const txInterfaceValidator = Joi.object({
@@ -25,6 +25,7 @@ export const txInterfaceValidator = Joi.object({
 	timestamp: Joi.number().required(),
 	txHash: Joi.string().required(),
 	fee: Joi.number().required().unsafe(true),
+	nonce: Joi.number().required().integer().min(0),
 	status: Joi.string().required(),
 	isValid: Joi.boolean().required(),
 	isPending: Joi.boolean().required(),

@@ -1,4 +1,4 @@
-import { contract } from 'interface/structContract'
+﻿import { contract } from 'interface/structContract'
 import { createContractAdrress } from 'nexchain/lib/createContractAddress'
 import { getOwnerNonce } from '../../../../contract/utils/getOwnerNonce'
 import { sha256 } from 'nexchain/block/sha256'
@@ -33,7 +33,7 @@ export const createContract = async (
 	await burnNexu(owner, totalGas)
 	const nonce = await getOwnerNonce(owner)
 	const contractAddress = createContractAdrress(owner, nonce)
-	const txData = createTransaction({
+	const txData = await createTransaction({
 		amount: initialAmount,
 		receiver: contractAddress,
 		sender: owner,

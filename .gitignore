@@ -20,3 +20,4 @@ wallet
 config
 bun.lock
 !ui/bun.lock
+!explorer/bun.lock
