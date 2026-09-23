@@ -33,7 +33,13 @@ export class MemPool {
 			return { isValid: isValidTx, data: transaction }
 		}
 
+		// BUG-E3: timpa flag client dengan peran yang diturunkan dari alamat,
+		// supaya data yang tersimpan di mempool/blok tidak lagi membawa klaim
+		// yang tidak ikut di-hash signature (`createTxnHash` tidak mencakup
+		// field ini). Eksekusi tetap dijaga `resolveTxRoles` di processTransact.
 		const isSenderContract = isContract(transaction.sender)
+		transaction.isSenderContract = isSenderContract
+		transaction.isReceiverContract = isContract(transaction.receiver)
 
 		// Validate balance and update pending balance
 		const isBalanceSufficient = isSenderContract

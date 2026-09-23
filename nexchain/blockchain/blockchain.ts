@@ -103,15 +103,31 @@ export class BlockChains {
 
 	private async giveReward(address: string, reward: number): Promise<void> {
 		const oldData = await getAccount(address).catch(() => null)
-		const oldNexuBalance = oldData?.balance || 0
+
+		// BUG-E1: getAccount hanya membalikkan undefined/null bila alamat tidak
+		// valid atau pembacaan DB gagal — bukan bila akun belum ada (itu
+		// membalikkan createDefaultBalance, yang truthy). Menulis dengan asumsi
+		// saldo 0 akan MENGHAPUS saldo penambang yang ada, dan nonce-nya ikut
+		// dipaksa 0. Hentikan sebelum menulis apa pun; addBlockToChain sudah
+		// punya catch sehingga blok tidak disimpan bila hadiah gagal dikredit.
+		if (!oldData) {
+			throw new Error(
+				`Cannot credit block reward to ${address}: account read failed`,
+			)
+		}
 
 		await putAccount(address, {
 			address,
-			balance: oldNexuBalance + reward,
-			transactionCount: oldData?.transactionCount! + 1 || 0,
+			balance: (oldData.balance ?? 0) + reward,
+			transactionCount: (oldData.transactionCount ?? 0) + 1,
 			isContract: false,
 			lastTransactionDate: generateTimestampz(),
-			nonce: 0,
+			// BUG-E1 (diperbaiki): sebelumnya `nonce: 0`. Nonce adalah penghitung
+			// anti-replay transaksi KELUARAN akun; meresetnya setiap kali hadiah
+			// blok masuk membuat seluruh transaksi lama (nonce 0..N-1) VALID
+			// KEMBALI dan bisa di-replay pihak lain. Hadiah blok bukan transaksi
+			// pengirim -> nonce tidak boleh berubah.
+			nonce: oldData.nonce ?? 0,
 		})
 		loggingDebug('blockchain:giveReward', 'reward distributed successfully')
 	}

@@ -8,6 +8,7 @@ import { processReceiver } from './receiver/processReceiver'
 import { transferToContract } from 'contract/utils/transferToContract'
 import { withdrawFromContract } from 'contract/utils/withdrawFromContract'
 import { saveTxByAddress } from './saveTxByAddress'
+import { resolveTxRoles } from './resolveTxRoles'
 
 export const processTransact = async (txData: TxInterface[]): Promise<void> => {
 	if (txData.length === 0) {
@@ -24,7 +25,12 @@ export const processTransact = async (txData: TxInterface[]): Promise<void> => {
 	}
 
 	for (const tx of txData) {
-		if (tx.isReceiverContract) {
+		// BUG-E3: peran DITURUNKAN dari alamat, tidak dibaca dari flag client
+		// (flag itu tidak ikut di-hash signature dan bisa dipalsukan setelah
+		// signing) — lihat resolveTxRoles.
+		const { isSenderContract, isReceiverContract } = resolveTxRoles(tx)
+
+		if (isReceiverContract) {
 			try {
 				await transferToContract({
 					amount: tx.amount,
@@ -50,7 +56,7 @@ export const processTransact = async (txData: TxInterface[]): Promise<void> => {
 			continue
 		}
 
-		if (tx.isSenderContract) {
+		if (isSenderContract) {
 			try {
 				await withdrawFromContract({
 					amount: tx.amount,

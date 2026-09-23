@@ -1,8 +1,12 @@
-import { mineBlock } from "nexchain/miner/mining";
+// import { mineBlock } from "nexchain/miner/mining";
 
-import { getAccount } from "account/balance/getAccount";
-import { toNxc } from "nexchain/nexucoin/toNxc";
+import { createGenesisBlock } from "nexchain/block/createGenesisBlock";
 
-mineBlock("NxC41296362ed2b66dd3bd0a4c96b440ecf36973189")
+// import { getAccount } from "account/balance/getAccount";
+// import { toNxc } from "nexchain/nexucoin/toNxc";
 
-getAccount('NxC41296362ed2b66dd3bd0a4c96b440ecf36973189').then(res => console.log(toNxc(res?.balance)))
+// mineBlock("NxC41296362ed2b66dd3bd0a4c96b440ecf36973189")
+
+// getAccount('NxC41296362ed2b66dd3bd0a4c96b440ecf36973189').then(res => console.log(toNxc(res?.balance)))
+
+createGenesisBlock()

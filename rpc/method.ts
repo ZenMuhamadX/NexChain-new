@@ -182,6 +182,27 @@ rpc.addMethod('nex_getNonceAccount', async (address: string) => {
 	return stringToHex(JSON.stringify(account?.nonce ?? 0))
 })
 
+/**
+ * Nonce yang DIPERLUKAN transaksi berikutnya = nonce akun + jumlah transaksi
+ * sender yang masih pending di mempool.
+ *
+ * Aturannya sama persis dengan `validateTransactionNonce`. Tanpa penambahan
+ * jumlah pending ini, `nex_getNonceAccount` hanya memberi nonce blok yang
+ * sudah dikonfirmasi, sehingga transaksi ke-2 dari akun yang sama SELALU
+ * ditolak node ("expected 1, got 0") sampai blok berikutnya ter-mining.
+ *
+ * Dihitung di server supaya wallet tidak perlu mengunduh seluruh mempool
+ * hanya untuk menghitung transaksinya sendiri.
+ */
+rpc.addMethod('nex_getNextNonce', async (address: string) => {
+	const account = await getAccount(address)
+	const mempool = await loadMempool().catch(() => [])
+	const pendingCount = Array.isArray(mempool)
+		? mempool.filter((tx: TxInterface) => tx.sender === address).length
+		: 0
+	return stringToHex(JSON.stringify((account?.nonce ?? 0) + pendingCount))
+})
+
 // Transaction
 
 rpc.addMethod('nex_getTransactionCount', async (address: string) => {

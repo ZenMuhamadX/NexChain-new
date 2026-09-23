@@ -1,9 +1,13 @@
 import { validateMnemonic } from './validateMnemonic'
 import bip39 from 'bip39'
 import BIP32Factory from 'bip32'
-import * as ecc from 'tiny-secp256k1'
+import { ecc } from './ecc'
 import { uint8ToHex } from 'account/backup/lib/bytesToHex'
 
+// Pakai adapter elliptic (murni JS) menggantikan tiny-secp256k1, karena
+// tiny-secp256k1 memuat WebAssembly dengan gaya webpack yang gagal dibundle
+// untuk browser. BIP32Factory(ecc) juga menjalankan testEcc() bawaan bip32,
+// sehingga adapter langsung divalidasi terhadap test-vector setiap dipakai.
 const bip32 = BIP32Factory(ecc)
 // Fungsi untuk menghasilkan kunci dari mnemonic
 export const generateKeysFromMnemonic = (mnemonic: string) => {

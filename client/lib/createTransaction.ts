@@ -1,15 +1,12 @@
-﻿import { createTxnHash } from 'nexchain/transaction/createTxHash'
-import { comTxInterface } from 'interface/structComTx'
+﻿import { comTxInterface } from 'interface/structComTx'
 import { TxInterface } from 'interface/structTx'
-import { stringToHex } from 'nexchain/hex/stringToHex'
-import { toNexu } from 'nexchain/nexucoin/toNexu'
-import { isContract } from 'nexchain/lib/isContract'
 import { loadWallet } from 'account/utils/loadWallet'
-import { createSignature } from 'sign/createSign'
 import { encodeTx } from 'nexchain/hex/tx/encodeTx'
 import { logToConsole } from 'logging/logging'
 import { generateKeysFromMnemonic } from 'key/genKeyFromMnemonic'
 import { getNonce } from 'client/rpc-client/controller/rpcGetNonce'
+import { createUnsignedTransaction } from './createUnsignedTransaction'
+import { signTransaction } from 'sign/signTransaction'
 
 export interface returnData {
 	status: boolean
@@ -18,71 +15,58 @@ export interface returnData {
 	rawData: TxInterface | undefined
 }
 
+/**
+ * Convenience wrapper untuk **CLI / Node**.
+ *
+ * Phase B memisahkan jalur transaksi jadi dua fungsi murni:
+ *   - `createUnsignedTransaction(tx, nonce)` — menyusun transaksi + txHash
+ *   - `signTransaction(tx, privateKey)`      — menandatangani
+ *
+ * Wrapper ini hanya MENYUSUN I/O di sekitarnya:
+ *   1. ambil nonce dari node           (async, jaringan)
+ *   2. bangun transaksi                (murni)
+ *   3. ambil private key dari file     (filesystem — KHUSUS Node/CLI)
+ *   4. tanda tangani                   (murni)
+ *   5. encode ke base64                (murni)
+ *
+ * Wallet BROWSER tidak melewati langkah 3: ia memanggil langkah 2 dan 4
+ * langsung dengan private key miliknya sendiri, sehingga `loadWallet`
+ * (fs/path) tidak pernah ikut ter-bundle.
+ *
+ * Catatan perubahan kecil dari versi sebelumnya: nonce kini diambil SEBELUM
+ * amount divalidasi, jadi transaksi ber-amount < 1 nexu ikut memicu satu
+ * panggilan nonce yang hasilnya dibuang. Hasil akhirnya sama persis.
+ */
 export const createTransaction = async (
 	transaction: comTxInterface,
 ): Promise<returnData> => {
-	let convertedAmount = transaction.amount
+	// 1. I/O — query nonce dari node
+	const nonce = await getNonce(transaction.sender)
 
-	// Konversi amount ke Nexu jika formatnya adalah NXC
-	if (transaction.format === 'NXC') {
-		convertedAmount = toNexu(transaction.amount)
-	}
-
-	// Cek apakah jumlah minimal 1 Nexu terpenuhi
-	const minAmount = 1 // Minimum 1 Nexu
-	if (convertedAmount < minAmount) {
-		console.log('Transaction amount must be at least 1 nexu.')
+	// 2. Murni — susun transaksi (belum di-sign)
+	const built = createUnsignedTransaction(transaction, nonce)
+	if (!built.status || !built.tx) {
+		if (built.error) console.log(built.error)
 		return {
 			status: false,
 			txHash: undefined,
 			base64Data: undefined,
 			rawData: undefined,
-		} // Hentikan eksekusi jika tidak memenuhi syarat
+		}
 	}
 
-	const isReceiverContract = isContract(transaction.receiver)
-	const isSenderContract = isContract(transaction.sender)
-
-	// Query nonce dari node SEBELUM membuat transaksi
-	const nonce = await getNonce(transaction.sender)
-
-	// Buat objek transaksi
-	const completedTx: TxInterface = {
-		format: 'nexu',
-		amount: convertedAmount,
-		receiver: transaction.receiver,
-		sender: transaction.sender,
-		timestamp: transaction.timestamp,
-		fee: transaction.fee!,
-		nonce,
-		isPending: true,
-		isValid: false,
-		extraMessage:
-			transaction.extraMessage ||
-			'NexChains A Next Generation Blockchain for Everyone',
-		status: 'pending',
-		isReceiverContract,
-		isSenderContract,
-		sign: { r: '', s: '', v: 0 },
-	}
-
-	// Ambil privateKey dari wallet
+	// 3. KHUSUS Node/CLI — private key diambil dari file wallet di disk.
+	//    Jalur browser tidak melewati baris ini (lihat catatan di atas).
 	const { phrase } = loadWallet()!
 	const { privateKey } = generateKeysFromMnemonic(phrase)
-	completedTx.txHash = createTxnHash(completedTx)
-	completedTx.sign = createSignature(completedTx.txHash!, privateKey)
 
-	completedTx.hexInput = stringToHex(
-		JSON.stringify({
-			format: completedTx.format,
-			amount: completedTx.amount,
-			receiver: completedTx.receiver,
-			sender: completedTx.sender,
-			timestamp: completedTx.timestamp,
-		}),
-	)
+	// 4. Murni — tanda tangani
+	const completedTx = signTransaction(built.tx, privateKey)
+
 	logToConsole('Encoding transaction...')
+	// 5. Murni — encode
 	const base64Data = encodeTx(completedTx)
+
 	return {
 		status: true,
 		txHash: completedTx.txHash,

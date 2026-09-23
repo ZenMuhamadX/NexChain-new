@@ -1,16 +1,20 @@
 import { isValidAddress } from 'nexchain/transaction/utils/isValidAddress'
 import { client } from '../lib/rpcClient'
+import { decodeHexJson } from '../lib/decodeHexJson'
 import { structBalance } from 'interface/structBalance'
 
+/**
+ * Ambil data akun dari node.
+ *
+ * `nex_getAccount` mengembalikan hex-JSON, jadi WAJIB di-decode — tanpa itu
+ * `balance` menjadi string dan `balance.balance` = undefined, yang membuat
+ * validasi saldo client selalu gagal (lihat `decodeHexJson`).
+ */
 export const rpcGetAccount = async (
 	address: string,
 ): Promise<structBalance | undefined> => {
-	try {
-		if (isValidAddress(address)) {
-			return await client.request('nex_getAccount', address)
-		}
-		return
-	} catch (err) {
-		throw err
-	}
+	if (!isValidAddress(address)) return undefined
+	return decodeHexJson<structBalance>(
+		await client.request('nex_getAccount', address),
+	)
 }

@@ -1,4 +1,4 @@
-import { Block } from 'nexchain/model/block/block'
+﻿import { Block } from 'nexchain/model/block/block'
 import { generateTimestampz } from '../../../lib/generateTimestampz'
 import { loggingErr } from '../../../../logging/errorLog'
 import Joi from 'joi'
@@ -19,8 +19,13 @@ export const verifyStruct = async (chains: Block) => {
 			s: Joi.string().required(),
 			v: Joi.number().required(),
 		}).required(),
+		extraMessage: Joi.string().optional(),
 		extraData: Joi.any().optional(),
 		fee: Joi.number().required().unsafe(),
+		// nonce OPSIONAL: blok lama (sebelum fix nonce) tidak punya field ini
+		// dan harus tetap lolos validasi rantai. Untuk transaksi BARU,
+		// nonce wajib -- dicek ketat di txInterfaceValidator saat masuk mempool.
+		nonce: Joi.number().integer().min(0).optional(),
 		status: Joi.string().required(),
 		isPending: Joi.boolean().required(),
 		isValid: Joi.boolean().required(),
