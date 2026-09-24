@@ -1,5 +1,6 @@
 import { validateMnemonic } from './validateMnemonic'
-import bip39 from 'bip39'
+// Named import wajib — lihat alasan interop di key/genRandomMnemonic.ts.
+import { mnemonicToSeedSync } from 'bip39'
 import BIP32Factory from 'bip32'
 import { ecc } from './ecc'
 import { uint8ToHex } from 'account/backup/lib/bytesToHex'
@@ -13,7 +14,7 @@ const bip32 = BIP32Factory(ecc)
 export const generateKeysFromMnemonic = (mnemonic: string) => {
 	validateMnemonic(mnemonic)
 
-	const seed = bip39.mnemonicToSeedSync(mnemonic)
+	const seed = mnemonicToSeedSync(mnemonic)
 	const masterNode = bip32.fromSeed(seed)
 	const childNode = masterNode.derivePath("m/44'/60'/0'/0/0")
 

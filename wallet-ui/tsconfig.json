@@ -1,0 +1,36 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"useDefineForClassFields": true,
+		"module": "ESNext",
+		"jsx": "react-jsx",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"moduleResolution": "Bundler",
+		"allowImportingTsExtensions": false,
+		"isolatedModules": true,
+		"noEmit": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["src/*"],
+			"account/*": ["../account/*"],
+			"base/*": ["../base/*"],
+			"client/*": ["../client/*"],
+			"common/*": ["../common/*"],
+			"interface/*": ["../interface/*"],
+			"key/*": ["../key/*"],
+			"logging/*": ["../logging/*"],
+			"nexchain/*": ["../nexchain/*"],
+			"rpc/*": ["../rpc/*"],
+			"scripts/*": ["../scripts/*"],
+			"sign/*": ["../sign/*"],
+			"wallet/*": ["../wallet/*"]
+		},
+		"types": ["vite/client", "node"]
+	},
+	"include": ["src", "scripts", "vite.config.ts", "vite-env.d.ts"]
+}

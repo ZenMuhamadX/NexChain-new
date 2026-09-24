@@ -1,3 +1,4 @@
+# Dependensi & artefak build — boleh ada di subfolder mana pun
 node_modules
 .env
 *.lockb
@@ -5,19 +6,29 @@ node_modules
 *.pem
 *.bin
 dist
-base
-logs
-blocks
-myWallet
-MyBackup
-test.ts
+build
 package-lock.json
-wallet
+bun.lock
+!explorer/bun.lock
+!wallet-ui/bun.lock
+
+# Data runtime — pola DI-JANGKAR ke root ("/nama"), supaya folder sumber yang
+# kebetulan bernama sama tidak ikut tersembunyi. Sebelumnya pola tanpa awal
+# "/" menyembunyikan tiga hal yang seharusnya ikut ter-track:
+#   wallet  -> client/wallet/*.ts   (5 file vault: kv, idbKv, jsCrypto,
+#                                    vaultCrypto, walletVault)
+#   config  -> explorer/src/config/env.ts (RPC_URL, diimpor 2 modul explorer)
+#   base    -> sumber bernama base/ di subfolder mana pun
+# Catatan: /wallet tetap mengabaikan wallet/main.json (berisi phrase).
+/base
+/logs
+/blocks
+/myWallet
+/MyBackup
+/wallet
+/config
+/test.ts
+
+# Lain-lain
 *.txt
 *.code-profile
-build
-wallet
-config
-bun.lock
-!ui/bun.lock
-!explorer/bun.lock

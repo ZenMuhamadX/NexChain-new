@@ -20,8 +20,13 @@
  *     tanpa loadWallet) — inilah yang akan dipakai wallet browser untuk
  *     menyusun & menanda-tangani transaksi
  *   - decode hex-JSON + nex_getNextNonce (perbaikan validasi saldo & nonce)
- *   - Phase E : resolveTxRoles (peran kontrak diturunkan dari alamat, bukan
- *     dari flag client yang tidak ikut di-hash) + konfigurasi URL RPC
+ *   - Phase E : konfigurasi URL RPC
+ *   - Phase C : vault wallet browser — IndexedDB (`idb`) + Web Crypto
+ *     (PBKDF2-SHA256 -> AES-GCM). Ini yang menggantikan `loadWallet` berbasis
+ *     fs/path untuk penyimpanan mnemonic di browser.
+ *
+ * (resolveTxRoles & rpcGetContractBalance dihapus dari permukaan ini
+ *  bersama fitur smart contract.)
  */
 import { generateKeysFromMnemonic } from 'key/genKeyFromMnemonic'
 import { generateAddressFromPublicKey } from 'key/genAddrFromPubKey'
@@ -42,7 +47,6 @@ import { encodeTx } from 'nexchain/hex/tx/encodeTx'
 import { decodeTx } from 'nexchain/hex/tx/decodeTx'
 import { stringToHex } from 'nexchain/hex/stringToHex'
 import { hexToString } from 'nexchain/hex/hexToString'
-import { isContract } from 'nexchain/lib/isContract'
 import { isNexu } from 'nexchain/nexucoin/isNexu'
 import { toNexu } from 'nexchain/nexucoin/toNexu'
 import { toNxc } from 'nexchain/nexucoin/toNxc'
@@ -55,10 +59,16 @@ import {
 } from 'client/lib/createUnsignedTransaction'
 import { getNonce } from 'client/rpc-client/controller/rpcGetNonce'
 import { setRpcUrl, getRpcUrl } from 'client/rpc-client/lib/rpcClient'
-import { resolveTxRoles } from 'nexchain/transaction/resolveTxRoles'
+import { createWalletVault, PRIMARY_WALLET_ID } from 'client/wallet/walletVault'
+import { createMemoryKV } from 'client/wallet/kv'
+import { createIdbKV } from 'client/wallet/idbKv'
+import {
+	encryptSecret,
+	decryptSecret,
+	KDF_ITERATIONS,
+} from 'client/wallet/vaultCrypto'
 import { rpcGetAccount } from 'client/rpc-client/controller/rpcGetAccount'
 import { rpcGetPendingBalance } from 'client/rpc-client/controller/rpcGetPendingBalance'
-import { rpcGetContractBalance } from 'client/rpc-client/controller/rpcGetContractBalance'
 import { decodeHexJson } from 'client/rpc-client/lib/decodeHexJson'
 import { validateTransactionSignature } from 'interface/module/isValidTxSign'
 import { validateTransactionSenderReceiver } from 'interface/module/isValidTxSenderReciever'
@@ -82,10 +92,15 @@ export const browserWalletSurface = {
 	getNonce,
 	setRpcUrl,
 	getRpcUrl,
-	resolveTxRoles,
+	createWalletVault,
+	PRIMARY_WALLET_ID,
+	createMemoryKV,
+	createIdbKV,
+	encryptSecret,
+	decryptSecret,
+	KDF_ITERATIONS,
 	rpcGetAccount,
 	rpcGetPendingBalance,
-	rpcGetContractBalance,
 	decodeHexJson,
 	verifySignature,
 	recoverSignerAddress,
@@ -103,7 +118,6 @@ export const browserWalletSurface = {
 	decodeTx,
 	stringToHex,
 	hexToString,
-	isContract,
 	isNexu,
 	toNexu,
 	toNxc,

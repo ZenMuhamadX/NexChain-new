@@ -4,8 +4,12 @@
  * Konversi hex string ke Uint8Array.
  * Pengganti Buffer.from(hex, 'hex') agar modul ini bebas Node API
  * dan tetap jalan di browser.
+ * Hasilnya di-annotate `Uint8Array<ArrayBuffer>` (bukan `Uint8Array` polos =
+ * `Uint8Array<ArrayBufferLike>`) karena API Web Crypto (crypto.subtle)
+ * menerima `BufferSource` yang hanya memuat `ArrayBuffer` — bukan
+ * `SharedArrayBuffer`.
  */
-export const hexToBytes = (hex: string): Uint8Array => {
+export const hexToBytes = (hex: string): Uint8Array<ArrayBuffer> => {
 	const clean = hex.startsWith('0x') ? hex.slice(2) : hex
 	const out = new Uint8Array(clean.length >> 1)
 	for (let i = 0; i < out.length; i++) {

@@ -1,5 +1,6 @@
 import chalk from 'chalk'
-import bip39 from 'bip39'
+// Named import wajib — lihat alasan interop di key/genRandomMnemonic.ts.
+import { validateMnemonic as bip39ValidateMnemonic } from 'bip39'
 import path from 'path'
 import { structWalletToSave } from 'interface/structWalletToSave'
 import { writeFile } from 'fs/promises'
@@ -13,7 +14,7 @@ import { generateAddressFromPublicKey } from 'key/genAddrFromPubKey'
 export const importWalletFromMnemonic = async (
 	mnemonic: string,
 ): Promise<{ address: string }> => {
-	const isValidMnemonic = bip39.validateMnemonic(mnemonic)
+	const isValidMnemonic = bip39ValidateMnemonic(mnemonic)
 
 	if (!isValidMnemonic) {
 		console.log(chalk.red('Invalid mnemonic phrase. Please try again.'))
