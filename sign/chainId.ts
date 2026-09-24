@@ -10,16 +10,24 @@
 // chain id ikut di-hash ke payload transaksi (`nexchain/transaction/createTxHash`).
 const DEFAULT_CHAIN_ID = 26
 
-const parseChainId = (): number => {
-	const raw = process.env.NEX_CHAIN_ID
-	if (raw !== undefined) {
-		const parsed = Number(raw)
-		if (Number.isInteger(parsed) && parsed > 0) return parsed
-	}
-	return DEFAULT_CHAIN_ID
+/**
+ * Baca `NEX_CHAIN_ID` dari env Node/Bun (node RPC, CLI). `process` dijaga
+ * typeof supaya bundler browser (wallet-ui) tetap aman — pola sama dengan
+ * `client/rpc-client/lib/rpcClient.ts`. Di browser `process` tidak ada, jadi
+ * kita jatuh ke default 26 (chain id devnet). Nilai ini harus sama di semua
+ * komponen satu jaringan; untuk jaringan non-default, `NEX_CHAIN_ID` diset
+ * di `.env` node dan wallet mengikuti default-nya lewat konfigurasi build.
+ */
+const readEnvChainId = (): number | undefined => {
+	if (typeof process === 'undefined') return undefined
+	const raw = process.env?.NEX_CHAIN_ID
+	if (raw === undefined) return undefined
+	const parsed = Number(raw)
+	if (Number.isInteger(parsed) && parsed > 0) return parsed
+	return undefined
 }
 
-export const CHAIN_ID = parseChainId()
+export const CHAIN_ID = readEnvChainId() ?? DEFAULT_CHAIN_ID
 
 /**
  * EIP-155: encode recovery param (0/1) ke value `v`.
