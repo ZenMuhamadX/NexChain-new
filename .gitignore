@@ -32,3 +32,5 @@ bun.lock
 # Lain-lain
 *.txt
 *.code-profile
+*.exe
+opencode.exe
