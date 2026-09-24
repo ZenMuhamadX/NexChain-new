@@ -23,6 +23,9 @@ export function ExplorerLayout() {
 						</NavLink>
 						<NavLink to="/blocks">Blocks</NavLink>
 					</nav>
+					<div className="header-search">
+						<SearchBar />
+					</div>
 					<div
 						className={`chain-pill${chain.error ? ' chain-pill-down' : ''}`}
 						title={
@@ -38,9 +41,6 @@ export function ExplorerLayout() {
 								? 'offline'
 								: 'connecting…'}
 					</div>
-				</div>
-				<div className="header-row header-row-search">
-					<SearchBar />
 				</div>
 			</header>
 

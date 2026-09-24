@@ -30,7 +30,7 @@ export class RpcClientError extends Error {
  * - "Key not found…" / "not found" — miss LevelDB klasik.
  * - "Expected String"              — block-by-hash miss: `get` balik
  *   `undefined` lalu `base58ToString(undefined)` melempar error ini.
- * - "…buffer.toString…"            — tx-by-hash / contract-balance miss:
+ * - "…buffer.toString…"            — tx-by-hash miss:
  *   decode dipanggil di atas `undefined` (varian Node:
  *   "Cannot read properties of undefined (reading 'toString')").
  *

@@ -6,7 +6,14 @@ export const formatNxc = (nexu: number, maxDecimals = 6): string => {
 	if (!Number.isFinite(nexu)) return '—'
 	const value = nexu / NEXU
 	if (value === 0) return '0 NXC'
-	if (Math.abs(value) < 1e-6) return `${value.toExponential(3)} NXC`
+	if (Math.abs(value) < 1e-6) {
+		// Nilai kecil (mis. fee/gas 5000 nexu) tetap ditulis desimal NXC
+		// "0.000000000000005 NXC", bukan notasi ilmiah "5.000e-15 NXC",
+		// supaya semua tampilan explorer seragam memakai satuan NXC.
+		const exact = value.toFixed(18).replace(/0+$/, '').replace(/\.$/, '')
+		if (exact === '0' || exact === '-0') return `${value.toExponential(3)} NXC`
+		return `${exact} NXC`
+	}
 	return `${new Intl.NumberFormat('en-US', {
 		maximumFractionDigits: maxDecimals,
 	}).format(value)} NXC`
