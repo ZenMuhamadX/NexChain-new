@@ -9,8 +9,7 @@ import { calculateTotalFees } from 'nexchain/transaction/utils/totalFees'
 import { saveBlock } from 'nexchain/storage/block/saveBlock'
 import { stringToHex } from 'nexchain/hex/stringToHex'
 import { toNexu } from 'nexchain/nexucoin/toNexu'
-import { getMinerId } from 'p2p/utils/getMinerId'
-import { countHashDifficulty } from './countHashDifficulty'
+import { INITIAL_DIFFICULTY_BITS } from 'nexchain/miner/difficulty'
 import { getBlockByHeight } from './query/onChain/block/getBlockByHeight'
 import { loadWallet } from 'account/utils/loadWallet'
 import { getMyWalletAddress } from 'account/myWalletAddress'
@@ -29,7 +28,7 @@ export const createGenesisBlock = async (): Promise<Block | undefined> => {
 		const { privateKey } = generateKeysFromMnemonic(wallet.phrase)
 		const genesisBlock = new Block({
 			header: {
-				difficulty: 0,
+				difficulty: INITIAL_DIFFICULTY_BITS,
 				hash: '',
 				nonce: 0,
 				previousBlockHash:
@@ -44,7 +43,7 @@ export const createGenesisBlock = async (): Promise<Block | undefined> => {
 			height: 0,
 			merkleRoot:
 				'0000000000000000000000000000000000000000000000000000000000000000',
-			minerId: getMinerId(),
+			minerId: getMyWalletAddress(),
 			size: 0,
 			sign: {
 				r: '',
@@ -71,8 +70,10 @@ export const createGenesisBlock = async (): Promise<Block | undefined> => {
 			genesisBlock.block.transactions,
 		)
 
+		// PoW genesis memakai difficulty header (INITIAL_DIFFICULTY_BITS);
+		// nilai tersimpan di header sebelum loop, jadi tidak dihitung ulang
+		// dari hasil hash (countHashDifficulty lama menghasilkan satuan berbeda).
 		const validHash = proofOfWork(genesisBlock)
-		genesisBlock.block.header.difficulty = countHashDifficulty(validHash.hash)
 		genesisBlock.block.header.hash = validHash.hash
 		genesisBlock.block.header.nonce = validHash.nonce
 

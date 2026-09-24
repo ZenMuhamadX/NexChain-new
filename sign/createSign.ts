@@ -9,10 +9,20 @@ export const createSignature = (
 	data: string,
 	privateKey: string,
 ): { v: number; r: string; s: string } => {
+	// Normalisasi prefix "Nx" (format keluaran generateKeysFromMnemonic).
+	// elliptic/BN mem-parse string berprefix "Nx"+hex TANPA error tapi
+	// menghasilkan key yang BERBEDA — signature jadi dibuat dengan kunci
+	// salah sehingga tidak pernah cocok dengan address wallet (bug pada
+	// jalur signing blok; jalur transaksi sudah dinormalisasi di
+	// signTransaction). Bukti empiris: elliptic TIDAK melempar error untuk
+	// input berprefix — ia diam-diam menghasilkan key publik yang berbeda
+	// dari key hex murni, sehingga hasil recover tidak pernah cocok dengan
+	// address wallet.
+	const normalizedKey = privateKey.trim().replace(/^Nx/i, '')
 	const dataHash = hashMessage(data)
 
 	// Mendapatkan pasangan kunci
-	const keyPair = ec.keyFromPrivate(privateKey, 'hex')
+	const keyPair = ec.keyFromPrivate(normalizedKey, 'hex')
 
 	// Membuat signature
 	const signature = keyPair.sign(dataHash)

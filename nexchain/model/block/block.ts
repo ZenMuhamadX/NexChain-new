@@ -1,5 +1,6 @@
 /** @format */
 import { blockStruct } from '../../../interface/structBlock'
+import { CHAIN_ID } from 'sign/chainId'
 
 // models/Block.ts
 // This class represents a block in the blockchain
@@ -12,15 +13,19 @@ export class Block {
 				timestamp: blockData.header.timestamp,
 				hash: blockData.header.hash,
 				nonce: blockData.header.nonce!, // Use empty string if nonce is undefined
-				version: '1.0.0',
-				difficulty: 5,
+				version: blockData.header.version,
+				// BUG (diperbaiki): sebelumnya `difficulty: 5` di-hardcode —
+				// nilai difficulty sebenarnya dari template/retarget selalu
+				// terbuang, sehingga verifikasi PoW dan produksi blok tidak
+				// pernah memakai angka yang sama.
+				difficulty: blockData.header.difficulty,
 				hashingAlgorithm: blockData.header.hashingAlgorithm,
 			},
 			height: blockData.height,
 			size: blockData.size,
 			merkleRoot: blockData.merkleRoot,
 			minerId: blockData.minerId,
-			chainId: 26,
+			chainId: blockData.chainId ?? CHAIN_ID,
 			blockReward: blockData.blockReward,
 			totalReward: blockData.totalReward,
 			status: blockData.status,
@@ -29,7 +34,6 @@ export class Block {
 			coinbaseTransaction: blockData.coinbaseTransaction,
 			metadata: blockData.metadata!,
 			transactions: blockData.transactions,
-			contract: blockData.contract!,
 		}
 	}
 }

@@ -27,7 +27,7 @@ export const validateTransactionNonce = async (
 		)
 	}
 
-	// Kontrak tidak pakai akun nonce
+	// Pengirim non-standar (mis. "COINBASE") tidak punya akun → skip nonce
 	if (!isValidAddress(transaction.sender)) return true
 
 	const account = await getAccount(transaction.sender)

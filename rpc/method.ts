@@ -12,13 +12,13 @@ import { getAccount } from 'account/balance/getAccount'
 import { addTxToMempool } from 'nexchain/transaction/addTxToMempool'
 import { TxInterface } from 'interface/structTx'
 import { decodeTx } from 'nexchain/hex/tx/decodeTx'
-import { ManageContract } from 'contract/manageContract'
 import { getPendingBalance } from 'nexchain/transaction/getPendingBalance'
 import { createNewWalletAddress } from 'account/createNewWallet'
 import { stringToHex } from 'nexchain/hex/stringToHex'
 import { loadMempool } from 'nexchain/storage/mempool/loadMempool'
 import { blockSummary } from 'interface/structBlock'
 import { CHAIN_ID } from 'sign/chainId'
+import { getWork, submitWork } from 'nexchain/miner/work'
 
 /** Ubah Block penuh menjadi ringkasan untuk list explorer. */
 const toBlockSummary = (block: Block): blockSummary => {
@@ -164,12 +164,6 @@ rpc.addMethod('nex_getAccount', async (address: string) => {
 	return stringToHex(JSON.stringify(await getAccount(address)))
 })
 
-rpc.addMethod('nex_getContractBalance', async (address: string) => {
-	return stringToHex(
-		JSON.stringify(await new ManageContract(address).getContractBalance()),
-	)
-})
-
 rpc.addMethod('nex_getBalance', async (address: string) => {
 	const account = await getAccount(address)
 	// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
@@ -254,6 +248,20 @@ rpc.addMethod('nex_sendRawTransaction', async (data: string) => {
 
 rpc.addMethod('nex_createWallet', async () => {
 	return JSON.stringify(await createNewWalletAddress())
+})
+
+// Mining (job eksternal) — node menyusun template + difficulty adaptif
+// target 30 detik; miner eksternal yang menghitung PoW lewat HTTP sehingga
+// RPC tetap hidup selama mining. Lihat nexchain/miner/work.ts.
+// Params getWork: {minerAddress} | [minerAddress] | minerAddress | kosong
+//   → {status, jobId, payload, difficulty, height, previousBlockHash, ...}
+// Params submitWork: {jobId, nonce, hash} → {status, height?, hash?, error?}
+rpc.addMethod('nex_getWork', async (params?: unknown) => {
+	return await getWork(params)
+})
+
+rpc.addMethod('nex_submitWork', async (params?: unknown) => {
+	return await submitWork(params)
 })
 
 export { rpc }
