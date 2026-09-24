@@ -1,18 +1,27 @@
 import { transactionValidator } from 'interface/validation/txValidator.v'
 import { saveTxHistory } from 'nexchain/transaction/saveTxHistory'
 import { TxInterface } from 'interface/structTx'
-import { contract } from 'interface/structContract'
-import { isContract } from 'nexchain/lib/isContract'
 import { logToConsole } from 'logging/logging'
-import { ManageContract } from 'contract/manageContract'
 import { saveMempool } from 'nexchain/storage/mempool/saveMemPool'
 import { getPendingBalance } from 'nexchain/transaction/getPendingBalance'
 import { setPendingBalance } from 'nexchain/transaction/setPendingBalance'
-import { saveContractMempool } from 'nexchain/storage/mempool/saveContractMempool'
-import { loadContractMempool } from 'nexchain/storage/mempool/loadContractMempool'
 import { loadMempool } from 'nexchain/storage/mempool/loadMempool'
 import { getAccount } from 'account/balance/getAccount'
 import { formatStr } from 'nexchain/lib/formatStr'
+
+/**
+ * Antrean serial untuk ADMISSION transaksi (`addTransaction`).
+ *
+ * Nonce & reserve pending balance dihitung baca-tulis (baca mempool/pending
+ * → … → tulis). Tanpa serialisasi, dua `nex_sendTransaction` dari pengirim
+ * sama yang masuk bersamaan bisa:
+ *   - lolos dengan NONCE SAMA (keduanya menghitung pendingCount sebelum tx
+ *     pertama tersimpan), atau
+ *   - reserve pending saling menimpa → over-admission melebihi saldo asli
+ *     → saat eksekusi saldo kurang.
+ * Satu antrean membuat seluruh admission atomik di dalam satu proses node.
+ */
+let admissionQueue: Promise<unknown> = Promise.resolve()
 
 export class MemPool {
 	constructor() {
@@ -20,11 +29,22 @@ export class MemPool {
 	}
 
 	/**
-	 * Adds a transaction to the memory pool.
+	 * Adds a transaction to the memory pool — diserialisasi lewat
+	 * `admissionQueue` supaya nonce & reserve pending balance atomik
+	 * terhadap admission lain yang masuk bersamaan.
 	 * @param transaction - The transaction to be added.
 	 * @returns True if the transaction was added successfully, otherwise false.
 	 */
 	public async addTransaction(
+		transaction: TxInterface,
+	): Promise<{ isValid: boolean; data?: TxInterface }> {
+		const task = admissionQueue.then(() => this.doAddTransaction(transaction))
+		admissionQueue = task.catch(() => undefined)
+		return task
+	}
+
+	/** Body admission — hanya dijalankan dari dalam antrean serial. */
+	private async doAddTransaction(
 		transaction: TxInterface,
 	): Promise<{ isValid: boolean; data?: TxInterface }> {
 		const isValidTx = await transactionValidator(transaction)
@@ -33,18 +53,9 @@ export class MemPool {
 			return { isValid: isValidTx, data: transaction }
 		}
 
-		// BUG-E3: timpa flag client dengan peran yang diturunkan dari alamat,
-		// supaya data yang tersimpan di mempool/blok tidak lagi membawa klaim
-		// yang tidak ikut di-hash signature (`createTxnHash` tidak mencakup
-		// field ini). Eksekusi tetap dijaga `resolveTxRoles` di processTransact.
-		const isSenderContract = isContract(transaction.sender)
-		transaction.isSenderContract = isSenderContract
-		transaction.isReceiverContract = isContract(transaction.receiver)
-
-		// Validate balance and update pending balance
-		const isBalanceSufficient = isSenderContract
-			? await this.handleContractTransaction(transaction)
-			: await this.handleUserTransaction(transaction)
+		// Validate balance and update pending balance — semua pengirim
+		// diperlakukan sebagai akun biasa (fitur smart contract dibuang).
+		const isBalanceSufficient = await this.handleUserTransaction(transaction)
 
 		if (!isBalanceSufficient) return { isValid: false, data: transaction }
 
@@ -56,34 +67,6 @@ export class MemPool {
 		)
 
 		return { isValid: true, data: transaction }
-	}
-
-	/**
-	 * Validates and updates pending balance for contract transactions.
-	 * @param transaction - Contract transaction.
-	 * @returns True if balance is sufficient, otherwise false.
-	 */
-	private async handleContractTransaction(
-		transaction: TxInterface,
-	): Promise<boolean> {
-		const contractManager = new ManageContract(transaction.sender)
-		const contractBalance = await contractManager.getContractBalance()
-		const pendingBalance = await getPendingBalance(transaction.sender)
-
-		const availableBalance =
-			contractBalance - (pendingBalance.pendingAmount || 0)
-		if (availableBalance < transaction.amount + (transaction.fee || 0)) {
-			logToConsole('Insufficient contract balance for the transaction')
-			return false
-		}
-
-		// Update pending balance
-		await this.updatePendingBalance(
-			transaction.sender,
-			pendingBalance.pendingAmount,
-			transaction,
-		)
-		return true
 	}
 
 	/**
@@ -132,26 +115,6 @@ export class MemPool {
 		const newPendingAmount =
 			(currentPending || 0) + transaction.amount + (transaction.fee || 0)
 		await setPendingBalance({ address, pendingAmount: newPendingAmount })
-	}
-
-	/**
-	 * Adds a contract to the contract memory pool.
-	 * @param contract - The contract to add.
-	 */
-	public async addContract(contract: contract): Promise<void> {
-		if (!isContract(contract.contractAddress)) {
-			logToConsole('Invalid contract address')
-			return
-		}
-		await saveContractMempool(contract)
-	}
-
-	/**
-	 * Retrieves all contracts in the memory pool.
-	 * @returns An array of contracts.
-	 */
-	public async getContractPool(): Promise<contract[]> {
-		return await loadContractMempool()
 	}
 
 	/**

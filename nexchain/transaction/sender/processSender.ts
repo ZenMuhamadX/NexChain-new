@@ -23,19 +23,36 @@ export const processSender = async (
 			priority: 'high',
 			context: 'leveldb processTransaction',
 		})
-		return
+		// Dulu: `return` diam-diam — `processTransact` lanjut ke
+		// `processReceiver` → penerima dikredit TANPA pengirim didebet
+		// (uang tercetak), lalu transaksi malah dikonfirmasi. Sekarang:
+		// lempar → ditangkap catch per-tx → transaksi TETAP di mempool dan
+		// dicoba lagi di blok berikutnya (gagal-aman). `!balanceStatus`
+		// juga menangani `undefined` (error baca saldo) — ikut ditolak.
+		throw new Error(
+			`Insufficient balance: ${senderAddress} (amount=${amount}, fee=${fee})`,
+		)
 	}
 
-	// Ambil data saldo saat ini
+	// Ambil data saldo saat ini — gagal baca harus MELEMPAR (bukan lanjut
+	// dengan saldo undefined/NaN yang menuliskan state rusak).
 	const oldData = await getAccount(senderAddress)
-	const calculateBalance = oldData?.balance! - amount
+	if (!oldData) {
+		throw new Error(`Sender account not found: ${senderAddress}`)
+	}
+	// Fee IKUT didebet: selama ini fee hanya DICEK di validasi tapi tidak
+	// pernah ditarik, sementara coinbase membayarkan total fee ke miner
+	// (reward + gasPrice + totalFees) — fee jadi tercetak dari nol tiap
+	// blok. Dengan debit `amount + fee`, modelnya jadi fee-transfer yang
+	// konsisten: pengirim −(amount+fee), penerima +amount, miner +fee.
+	const calculateBalance = oldData.balance - (amount + fee)
 	const newData: structBalance = {
 		address: senderAddress,
 		balance: calculateBalance,
-		transactionCount: oldData?.transactionCount! + 1,
+		transactionCount: oldData.transactionCount + 1,
 		isContract: false,
 		lastTransactionDate: generateTimestampz(),
-		nonce: oldData!.nonce + 1,
+		nonce: oldData.nonce + 1,
 	}
 	await putAccount(senderAddress, newData)
 	// Ambil dan perbarui pending balance
