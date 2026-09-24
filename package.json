@@ -14,6 +14,7 @@
 		"check:browser": "esbuild scripts/browserWalletEntry.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist/browser-check.mjs --log-limit=0 && rm -f dist/browser-check.mjs",
 		"check:tx": "bun run scripts/txPathCheck.ts",
 		"check:wallet": "bun run scripts/walletVaultCheck.ts",
+		"check:difficulty": "bun run scripts/difficultyRetargetCheck.ts",
 		"rpc:start": "bun run rpc/server.ts",
 		"miner": "bun run mine.ts",
 		"explorer:dev": "bun run --cwd explorer dev",

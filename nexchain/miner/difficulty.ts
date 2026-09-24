@@ -117,3 +117,34 @@ export const calcNextDifficulty = (
 			: Math.max(-MAX_FALL_BITS, step)
 	return clampDifficulty(current + clampedStep)
 }
+
+/**
+ * Retarget berbasis WAKTU sejak blok terakhir (tip) hingga `nowMs`.
+ *
+ * `calcNextDifficulty` menerima jarak antar-dua-blok (grandparent → tip).
+ * Nilai itu hanya mencerminkan interval DUA blok LAMAU — saat rantai idle
+ * (miner tidak menyelesaikan blok / job terus kadaluarsa) ia tetap ~target
+ * sehingga difficulty mandek (mis. 27.5) dan tidak pernah turun. Fungsi ini
+ * memakai `nowMs - lastBlockTimestampMs`: seberapa lama tip sudah berumur.
+ * Idle time ikut terhitung → actualMs tumbuh → difficulty turun ke arah
+ * floor, walau blok belum pernah ter-commit.
+ *
+ * Guard: jarak waktu belum terdefinisi (kemunduran jam / `lastBlockTimestampMs`
+ * non-finite) → `clampDifficulty(current)` tanpa koreksi. Selain itu seluruh
+ * aturan langkah (asimetris +2/-4), kunci [MIN, MAX] dan kuantisasi 0.25
+ * diwarisi dari `calcNextDifficulty`.
+ *
+ * Nilai hasilnya disimpan di `header.difficulty` dan diverifikasi tersimpan
+ * (meetsDifficulty) — BUKAN dihitung ulang oleh pihak lain, jadi perubahan
+ * formula ini tidak memutus kompatibilitas data rantai lama.
+ */
+export const retargetByTime = (
+	currentBits: number,
+	lastBlockTimestampMs: number,
+	nowMs: number = Date.now(),
+): number => {
+	const current = clampDifficulty(currentBits)
+	const actualMs = nowMs - lastBlockTimestampMs
+	if (!Number.isFinite(actualMs) || actualMs <= 0) return current
+	return calcNextDifficulty(current, actualMs)
+}

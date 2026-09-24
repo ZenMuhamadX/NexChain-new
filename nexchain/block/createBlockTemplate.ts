@@ -1,17 +1,13 @@
 import { TxInterface } from 'interface/structTx'
 import { Block } from 'nexchain/model/block/block'
 import { getCurrentBlock } from './query/onChain/block/getCurrentBlock'
-import { getBlockByHeight } from './query/onChain/block/getBlockByHeight'
 import { generateTimestampz } from 'nexchain/lib/generateTimestampz'
 import { createMerkleRoot } from 'nexchain/transaction/utils/createMerkleRoot'
 import { createCoinbaseTx } from 'nexchain/transaction/coinbase'
 import { stringToHex } from 'nexchain/hex/stringToHex'
 import { calculateTotalFees } from 'nexchain/transaction/utils/totalFees'
 import { calculateTotalBlockReward } from 'nexchain/miner/calculateReward'
-import {
-	calcNextDifficulty,
-	clampDifficulty,
-} from 'nexchain/miner/difficulty'
+import { clampDifficulty, retargetByTime } from 'nexchain/miner/difficulty'
 import { toNexu } from 'nexchain/nexucoin/toNexu'
 import { cutBlockReward } from './cutReward'
 import { CHAIN_ID } from 'sign/chainId'
@@ -70,7 +66,7 @@ export const createBlockTemplate = async (
 	const coinbaseTx = createCoinbaseTx(walletMiner, totalReward, timestamp)
 	const allTransactions: TxInterface[] = [coinbaseTx, ...transactions]
 
-	const difficulty = await nextDifficulty(latestBlock)
+	const difficulty = nextDifficulty(latestBlock)
 
 	return new Block({
 		header: {
@@ -116,25 +112,34 @@ export const createBlockTemplate = async (
 }
 
 /**
- * Retarget difficulty: jarak waktu (timestamp) tip vs orangtuanya.
+ * Retarget difficulty: berbasis WAKTU sejak tip hingga template dibuat —
+ * `now - tip.timestamp` (bukan jarak tip vs orangtuanya).
  *
- * - Tip belum punya orangtua (height <= 0 / getBlockByHeight(-1) kosong):
- *   pertahankan difficulty tip (dibatasi [MIN, MAX]) — kasus blok pertama
- *   setelah genesis, jarak waktu belum terdefinisi;
- * - selain itu `calcNextDifficulty` menghitung koreksi log2 terhadap target
- *   30 detik, dibatasi asimetris (naik maks +2, turun maks -4 per blok).
+ * Mengapa jarak grandparent→tip (lama) menyebabkan bug: nilai itu hanya
+ * mencerminkan interval DUA blok LAMAU. Saat rantai idle (job terus
+ * kadaluarsa, blok tak pernah diselesaikan) angkanya tetap ~target 30 detik,
+ * sehingga difficulty mandek (mis. 27.5) dan tidak pernah turun — persis
+ * gejala "expiry berturut-turut tanpa penurunan". `now - tip.timestamp`
+ * mengukur umur tip: idle time ikut terhitung → actualMs tumbuh → difficulty
+ * turun.
+ *
+ * - Tip genesis (`height <= 0`): jarak waktu belum terdefinisi → pertahankan
+ *   difficulty tip (dibatasi [MIN, MAX]) — perilaku lama dipertahankan;
+ * - selain itu `retargetByTime` menghitung koreksi log2 terhadap target 30
+ *   detik, dibatasi asimetris (naik maks +2, turun maks -4), dikunci
+ *   [MIN, MAX] dan dikuantisasi 0.25 bit.
+ *
+ * Catatan: `retargetByTime` dibatasi turun maks -4 PER PEMANGGILAN dari
+ * `tip.difficulty`. Selama tip tidak bergerak (blok tak ter-commit) penurunan
+ * dari template saja bisa mandek di `tip - 4`. Untuk itulah jalur expiry
+ * `cleanupExpiredJobs` (basis kumulatif dari job expired) melengkapi ini
+ * hingga benar-benar menyentuh floor — lihat `nexchain/miner/work.ts`.
  *
  * Data lama ber-skema lama (difficulty angka kecil) otomatis naik bertahap
  * ke rentang normal lewat clamp — tanpa syarat khusus "blok lama".
  */
-const nextDifficulty = async (tip: Block): Promise<number> => {
+const nextDifficulty = (tip: Block): number => {
 	const parentBits = tip.block.header.difficulty
-	const grandparent = (await getBlockByHeight(
-		tip.block.height - 1,
-		'json',
-	)) as Block | undefined
-	if (!grandparent) return clampDifficulty(parentBits)
-	const actualMs =
-		tip.block.header.timestamp - grandparent.block.header.timestamp
-	return calcNextDifficulty(parentBits, actualMs)
+	if (tip.block.height <= 0) return clampDifficulty(parentBits)
+	return retargetByTime(parentBits, tip.block.header.timestamp)
 }

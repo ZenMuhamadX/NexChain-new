@@ -10,6 +10,7 @@ import { verifyMerkleRoot } from '../miner/verify/module/verifyMerkleRoot'
 import { processTransact } from '../transaction/processTransact'
 import { logToConsole } from 'logging/logging'
 import { loggingDebug } from 'logging/debug'
+import { getCurrentBlock } from '../block/query/onChain/block/getCurrentBlock'
 
 export class BlockChains {
 	constructor() {
@@ -102,4 +103,29 @@ export class BlockChains {
 		loggingDebug('blockchain:verify', 'verifying chain integrity')
 		return await verifyChainIntegrity()!
 	}
+}
+
+/**
+ * Timestamp (epoch ms) blok TERAKHIR / tip — dasar retarget berbasis waktu
+ * (`retargetByTime` dan jalur expiry `cleanupExpiredJobs`).
+ *
+ * `getCurrentBlock` melempar bila state atau blok belum siap (database kosong
+ * / genesis belum terbentuk). Dalam kasus itu fungsi ini mengembalikan
+ * `fallbackMs` (default `Date.now()`), yang membuat `actualMs ≈ 0` sehingga
+ * retarget otomatis flat (tanpa koreksi) — aman dipanggil lebih awal pada
+ * setiap `nex_getWork` tanpa perlu membedakan status rantai.
+ *
+ * @param fallbackMs nilai pakai bila tip belum tersedia.
+ */
+export const getLastBlockTimestamp = async (
+	fallbackMs: number = Date.now(),
+): Promise<number> => {
+	try {
+		const tip = (await getCurrentBlock('json')) as Block
+		const ts = tip?.block?.header?.timestamp
+		if (typeof ts === 'number' && Number.isFinite(ts) && ts > 0) return ts
+	} catch {
+		// state / blok belum siap — jatuh ke fallback di bawah
+	}
+	return fallbackMs
 }

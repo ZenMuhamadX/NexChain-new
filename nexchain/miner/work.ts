@@ -9,8 +9,9 @@ import { isChainsValid } from 'nexchain/block/isChainValid'
 import { calculateSize } from 'nexchain/lib/calculateSize'
 import { hashWithNonce } from './Pow'
 import { meetsDifficulty, TARGET_BLOCK_TIME_MS } from './difficulty'
-import { createJob, getJob, deleteJob } from './jobStore'
+import { createJob, getJob, deleteJob, cleanupExpiredJobs } from './jobStore'
 import { chains } from 'nexchain/block/initBlock'
+import { getLastBlockTimestamp } from 'nexchain/blockchain/blockchain'
 import { isValidAddress } from 'nexchain/transaction/utils/isValidAddress'
 import { getMyWalletAddress } from 'account/myWalletAddress'
 import { loadWallet } from 'account/utils/loadWallet'
@@ -194,6 +195,13 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 			}
 		}
 
+		// Jalur expiry: buang job kadaluarsa LEBIH AWAL (membebaskan slot
+		// MAX_JOBS sebelum job baru dibuat) dan ambil retarget dari difficulty
+		// job expired terakhir. Basisnya kumulatif (job expired, bukan tip)
+		// sehingga penurunan tidak mandek di `tip - 4` selama blok tak
+		// ter-commit — lihat `cleanupExpiredJobs`.
+		const expiryDifficulty = cleanupExpiredJobs(await getLastBlockTimestamp())
+
 		const pool = new MemPool()
 		const loaded = await pool.getValidTransactions()
 		// Penjaga "zombie": buang tx yang history-nya sudah 'confirmed'
@@ -209,6 +217,16 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 			transactions.push(tx)
 		}
 		const template = await createBlockTemplate(transactions, minerAddress)
+
+		// Terapkan retarget jalur expiry SEBELUM payload disusun, dan hanya
+		// bila lebih rendah dari hasil retarget template — jalur expiry
+		// dibolehkan hanya MENURUNKAN difficulty (tidak pernah menaikkan).
+		if (
+			expiryDifficulty !== undefined &&
+			expiryDifficulty < template.block.header.difficulty
+		) {
+			template.block.header.difficulty = expiryDifficulty
+		}
 		const payload = prepareBlockForHashing(template)
 
 		const job = createJob({
