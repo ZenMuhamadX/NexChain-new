@@ -8,10 +8,10 @@
  *
  * Jalankan:  bun run check:tx
  *
- * Mencakup dua fase terakhir:
+ * Mencakup fase terakhir:
  *   - Phase B : createUnsignedTransaction + signTransaction (split murni)
  *   - Bug A/B : decode hex-JSON & nonce berikutnya (diuji di E2E hidup)
- *   - Phase E : resolveTxRoles + konfigurasi URL RPC
+ *   - Phase E : konfigurasi URL RPC
  */
 import { createUnsignedTransaction } from 'client/lib/createUnsignedTransaction'
 import { signTransaction } from 'sign/signTransaction'
@@ -22,7 +22,6 @@ import { validateTransactionSignature } from 'interface/module/isValidTxSign'
 import { validateTransactionFees } from 'interface/module/isValidTxFee'
 import { validateTransactionSenderReceiver } from 'interface/module/isValidTxSenderReciever'
 import { createTxnHash } from 'nexchain/transaction/createTxHash'
-import { resolveTxRoles } from 'nexchain/transaction/resolveTxRoles'
 import { setRpcUrl, getRpcUrl } from 'client/rpc-client/lib/rpcClient'
 import { encodeTx } from 'nexchain/hex/tx/encodeTx'
 import { decodeTx } from 'nexchain/hex/tx/decodeTx'
@@ -84,10 +83,6 @@ ok(
 )
 ok('format dinormalisasi ke nexu', tx.format === 'nexu')
 ok('amount dikonversi NXC -> nexu', tx.amount === 1e18)
-ok(
-	'isContract dihitung dari format address (bukan input)',
-	tx.isSenderContract === false && tx.isReceiverContract === false,
-)
 ok('hexInput terisi', typeof tx.hexInput === 'string' && tx.hexInput.length > 0)
 
 // ---- 4. signTransaction murni: tidak memutasi draft ----
@@ -143,40 +138,7 @@ ok(
 	!small.status && small.error === 'Transaction amount must be at least 1 nexu.',
 )
 
-// ============ Phase E: 4 bug keamanan ============
-
-// ---- E3: peran kontrak diturunkan dari ALAMAT, bukan dari flag client ----
-// Flag isSenderContract/isReceiverContract TIDAK ikut di-createTxHash, jadi
-// bisa dipalsukan setelah signing. resolveTxRoles harus mengabaikannya.
-const CONTRACT_ADDR = `NxS${'33'.repeat(20)}`
-ok(
-	'E3: flag isReceiverContract palsu di EOA diabaikan (cabang kontrak tak bisa dipilih)',
-	resolveTxRoles({
-		...tx,
-		receiver: RECEIVER, // EOA
-		isReceiverContract: true, // klaim palsu dari client
-	}).isReceiverContract === false,
-)
-ok(
-	'E3: flag isSenderContract palsu di EOA diabaikan (withdraw kontrak tak bisa dipicu)',
-	resolveTxRoles({
-		...tx,
-		sender: SNAPSHOT_ADDRESS, // EOA
-		isSenderContract: true, // klaim palsu dari client
-	}).isSenderContract === false,
-)
-ok(
-	'E3: alamat kontrak sungguhan tetap dikenali walau flag dibalik jadi false',
-	resolveTxRoles({
-		...tx,
-		sender: CONTRACT_ADDR,
-		receiver: SNAPSHOT_ADDRESS,
-		isSenderContract: false,
-		isReceiverContract: false,
-	}).isSenderContract === true,
-)
-
-// ---- E4: URL RPC tidak lagi hardcoded ----
+// ============ Phase E: URL RPC tidak lagi hardcoded ============
 const defaultUrl = getRpcUrl()
 ok(
 	'E4: default tetap localhost:8000/rpc',

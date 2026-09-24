@@ -29,8 +29,11 @@ export const verifyStruct = async (chains: Block) => {
 		status: Joi.string().required(),
 		isPending: Joi.boolean().required(),
 		isValid: Joi.boolean().required(),
-		isReceiverContract: Joi.boolean().required(),
-		isSenderContract: Joi.boolean().required(),
+		// Flag kontrak: OPSIONAL — tx LAMA di rantai menyimpannya (wajib
+		// diterima supaya blok lama tetap lolos), tx BARU tanpa field ini
+		// juga harus lolos (fitur smart contract dibuang).
+		isReceiverContract: Joi.boolean().optional(),
+		isSenderContract: Joi.boolean().optional(),
 		hexInput: Joi.string().required(),
 	})
 

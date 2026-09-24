@@ -22,17 +22,8 @@ export const clientSideTxValidate = async (
 			error?.message || 'Invalid transaction amount',
 		)
 	}
-	// Sisi client: tidak ada akses DB kontrak, jadi owner boleh di-fallback.
-	// Binding address EOA tetap wajib (anti-forge); pemeriksaan ketat untuk
-	// contract sender tetap dilakukan node.
-	if (
-		!(
-			await validateTransactionSignature(transaction, {
-				allowContractOwnerFallback: true,
-			})
-		)
-	)
-		return false
+	// Binding address: signer hasil recover WAJIB == sender (anti-forge).
+	if (!(await validateTransactionSignature(transaction))) return false
 
 	if (!validateTransactionSenderReceiver(transaction)) return false
 

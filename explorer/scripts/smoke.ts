@@ -10,7 +10,7 @@
  * khas backend (Bun + Level) yang diverifikasi lewat probe:
  *   - height miss  → `result: null`           → wajib jadi `undefined`
  *   - hash miss    → error "Expected String"  → wajib lolos isNotFound
- *   - tx/contract miss → error "buffer.toString" → wajib lolos isNotFound
+ *   - tx miss         → error "buffer.toString" → wajib lolos isNotFound
  * Kalau backend berubah perilaku, test ini biru/merah lebih dulu
  * sebelum UI menampilkan "Something went wrong" yang menyesatkan.
  */
@@ -132,14 +132,6 @@ check(
 // 12) mempool tanpa params
 const pool = await rpc.getMempool()
 check('getMempool → array', Array.isArray(pool), `len=${pool.length}`)
-
-// 13) contractBalance miss → error "buffer.toString" → isNotFound
-try {
-	const cb = await rpc.getContractBalance(`NxS${'0'.repeat(40)}`)
-	check('contractBalance miss → undefined', cb === undefined, `got=${typeof cb}`)
-} catch (e) {
-	check('contractBalance miss → isNotFound', isNotFound(e), describe(e))
-}
 
 console.log(`\n${pass} pass, ${fail} fail`)
 if (fail > 0) process.exit(1)

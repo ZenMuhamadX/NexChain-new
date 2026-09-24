@@ -1,5 +1,4 @@
 import { coinBaseTx } from './structCoinBaseTx'
-import { contract } from './structContract'
 import { header } from './structHeader'
 import { metadata } from './structMetadata'
 import { TxInterface } from './structTx'
@@ -25,7 +24,6 @@ export interface blockStruct {
 	coinbaseTransaction: coinBaseTx
 	metadata?: metadata
 	transactions: TxInterface[]
-	contract?: contract[]
 }
 
 /**

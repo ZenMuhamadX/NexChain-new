@@ -1,13 +1,14 @@
 import { logToConsole } from 'logging/logging'
-import { isContract } from 'nexchain/lib/isContract'
 import { rpcGetAccount } from 'client/rpc-client/controller/rpcGetAccount'
-import { rpcGetContractBalance } from 'client/rpc-client/controller/rpcGetContractBalance'
 import { structBalance } from 'interface/structBalance'
 import { rpcGetPendingBalance } from 'client/rpc-client/controller/rpcGetPendingBalance'
 import { toNxc } from 'nexchain/nexucoin/toNxc'
 
 /**
- * Checks if the provided address has sufficient balance (either for a contract or a standard address).
+ * Checks if the provided address has sufficient balance.
+ *
+ * Cabang pemeriksaan saldo KONTRAK dihapus bersama fitur smart contract —
+ * semua alamat kini dicek sebagai akun biasa lewat `nex_getAccount`.
  * @param address - The address to check balance for.
  * @param amount - The transaction amount.
  * @param fee - The transaction fee.
@@ -24,34 +25,10 @@ export const clientHasSufficientBalance = async (
 	}
 
 	try {
-		if (isContract(address)) {
-			return await checkContractBalance(address, amount, fee)
-		}
 		logToConsole('Checking balance...')
 		return await checkStandardBalance(address, amount, fee)
-	} catch (error) {
+	} catch {
 		return undefined
-	}
-}
-
-/**
- * Checks if a contract address has sufficient balance.
- * @param address - The contract address.
- * @param amount - The transaction amount.
- * @param fee - The transaction fee.
- * @returns True if balance is sufficient, false otherwise.
- */
-const checkContractBalance = async (
-	address: string,
-	amount: number,
-	fee: number,
-): Promise<boolean> => {
-	const balance = await rpcGetContractBalance(address)
-	if (balance! >= amount + fee) {
-		return true
-	} else {
-		logToConsole('Insufficient contract balance')
-		return false
 	}
 }
 

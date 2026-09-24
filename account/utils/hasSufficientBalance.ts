@@ -1,12 +1,13 @@
 import { loggingErr } from 'logging/errorLog'
 import { generateTimestampz } from 'nexchain/lib/generateTimestampz'
 import { logToConsole } from 'logging/logging'
-import { isContract } from 'nexchain/lib/isContract'
-import { ManageContract } from 'contract/manageContract'
 import { getAccount } from '../balance/getAccount'
 
 /**
- * Checks if the provided address has sufficient balance (either for a contract or a standard address).
+ * Checks if the provided address has sufficient balance.
+ *
+ * Cabang pemeriksaan saldo KONTRAK dihapus bersama fitur smart contract —
+ * semua alamat kini dicek sebagai akun biasa.
  * @param address - The address to check balance for.
  * @param amount - The transaction amount.
  * @param fee - The transaction fee.
@@ -23,35 +24,10 @@ export const hasSufficientBalance = async (
 	}
 
 	try {
-		if (isContract(address)) {
-			return await checkContractBalance(address, amount, fee)
-		}
 		return await checkStandardBalance(address, amount, fee)
 	} catch (error) {
 		handleBalanceCheckError(error)
 		return undefined
-	}
-}
-
-/**
- * Checks if a contract address has sufficient balance.
- * @param address - The contract address.
- * @param amount - The transaction amount.
- * @param fee - The transaction fee.
- * @returns True if balance is sufficient, false otherwise.
- */
-const checkContractBalance = async (
-	address: string,
-	amount: number,
-	fee: number,
-): Promise<boolean> => {
-	const contract = new ManageContract(address)
-	const balance = await contract.getContractBalance()
-	if (balance >= amount + fee) {
-		return true
-	} else {
-		logToConsole('Insufficient contract balance')
-		return false
 	}
 }
 

@@ -2,8 +2,7 @@
 import { rocksMempool } from 'nexchain/db/memPool'
 
 /**
- * Range key untuk transaksi (berbeda dari contract pool yang pakai prefix
- * "Contract-"):
+ * Range key khusus transaksi di mempool:
  *
  * - "0x"   .. "0y"   : format yang ditulis saveMempool/removeMempool
  *                      (`0x${txHash}`, dan txHash selalu diawali "TxC").

@@ -2,7 +2,7 @@
 
 /**
  * Keccak-256 (js-sha3, pure JS -> aman di browser).
- * Menerima Uint8Array (jalur address) maupun string (jalur contract address).
+ * Menerima Uint8Array (jalur address) maupun string (jalur hash).
  */
 export const keccak256 = (input: Uint8Array | string): string => {
 	return keccak_256(input)

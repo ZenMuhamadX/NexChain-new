@@ -1,11 +1,7 @@
 ﻿import { txInterfaceValidator } from './joi/txInterface'
 import { validateTransactionAmount } from 'interface/module/isValidTxAmount'
 import { logError } from 'interface/module/writeLog'
-import {
-	validateTransactionSignature,
-	ContractOwnerResolver,
-} from 'interface/module/isValidTxSign'
-import { getContract } from 'contract/utils/getContract'
+import { validateTransactionSignature } from 'interface/module/isValidTxSign'
 import { validateTransactionSenderReceiver } from 'interface/module/isValidTxSenderReciever'
 import { validateTransactionFees } from 'interface/module/isValidTxFee'
 import { validateTransactionNonce } from 'interface/module/isValidTxNonce'
@@ -14,18 +10,6 @@ import { validateAddressLengths } from 'interface/module/isValidAddressLength'
 import { TxInterface } from 'interface/structTx'
 import { isNexu } from 'nexchain/nexucoin/isNexu'
 import { hasSufficientBalance } from 'account/utils/hasSufficientBalance'
-
-/**
- * Ambil owner kontrak dari DB state (sisi server saja).
- * Contract address yang belum ada di state -> undefined (ditolak oleh validator).
- */
-const resolveOwnerFromDb: ContractOwnerResolver = async (contractAddress) => {
-	try {
-		return (await getContract(contractAddress)).owner
-	} catch {
-		return undefined
-	}
-}
 
 export const transactionValidator = async (
 	transaction: TxInterface,
@@ -39,15 +23,9 @@ export const transactionValidator = async (
 			error?.message || 'Invalid transaction amount',
 		)
 	}
-	// Sisi server: resolver DB -> WAJIB cocok (tanpa fallback)
-	if (
-		!(
-			await validateTransactionSignature(transaction, {
-				resolveContractOwner: resolveOwnerFromDb,
-			})
-		)
-	)
-		return false
+	// Signature ketat: signer hasil recover WAJIB == sender (jalur resolver
+	// owner kontrak dihapus bersama fitur smart contract).
+	if (!(await validateTransactionSignature(transaction))) return false
 
 	if (!validateTransactionSenderReceiver(transaction)) return false
 

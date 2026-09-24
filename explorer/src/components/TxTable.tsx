@@ -3,6 +3,7 @@ import type { HistoryEntry } from '../api/types'
 import {
 	formatDateTime,
 	formatNxc,
+	formatNumber,
 	timeAgo,
 	truncateMiddle,
 } from '../lib/format'
@@ -68,11 +69,6 @@ export function TxTable({
 								>
 									{truncateMiddle(tx.sender, 8, 6)}
 								</Link>
-								{tx.isSenderContract ? (
-									<span className="badge badge-contract" title="Contract">
-										contract
-									</span>
-								) : null}
 							</td>
 							<td>
 								<Link
@@ -82,14 +78,9 @@ export function TxTable({
 								>
 									{truncateMiddle(tx.receiver, 8, 6)}
 								</Link>
-								{tx.isReceiverContract ? (
-									<span className="badge badge-contract" title="Contract">
-										contract
-									</span>
-								) : null}
 							</td>
 							<td className="num">{formatNxc(tx.amount, 6)}</td>
-							<td className="num">{formatNxc(tx.fee, 6)}</td>
+							<td className="num">{formatNumber(tx.fee)} nexu</td>
 							<td title={formatDateTime(tx.timestamp)}>
 								{timeAgo(tx.timestamp)}
 							</td>

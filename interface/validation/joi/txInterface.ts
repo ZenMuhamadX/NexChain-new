@@ -15,8 +15,10 @@ export const txInterfaceValidator = Joi.object({
 	format: Joi.string().valid('nexu').required(),
 	sender: Joi.string().required(),
 	receiver: Joi.string().required(),
-	isSenderContract: Joi.boolean().required(),
-	isReceiverContract: Joi.boolean().required(),
+	// Flag kontrak DIHAPUS dari transaksi baru (fitur smart contract
+	// dibuang) — tetap diterima (opsional) untuk data/klien lama.
+	isSenderContract: Joi.boolean().optional(),
+	isReceiverContract: Joi.boolean().optional(),
 	sign: Joi.object({
 		r: Joi.string().required(),
 		s: Joi.string().required(),

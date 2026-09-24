@@ -16,6 +16,7 @@ import { useChain } from '../hooks/useChainState'
 import {
 	formatDateTime,
 	formatNxc,
+	formatNxcExact,
 	formatNumber,
 	timeAgo,
 } from '../lib/format'
@@ -95,10 +96,10 @@ export function TxDetailPage() {
 				<StatCard
 					label="Amount"
 					value={formatNxc(tx.amount, 6)}
-					hint={`${formatNumber(tx.amount)} nexu`}
+					hint={`${formatNxcExact(tx.amount)} NXC`}
 					accent
 				/>
-				<StatCard label="Fee" value={formatNxc(tx.fee, 6)} />
+				<StatCard label="Fee" value={`${formatNumber(tx.fee)} nexu`} />
 				<StatCard
 					label="Block"
 					value={
@@ -123,11 +124,7 @@ export function TxDetailPage() {
 					value={tx.isValid ? 'valid' : 'invalid'}
 					hint={tx.isPending ? 'still pending' : 'settled'}
 				/>
-				<StatCard
-					label="Format"
-					value={tx.format}
-					hint={tx.isSenderContract || tx.isReceiverContract ? 'contract involved' : 'wallet ↔ wallet'}
-				/>
+				<StatCard label="Format" value={tx.format} hint="wallet ↔ wallet" />
 				<StatCard
 					label="Confirmations"
 					value={confirmations !== undefined ? formatNumber(confirmations) : '—'}
@@ -150,9 +147,6 @@ export function TxDetailPage() {
 							<Link className="link mono" to={`/address/${tx.sender}`}>
 								{tx.sender}
 							</Link>
-							{tx.isSenderContract ? (
-								<span className="badge badge-contract">contract</span>
-							) : null}
 						</dd>
 					</div>
 					<div className="kv kv-full">
@@ -161,9 +155,6 @@ export function TxDetailPage() {
 							<Link className="link mono" to={`/address/${tx.receiver}`}>
 								{tx.receiver}
 							</Link>
-							{tx.isReceiverContract ? (
-								<span className="badge badge-contract">contract</span>
-							) : null}
 						</dd>
 					</div>
 					<div className="kv">

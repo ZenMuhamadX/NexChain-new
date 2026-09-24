@@ -185,7 +185,7 @@ export function BlockDetailPage() {
 				/>
 				<StatCard
 					label="Tx fees"
-					value={formatNxc(block.totalTransactionFees, 6)}
+					value={`${formatNumber(block.totalTransactionFees)} nexu`}
 				/>
 			</section>
 
@@ -275,7 +275,7 @@ export function BlockDetailPage() {
 						</div>
 						<div className="kv">
 							<dt>Gas price</dt>
-							<dd>{formatNxc(block.metadata.gasPrice, 8)}</dd>
+							<dd>{formatNumber(block.metadata.gasPrice)} nexu</dd>
 						</div>
 						<div className="kv">
 							<dt>Created at</dt>
@@ -295,58 +295,6 @@ export function BlockDetailPage() {
 				</section>
 			) : null}
 
-			{block.contract && block.contract.length > 0 ? (
-				<section className="card" aria-label="Contracts deployed">
-					<h2>
-						Contracts{' '}
-						<span className="muted">({block.contract.length} deployed)</span>
-					</h2>
-					<div className="table-wrap">
-						<table className="table">
-							<thead>
-								<tr>
-									<th>Address</th>
-									<th>Owner</th>
-									<th className="num">Balance</th>
-									<th>Status</th>
-									<th>Deployed</th>
-								</tr>
-							</thead>
-							<tbody>
-								{block.contract.map((item) => (
-									<tr key={item.contractAddress}>
-										<td>
-											<Link
-												className="link mono"
-												to={`/address/${item.contractAddress}`}
-											>
-												{item.contractAddress.slice(0, 12)}…
-											</Link>
-											<span className="badge badge-contract">contract</span>
-										</td>
-										<td>
-											<Link className="link mono" to={`/address/${item.owner}`}>
-												{item.owner.slice(0, 12)}…
-											</Link>
-										</td>
-										<td className="num">{formatNxc(item.balance, 6)}</td>
-										<td>
-											<span
-												className={`badge badge-${item.status === 'active' ? 'confirmed' : 'rejected'}`}
-											>
-												{item.status}
-											</span>
-										</td>
-										<td title={formatDateTime(item.deployedAt)}>
-											{timeAgo(item.deployedAt)}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-				</section>
-			) : null}
 
 			<section className="card" aria-label="Transactions">
 				<div className="card-head">

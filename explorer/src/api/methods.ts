@@ -17,7 +17,7 @@ const client = new NexchainRpcClient(RPC_URL)
  * Tabel decode per-method — encoding backend memang tidak seragam:
  * - hex JSON  : getCurrentBlock, getBlockBy*, getBlockState, getAccount,
  *               getNonce, getNextNonce, getPendingBalance, getTransactionCount,
- *               getContractBalance, getTransactionByTxHash
+ *               getTransactionByTxHash
  * - hex string : getBalance
  * - number    : getChainId, getBlockTransactionByHeight
  * - objek     : getTransactionsByAddress (item history di dalamnya hex)
@@ -79,9 +79,6 @@ export const rpc = {
 
 	getTransactionCount: (address: string) =>
 		hexJson<number>('nex_getTransactionCount', address),
-
-	getContractBalance: (address: string) =>
-		hexJson<number>('nex_getContractBalance', address),
 
 	getTransactionByHash: (hash: string) =>
 		hexJson<HistoryEntry>('nex_getTransactionByTxHash', hash),

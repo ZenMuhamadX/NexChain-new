@@ -1,12 +1,11 @@
 import { getAccount } from 'account/balance/getAccount'
 import { putAccount } from 'account/balance/putAccount'
 import { structBalance } from 'interface/structBalance'
-import { nexu } from 'interface/structContract'
 import { generateTimestampz } from 'nexchain/lib/generateTimestampz'
 
 export const processReceiver = async (
 	recieverAddress: string,
-	amount: nexu,
+	amount: number,
 ) => {
 	const oldData = await getAccount(recieverAddress).catch()
 	if (!oldData) {

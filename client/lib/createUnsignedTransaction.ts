@@ -3,7 +3,6 @@ import { comTxInterface } from 'interface/structComTx'
 import { TxInterface } from 'interface/structTx'
 import { stringToHex } from 'nexchain/hex/stringToHex'
 import { toNexu } from 'nexchain/nexucoin/toNexu'
-import { isContract } from 'nexchain/lib/isContract'
 
 /** Pesan default yang dibawa transaksi bila caller tidak mengirim extraMessage. */
 export const DEFAULT_EXTRA_MESSAGE =
@@ -53,10 +52,6 @@ export const createUnsignedTransaction = (
 		}
 	}
 
-	// Flag kontrak dihitung dari format address, bukan dipercaya dari input.
-	const isReceiverContract = isContract(transaction.receiver)
-	const isSenderContract = isContract(transaction.sender)
-
 	const completedTx: TxInterface = {
 		format: 'nexu',
 		amount: convertedAmount,
@@ -69,8 +64,6 @@ export const createUnsignedTransaction = (
 		isValid: false,
 		extraMessage: transaction.extraMessage || DEFAULT_EXTRA_MESSAGE,
 		status: 'pending',
-		isReceiverContract,
-		isSenderContract,
 		sign: { r: '', s: '', v: 0 },
 	}
 

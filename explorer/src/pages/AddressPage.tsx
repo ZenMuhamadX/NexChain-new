@@ -16,6 +16,7 @@ import { ADDRESS_PATTERN } from '../lib/classify'
 import {
 	formatDateTime,
 	formatNxc,
+	formatNxcExact,
 	formatNumber,
 	timeAgo,
 } from '../lib/format'
@@ -24,6 +25,8 @@ import {
  * Halaman address: saldo, nonce, jumlah transaksi, riwayat.
  * Format divalidasi dulu di client — backend melempar error untuk
  * address yang tidak valid, jadi lebih baik ditolak sebelum request.
+ *
+ * (Bagian saldo/badge kontrak DIHAPUS bersama fitur smart contract.)
  */
 export function AddressPage() {
 	const { address = '' } = useParams()
@@ -42,14 +45,6 @@ export function AddressPage() {
 	)
 
 	const balance = account.data
-	const isContract = balance?.isContract === true
-
-	// Hanya dipanggil untuk address kontrak (NxS / flag isContract).
-	const contractBalance = useAsync<number | undefined>(
-		async () => await rpc.getContractBalance(address),
-		[address],
-		{ enabled: valid && isContract },
-	)
 
 	if (!valid) {
 		return (
@@ -59,8 +54,7 @@ export function AddressPage() {
 					hint={
 						<>
 							<code>{address}</code> is not a valid NexChain address. Expected
-							format: <code>NxC…</code> (wallet) or <code>NxS…</code> (contract),
-							43 characters total.
+							format: <code>NxC…</code>, 43 characters total.
 						</>
 					}
 					action={
@@ -125,13 +119,10 @@ export function AddressPage() {
 			<div className="card address-hero">
 				<div>
 					<p className="section-title" style={{ margin: 0 }}>
-						{isContract ? 'Contract address' : 'Wallet address'}
+						Wallet address
 					</p>
 					<p className="mono" style={{ margin: '0.3rem 0 0' }}>
 						{balance.address}
-						{isContract ? (
-							<span className="badge badge-contract">contract</span>
-						) : null}
 					</p>
 				</div>
 				<CopyButton value={balance.address} label="Copy address" />
@@ -141,24 +132,9 @@ export function AddressPage() {
 				<StatCard
 					label="Balance"
 					value={formatNxc(balance.balance, 6)}
-					hint={`${formatNumber(balance.balance)} nexu`}
+					hint={`${formatNxcExact(balance.balance)} NXC`}
 					accent
 				/>
-				{isContract ? (
-					<StatCard
-						label="Contract balance"
-						value={
-							contractBalance.data !== undefined
-								? formatNxc(contractBalance.data, 6)
-								: contractBalance.error
-									? isNotFound(contractBalance.error)
-										? '—' // alamat valid tapi bukan kontrak / tanpa state
-										: 'unavailable'
-									: '…'
-						}
-						hint={isContract ? 'nex_getContractBalance' : undefined}
-					/>
-				) : null}
 				<StatCard label="Nonce" value={formatNumber(balance.nonce)} />
 				<StatCard
 					label="Transactions"
@@ -178,11 +154,7 @@ export function AddressPage() {
 							: undefined
 					}
 				/>
-				<StatCard
-					label="Type"
-					value={isContract ? 'Contract' : 'Wallet'}
-					hint={isContract ? 'NxS prefix / flagged contract' : 'NxC prefix'}
-				/>
+				<StatCard label="Type" value="Wallet" hint="NxC prefix" />
 			</section>
 
 			<section className="card" aria-label="Transaction history">
