@@ -6,6 +6,13 @@ export const logRequest = (
 	_res: Response,
 	next: NextFunction,
 ) => {
-	logToConsole(`${req.method} ${req.path} Rpc-Method:${req.body.method}`)
+	const ip =
+		(req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+		req.ip ||
+		req.socket?.remoteAddress ||
+		'-'
+	const ua = req.headers['user-agent'] || '-'
+	const rpcMethod = (req.body as any)?.method ?? '-'
+	logToConsole(`${ip} ${req.method} ${req.path} Rpc-Method:${rpcMethod} UA:${ua}`)
 	next()
 }

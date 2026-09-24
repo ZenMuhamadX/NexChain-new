@@ -48,7 +48,7 @@ export const ChainContext = createContext<ChainInfo | null>(null)
 export function useChain(): ChainInfo {
 	const context = useContext(ChainContext)
 	if (!context) {
-		throw new Error('useChain harus dipakai di dalam ChainContext.Provider')
+		throw new Error('useChain must be used within a ChainContext.Provider')
 	}
 	return context
 }

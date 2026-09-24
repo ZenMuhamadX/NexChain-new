@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { blockSummary } from '../api/types'
 import {
@@ -9,29 +10,72 @@ import {
 	truncateMiddle,
 } from '../lib/format'
 
-export function BlockTable({ blocks }: { blocks: blockSummary[] }) {
+/**
+ * @param highlightNew tandai baris yang baru saja menjadi tip terbaru
+ * (hanya relevan di halaman yang polling; di halaman paginasi blok lama
+ * hal itu akan menyesatkan).
+ */
+export function BlockTable({
+	blocks,
+	highlightNew = false,
+}: {
+	blocks: blockSummary[]
+	highlightNew?: boolean
+}) {
+	// --- deteksi blok baru: flash baris supaya mata pembaca tidak kehilangan tempat ---
+	const previousTop = useRef<string | undefined>(undefined)
+	const [freshTop, setFreshTop] = useState<string | undefined>(undefined)
+
+	useEffect(() => {
+		if (!highlightNew) return
+		const top = blocks[0]?.hash
+		if (top === undefined) return
+		if (previousTop.current !== undefined && previousTop.current !== top) {
+			setFreshTop(top)
+		}
+		previousTop.current = top
+	}, [blocks, highlightNew])
+
+	useEffect(() => {
+		if (!freshTop) return undefined
+		const timer = setTimeout(() => setFreshTop(undefined), 1600)
+		return () => clearTimeout(timer)
+	}, [freshTop])
+
 	return (
 		<div className="table-wrap">
-			<table className="table">
+			<table className="table table-responsive">
+				<caption className="sr-only">
+					Blocks — height, hash, age, transactions, size and reward
+				</caption>
 				<thead>
 					<tr>
-						<th>Height</th>
-						<th>Hash</th>
-						<th>Age</th>
-						<th className="num">Txs</th>
-						<th className="num">Size</th>
-						<th className="num">Reward</th>
+						<th scope="col">Height</th>
+						<th scope="col">Hash</th>
+						<th scope="col">Age</th>
+						<th scope="col" className="num">
+							Txs
+						</th>
+						<th scope="col" className="num">
+							Size
+						</th>
+						<th scope="col" className="num">
+							Reward
+						</th>
 					</tr>
 				</thead>
 				<tbody>
 					{blocks.map((block) => (
-						<tr key={block.hash}>
-							<td>
+						<tr
+							key={block.hash}
+							className={freshTop === block.hash ? 'is-new' : undefined}
+						>
+							<td data-label="Height">
 								<Link className="link mono" to={`/block/${block.height}`}>
 									#{formatNumber(block.height)}
 								</Link>
 							</td>
-							<td>
+							<td data-label="Hash">
 								<Link
 									className="link mono"
 									to={`/block/${block.hash}`}
@@ -40,18 +84,27 @@ export function BlockTable({ blocks }: { blocks: blockSummary[] }) {
 									{truncateMiddle(block.hash)}
 								</Link>
 							</td>
-							<td title={formatDateTime(block.timestamp)}>
+							<td data-label="Age" title={formatDateTime(block.timestamp)}>
 								{timeAgo(block.timestamp)}
 							</td>
-							<td className="num">{formatNumber(block.txCount)}</td>
-							<td className="num">{formatSize(block.size)}</td>
-							<td className="num" title="Total reward (coinbase)">
+							<td data-label="Txs" className="num">
+								{formatNumber(block.txCount)}
+							</td>
+							<td data-label="Size" className="num">
+								{formatSize(block.size)}
+							</td>
+							<td
+								data-label="Reward"
+								className="num"
+								title="Total reward (coinbase)"
+							>
 								{formatNxc(block.totalReward, 4)}
 							</td>
 						</tr>
 					))}
 				</tbody>
 			</table>
+			<p className="scroll-hint">Scroll sideways to see every column →</p>
 		</div>
 	)
 }

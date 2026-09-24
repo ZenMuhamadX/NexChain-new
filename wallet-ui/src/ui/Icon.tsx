@@ -102,9 +102,10 @@ interface IconProps {
 	name: IconName
 	size?: number
 	className?: string
+	style?: React.CSSProperties
 }
 
-export const Icon = ({ name, size = 16, className }: IconProps): React.JSX.Element => (
+export const Icon = ({ name, size = 16, className, style }: IconProps): React.JSX.Element => (
 	<svg
 		width={size}
 		height={size}
@@ -117,6 +118,7 @@ export const Icon = ({ name, size = 16, className }: IconProps): React.JSX.Eleme
 		aria-hidden="true"
 		focusable="false"
 		className={className}
+		style={style}
 	>
 		{PATHS[name]}
 	</svg>

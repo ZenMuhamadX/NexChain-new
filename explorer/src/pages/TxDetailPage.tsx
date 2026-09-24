@@ -3,22 +3,23 @@ import { rpc } from '../api/methods'
 import { isNotFound } from '../api/rpcClient'
 import { tryHexText } from '../api/decoder'
 import type { HistoryEntry } from '../api/types'
+import { Breadcrumbs } from '../components/Breadcrumbs'
 import { HashValue } from '../components/common/HashValue'
 import { RawJson } from '../components/common/RawJson'
 import { StatCard } from '../components/common/StatCard'
-import {
-	EmptyState,
-	ErrorState,
-	LoadingState,
-} from '../components/common/States'
+import { PageSkeleton } from '../components/common/Skeleton'
+import { EmptyState, ErrorState } from '../components/common/States'
+import { Unit } from '../components/common/Unit'
 import { useAsync } from '../hooks/useAsync'
 import { useChain } from '../hooks/useChainState'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import {
 	formatDateTime,
 	formatNxc,
 	formatNxcExact,
 	formatNumber,
 	timeAgo,
+	truncateMiddle,
 } from '../lib/format'
 
 /** Detail transaksi berdasarkan tx hash. */
@@ -30,12 +31,23 @@ export function TxDetailPage() {
 		HistoryEntry | undefined
 	>(async () => await rpc.getTransactionByHash(hash), [hash])
 
-	if (loading && !tx) return <LoadingState label="Loading transaction…" />
+	useDocumentTitle(`Transaction ${truncateMiddle(hash, 12, 10)}`)
+
+	if (loading && !tx) {
+		return (
+			<div className="page">
+				<Breadcrumbs items={[{ label: 'Transaction' }]} />
+				<PageSkeleton label="Loading transaction…" />
+			</div>
+		)
+	}
 
 	if (error && isNotFound(error)) {
 		return (
 			<div className="page">
+				<Breadcrumbs items={[{ label: 'Transaction' }]} />
 				<EmptyState
+					titleAs="h1"
 					title="Transaction not found"
 					hint={
 						<>
@@ -52,11 +64,15 @@ export function TxDetailPage() {
 			</div>
 		)
 	}
-	if (error && !tx) return <ErrorState error={error} onRetry={refresh} />
+	if (error && !tx) {
+		return <ErrorState error={error} onRetry={refresh} />
+	}
 	if (!tx) {
 		return (
 			<div className="page">
+				<Breadcrumbs items={[{ label: 'Transaction' }]} />
 				<EmptyState
+					titleAs="h1"
 					title="Transaction not found"
 					hint={
 						<>
@@ -80,6 +96,21 @@ export function TxDetailPage() {
 
 	return (
 		<div className="page">
+			<Breadcrumbs
+				items={[
+					...(meta ? [{ label: 'Blocks', to: '/blocks' }] : []),
+					...(meta
+						? [
+								{
+									label: `#${formatNumber(meta.blockHeight)}`,
+									to: `/block/${meta.blockHeight}`,
+								},
+							]
+						: []),
+					{ label: `Tx ${truncateMiddle(tx.txHash ?? hash, 8, 6)}` },
+				]}
+			/>
+
 			<div className="page-head">
 				<div>
 					<h1>
@@ -99,7 +130,11 @@ export function TxDetailPage() {
 					hint={`${formatNxcExact(tx.amount)} NXC`}
 					accent
 				/>
-				<StatCard label="Fee" value={`${formatNumber(tx.fee)} nexu`} />
+				<StatCard
+					label="Fee"
+					value={<Unit>{formatNumber(tx.fee)}</Unit>}
+					hint="network fee paid"
+				/>
 				<StatCard
 					label="Block"
 					value={
@@ -134,7 +169,7 @@ export function TxDetailPage() {
 
 			<section className="card" aria-label="Transfer">
 				<h2>Transfer</h2>
-				<dl className="kv-grid" style={{ marginTop: '0.75rem' }}>
+				<dl className="kv-grid mt-md">
 					<div className="kv kv-full">
 						<dt>TxHash</dt>
 						<dd>
@@ -197,49 +232,47 @@ export function TxDetailPage() {
 			{tx.extraMessage ? (
 				<section className="card" aria-label="Message">
 					<h2>Message</h2>
-					<p className="tx-message" style={{ marginTop: '0.75rem' }}>
-						{tx.extraMessage}
-					</p>
+					<p className="tx-message mt-md">{tx.extraMessage}</p>
 				</section>
 			) : null}
 
 			{tx.hexInput ? (
 				<section className="card" aria-label="Raw input">
 					<h2>Raw input</h2>
-					{(() => {
-						const text = tryHexText(tx.hexInput)
-						return (
-							<p className="tx-message mono" style={{ marginTop: '0.75rem' }}>
-								{text ?? tx.hexInput}
-							</p>
-						)
-					})()}
+					<RawInput hexInput={tx.hexInput} />
 				</section>
 			) : null}
 
-			<section className="card" aria-label="Signature">
-				<h2>Signature</h2>
-				<dl className="kv-grid" style={{ marginTop: '0.75rem' }}>
-					<div className="kv">
-						<dt>v</dt>
-						<dd className="mono">{tx.sign.v}</dd>
-					</div>
-					<div className="kv kv-full">
-						<dt>r</dt>
-						<dd>
-							<HashValue value={tx.sign.r} head={24} tail={20} />
-						</dd>
-					</div>
-					<div className="kv kv-full">
-						<dt>s</dt>
-						<dd>
-							<HashValue value={tx.sign.s} head={24} tail={20} />
-						</dd>
-					</div>
-				</dl>
-			</section>
+			<details className="disclose">
+				<summary>Signature</summary>
+				<div className="disclose-body">
+					<dl className="kv-grid">
+						<div className="kv">
+							<dt>v</dt>
+							<dd className="mono">{tx.sign.v}</dd>
+						</div>
+						<div className="kv kv-full">
+							<dt>r</dt>
+							<dd>
+								<HashValue value={tx.sign.r} head={24} tail={20} />
+							</dd>
+						</div>
+						<div className="kv kv-full">
+							<dt>s</dt>
+							<dd>
+								<HashValue value={tx.sign.s} head={24} tail={20} />
+							</dd>
+						</div>
+					</dl>
+				</div>
+			</details>
 
 			<RawJson data={tx} summary="Raw transaction JSON" />
 		</div>
 	)
+}
+
+function RawInput({ hexInput }: { hexInput: string }) {
+	const text = tryHexText(hexInput)
+	return <p className="tx-message mono mt-md">{text ?? hexInput}</p>
 }

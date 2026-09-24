@@ -43,10 +43,18 @@ type WorkerRequestType =
 
 interface WorkerResponse<T = any> {
   id: string
-  type: WorkerRequestType
-  success: boolean
+  /**
+   * 'PROGRESS' = pesan tambahan SELAMA operasi berjalan (bukan hasil);
+   * tipe lain = balasan final yang me-resolve/men-reject promise.
+   */
+  type: WorkerRequestType | 'PROGRESS'
+  success?: boolean
   result?: T
   error?: string
+  /** Hanya pada type 'PROGRESS': fraksi 0..1. */
+  progress?: number
+  /** Hanya pada type 'PROGRESS': tipe operasi asli (untuk label UI). */
+  op?: WorkerRequestType
 }
 
 type EncryptPayload = { secret: string; passphrase: string; iterations?: number }
@@ -57,12 +65,21 @@ type CreateUnsignedTxPayload = { comTx: comTxInterface; nonce: number }
 
 // ---- Request Handlers ----
 
-const handleEncryptSecret = async (payload: EncryptPayload): Promise<EncryptedBlob> => {
-  return encryptSecret(payload.secret, payload.passphrase, payload.iterations)
+/** Laporkan progres 0..1 ke main thread (lihat router di bawah). */
+type ProgressReport = (fraction: number) => void
+
+const handleEncryptSecret = async (
+  payload: EncryptPayload,
+  report?: ProgressReport,
+): Promise<EncryptedBlob> => {
+  return encryptSecret(payload.secret, payload.passphrase, payload.iterations, undefined, report)
 }
 
-const handleDecryptSecret = async (payload: DecryptPayload): Promise<string> => {
-  return decryptSecret(payload.blob, payload.passphrase)
+const handleDecryptSecret = async (
+  payload: DecryptPayload,
+  report?: ProgressReport,
+): Promise<string> => {
+  return decryptSecret(payload.blob, payload.passphrase, undefined, report)
 }
 
 const handleDeriveKeys = async (payload: DeriveKeysPayload): Promise<{
@@ -101,7 +118,7 @@ const handleCreateUnsignedTx = async (payload: CreateUnsignedTxPayload): Promise
 
 // ---- Message Router ----
 
-const handlers: Record<WorkerRequestType, (payload: any) => Promise<any>> = {
+const handlers: Record<WorkerRequestType, (payload: any, report?: ProgressReport) => Promise<any>> = {
   ENCRYPT_SECRET: handleEncryptSecret,
   DECRYPT_SECRET: handleDecryptSecret,
   DERIVE_KEYS: handleDeriveKeys,
@@ -124,7 +141,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   }
 
   try {
-    const result = await handlers[type](payload)
+    const report: ProgressReport = (fraction) => {
+      self.postMessage({ id, type: 'PROGRESS', op: type, progress: fraction } satisfies WorkerResponse)
+    }
+    const result = await handlers[type](payload, report)
     const response: WorkerResponse = {
       id,
       type,

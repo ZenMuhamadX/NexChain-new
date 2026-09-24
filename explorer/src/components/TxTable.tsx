@@ -7,6 +7,7 @@ import {
 	timeAgo,
 	truncateMiddle,
 } from '../lib/format'
+import { Unit } from './common/Unit'
 
 /** Badge status transaksi. */
 export function TxStatus({ status }: { status: HistoryEntry['status'] }) {
@@ -17,6 +18,10 @@ export function TxStatus({ status }: { status: HistoryEntry['status'] }) {
  * Tabel transaksi umum — dipakai di detail blok, mempool, dan riwayat
  * address. Kolom "Block" hanya muncul kalau minimal satu entry punya
  * metadata blok (backend saat ini tidak selalu mengisinya).
+ *
+ * Di ≤760px tabel berubah menjadi daftar kartu (lihat `.table-responsive`)
+ * karena delapan kolom `nowrap` memaksa scroll horizontal di layar 360px
+ * tanpa ada petunjuk sama sekali.
  */
 export function TxTable({
 	transactions,
@@ -32,23 +37,34 @@ export function TxTable({
 
 	return (
 		<div className="table-wrap">
-			<table className="table">
+			<table className="table table-responsive">
+				<caption className="sr-only">
+					Transactions — hash, sender, receiver, amount, fee, age and status
+				</caption>
 				<thead>
 					<tr>
-						<th>TxHash</th>
-						<th>From</th>
-						<th>To</th>
-						<th className="num">Amount</th>
-						<th className="num">Fee</th>
-						<th>Age</th>
-						<th>Status</th>
-						{showBlock ? <th className="num">Block</th> : null}
+						<th scope="col">TxHash</th>
+						<th scope="col">From</th>
+						<th scope="col">To</th>
+						<th scope="col" className="num">
+							Amount
+						</th>
+						<th scope="col" className="num">
+							Fee
+						</th>
+						<th scope="col">Age</th>
+						<th scope="col">Status</th>
+						{showBlock ? (
+							<th scope="col" className="num">
+								Block
+							</th>
+						) : null}
 					</tr>
 				</thead>
 				<tbody>
 					{rows.map((tx, index) => (
 						<tr key={tx.txHash ?? `${tx.sender}-${tx.timestamp}-${index}`}>
-							<td>
+							<td data-label="TxHash">
 								{tx.txHash ? (
 									<Link
 										className="link mono"
@@ -61,7 +77,7 @@ export function TxTable({
 									<span className="muted">—</span>
 								)}
 							</td>
-							<td>
+							<td data-label="From">
 								<Link
 									className="link mono"
 									to={`/address/${tx.sender}`}
@@ -70,7 +86,7 @@ export function TxTable({
 									{truncateMiddle(tx.sender, 8, 6)}
 								</Link>
 							</td>
-							<td>
+							<td data-label="To">
 								<Link
 									className="link mono"
 									to={`/address/${tx.receiver}`}
@@ -79,16 +95,20 @@ export function TxTable({
 									{truncateMiddle(tx.receiver, 8, 6)}
 								</Link>
 							</td>
-							<td className="num">{formatNxc(tx.amount, 6)}</td>
-							<td className="num">{formatNumber(tx.fee)} nexu</td>
-							<td title={formatDateTime(tx.timestamp)}>
+							<td data-label="Amount" className="num">
+								{formatNxc(tx.amount, 6)}
+							</td>
+							<td data-label="Fee" className="num">
+								<Unit>{formatNumber(tx.fee)}</Unit>
+							</td>
+							<td data-label="Age" title={formatDateTime(tx.timestamp)}>
 								{timeAgo(tx.timestamp)}
 							</td>
-							<td>
+							<td data-label="Status">
 								<TxStatus status={tx.status} />
 							</td>
 							{showBlock ? (
-								<td className="num">
+								<td data-label="Block" className="num">
 									{tx.metadata ? (
 										<Link
 											className="link mono"
@@ -105,6 +125,7 @@ export function TxTable({
 					))}
 				</tbody>
 			</table>
+			<p className="scroll-hint">Scroll sideways to see every column →</p>
 		</div>
 	)
 }

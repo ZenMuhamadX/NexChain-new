@@ -4,6 +4,7 @@ import cors from 'cors'
 import { limiter } from 'rpc/middleware/limiter'
 import { rpc } from 'rpc/method'
 import { logRequest } from 'rpc/middleware/logging'
+import { getBlockState } from 'nexchain/storage/state/getState'
 
 const app = express()
 
@@ -22,6 +23,43 @@ app.use(logRequest)
 
 app.get('/', (_req, res) => {
 	res.status(200).json({ rpc_status: 'OK' })
+})
+
+// Endpoint health check untuk load balancer / monitoring (uptime, cron, dll).
+// Liveness: 200 selama server bisa merespons. Readiness: juga mengecek
+// kondisi state blockchain (RocksDB) — kalau DB bermasalah respons 503
+// supaya proxy/monitoring tahu node tidak siap menerima traffic.
+app.get('/health', async (_req, res) => {
+	const base = {
+		service: 'nexchain-rpc',
+		uptime: process.uptime(),
+		timestamp: new Date().toISOString(),
+	}
+
+	try {
+		const state = await getBlockState()
+		res.status(200).json({
+			...base,
+			status: 'ok',
+			db: state ? 'connected' : 'empty',
+			// Rantai belum punya genesis / state → blockchain null, tapi RPC
+			// tetap hidup (genesis dibuat otomatis di boot oleh server.ts).
+			blockchain: state
+				? {
+						currentBlockHeight: state.currentBlockHeight,
+						currentBlockHash: state.currentBlockHash,
+						lastUpdated: state.lastUpdated,
+					}
+				: null,
+		})
+	} catch (error) {
+		res.status(503).json({
+			...base,
+			status: 'error',
+			db: 'disconnected',
+			error: error instanceof Error ? error.message : 'Unknown error',
+		})
+	}
 })
 
 // Route utama

@@ -1,14 +1,18 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { rpc } from '../api/methods'
 import { BlockTable } from '../components/BlockTable'
-import { EmptyState, ErrorState, LoadingState } from '../components/common/States'
+import { PageSkeleton, SkeletonTable } from '../components/common/Skeleton'
+import { EmptyState, ErrorState } from '../components/common/States'
 import { useAsync } from '../hooks/useAsync'
 import { useChain } from '../hooks/useChainState'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { formatNumber } from '../lib/format'
 
 const PAGE_SIZE = 20
+const POLL_MS = 10_000
 
 export function BlocksPage() {
+	useDocumentTitle('Blocks')
 	const chain = useChain()
 	const [params, setParams] = useSearchParams()
 
@@ -19,10 +23,12 @@ export function BlocksPage() {
 	const from = latest !== undefined ? latest - (page - 1) * PAGE_SIZE : undefined
 	const inRange = from !== undefined && from >= 0
 
+	// Polling: tanpa ini `timeAgo` membeku sampai user reload manual,
+	// padahal chain terus berjalan di belakangnya.
 	const blocks = useAsync(
 		() => rpc.getBlocksRange(from!, PAGE_SIZE),
 		[from],
-		{ enabled: inRange },
+		{ enabled: inRange, pollMs: POLL_MS },
 	)
 
 	const setPage = (next: number) => {
@@ -32,10 +38,20 @@ export function BlocksPage() {
 	}
 
 	if (latest === undefined && chain.loading) {
-		return <LoadingState label="Loading chain state…" />
+		return (
+			<div className="page">
+				<PageSkeleton label="Loading chain state…" />
+			</div>
+		)
 	}
 	if (latest === undefined && chain.error) {
-		return <ErrorState error={chain.error} onRetry={chain.refresh} title="RPC unreachable" />
+		return (
+			<ErrorState
+				error={chain.error}
+				onRetry={chain.refresh}
+				title="RPC unreachable"
+			/>
+		)
 	}
 
 	// Halaman melewati akhir rantai (from < 0) atau hasil kosong.
@@ -52,7 +68,7 @@ export function BlocksPage() {
 					<p className="muted">
 						{inRange && blocks.data && blocks.data.length > 0 ? (
 							<>
-								Heights #{formatNumber(first)} – #{formatNumber(last)} · tip
+								Heights #{formatNumber(first)} – #{formatNumber(last)} · tip{' '}
 								#{formatNumber(latest!)}
 							</>
 						) : (
@@ -87,13 +103,20 @@ export function BlocksPage() {
 						title="No older blocks"
 						hint="This page is past the genesis block."
 						action={
-							<button type="button" className="btn btn-primary" onClick={() => setPage(1)}>
+							<button
+								type="button"
+								className="btn btn-primary"
+								onClick={() => setPage(1)}
+							>
 								Go to latest
 							</button>
 						}
 					/>
 				) : blocks.loading && !blocks.data ? (
-					<LoadingState label="Loading blocks…" />
+					<div className="state-block" role="status" aria-live="polite">
+						<span className="sr-only">Loading blocks…</span>
+						<SkeletonTable rows={8} cols={6} />
+					</div>
 				) : blocks.error && !blocks.data ? (
 					<ErrorState error={blocks.error} onRetry={blocks.refresh} />
 				) : isEmptyPage ? (
@@ -107,7 +130,9 @@ export function BlocksPage() {
 						}
 					/>
 				) : (
-					<BlockTable blocks={blocks.data ?? []} />
+					<>
+						<BlockTable blocks={blocks.data ?? []} highlightNew={page === 1} />
+					</>
 				)}
 			</section>
 		</div>

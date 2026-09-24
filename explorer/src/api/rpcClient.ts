@@ -97,29 +97,29 @@ export class NexchainRpcClient {
 			if (timeout.aborted) {
 				throw new RpcClientError(
 					'timeout',
-					`NexChain RPC tidak merespons dalam ${this.timeoutMs / 1000} detik.`,
+					`The NexChain RPC did not respond within ${this.timeoutMs / 1000} seconds.`,
 				)
 			}
 			if (error instanceof DOMException && error.name === 'AbortError') {
-				throw new RpcClientError('network', 'Permintaan dibatalkan.')
+				throw new RpcClientError('network', 'Request was cancelled.')
 			}
 			throw new RpcClientError(
 				'network',
-				'Tidak bisa terhubung ke NexChain RPC. Pastikan server berjalan: bun run rpc:start',
+				'Cannot reach the NexChain RPC. Make sure the server is running: bun run rpc:start',
 			)
 		}
 
 		if (response.status === 429) {
 			throw new RpcClientError(
 				'rate-limited',
-				'Terlalu banyak permintaan (rate limit). Coba lagi sebentar lagi.',
+				'Too many requests (rate limit). Try again in a moment.',
 				429,
 			)
 		}
 		if (!response.ok) {
 			throw new RpcClientError(
 				'http',
-				`NexChain RPC mengembalikan HTTP ${response.status}.`,
+				`The NexChain RPC returned HTTP ${response.status}.`,
 				response.status,
 			)
 		}
@@ -130,14 +130,14 @@ export class NexchainRpcClient {
 		} catch {
 			throw new RpcClientError(
 				'malformed-json',
-				'NexChain RPC mengembalikan JSON tidak valid.',
+				'The NexChain RPC returned malformed JSON.',
 			)
 		}
 
 		if (!payload || payload.jsonrpc !== '2.0' || payload.id !== id) {
 			throw new RpcClientError(
 				'invalid-response',
-				'NexChain RPC mengembalikan respons JSON-RPC tidak valid.',
+				'The NexChain RPC returned an invalid JSON-RPC response.',
 			)
 		}
 		if (payload.error) {

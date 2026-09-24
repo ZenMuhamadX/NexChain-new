@@ -4,10 +4,31 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>NexChain Explorer</title>
+		<meta
+			name="description"
+			content="Read-only block explorer for the NexChain blockchain — browse blocks, transactions, addresses and the live mempool."
+		/>
+		<meta name="theme-color" content="#056a9c" />
+
+		<!-- Share preview (Discord/Telegram/Slack) — dulu tampil kosong -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="NexChain Explorer" />
+		<meta property="og:title" content="NexChain Explorer" />
+		<meta
+			property="og:description"
+			content="Browse blocks, transactions, addresses and the live mempool on NexChain."
+		/>
+		<meta name="twitter:card" content="summary" />
+
+		<link
+			rel="icon"
+			href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23056a9c'/%3E%3Cpath d='M16 6l8.66 5v10L16 26l-8.66-5V11z' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='16' r='3.2' fill='%23fff'/%3E%3C/svg%3E"
+		/>
+
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
-			href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
 			rel="stylesheet"
 		/>
 		<style>
@@ -15,7 +36,35 @@
 				background: #fafbfd;
 				color-scheme: light;
 			}
+			html[data-theme='dark'] {
+				background: #0f1317;
+				color-scheme: dark;
+			}
 		</style>
+		<script>
+			// Terapkan tema tersimpan SEBELUM paint — tanpa ini user tema gelap
+			// melihat kilatan terang setiap kali muat ulang halaman.
+			(function () {
+				try {
+					var saved = localStorage.getItem('nex:theme')
+					var theme =
+						saved === 'light' || saved === 'dark'
+							? saved
+							: window.matchMedia('(prefers-color-scheme: dark)').matches
+								? 'dark'
+								: 'light'
+					document.documentElement.dataset.theme = theme
+					document.querySelector('html > style').textContent =
+						'html{background:' +
+						(theme === 'dark' ? '#0f1317' : '#fafbfd') +
+						';color-scheme:' +
+						theme +
+						';}'
+				} catch (error) {
+					/* localStorage diblokir — pakai tema terang */
+				}
+			})()
+		</script>
 	</head>
 	<body>
 		<div id="root"></div>

@@ -128,6 +128,8 @@ const deriveAesKey = async (
 	iterations: number,
 	usages: KeyUsage[],
 	webCrypto: Crypto,
+	/** Progress 0..1 selama PBKDF2 — opsional, TIDAK memengaruhi hasil kriptografis. */
+	onProgress?: (fraction: number) => void,
 ): Promise<CryptoKey> => {
 	const subtle = webCrypto.subtle
 	const material = await subtle.importKey(
@@ -138,13 +140,49 @@ const deriveAesKey = async (
 		['deriveKey'],
 	)
 
-	return subtle.deriveKey(
-		{ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
-		material,
-		{ name: 'AES-GCM', length: 256 },
-		false,
-		usages,
-	)
+	const deriveWith = (count: number): Promise<CryptoKey> =>
+		subtle.deriveKey(
+			{ name: 'PBKDF2', salt, iterations: count, hash: 'SHA-256' },
+			material,
+			{ name: 'AES-GCM', length: 256 },
+			false,
+			usages,
+		)
+
+	// Tanpa peninjau progres: jalur tunggal seperti sebelumnya
+	// (skrip pengujian Node memakai jalur ini — tanpa kalibrasi/timer).
+	if (!onProgress) return deriveWith(iterations)
+
+	// Progres berbasis waktu. PBKDF2 LINEAR terhadap jumlah iterasi, jadi
+	// kalibrasi singkat (maks 5.000 iterasi, <2% biaya total) memberi
+	// estimasi durasi, lalu progress = elapsed / estimasi.
+	// noble `pbkdf2Async` tidak mengekspos callback progres, dan Web Crypto
+	// native tidak bisa dipotong — pendekatan ini berlaku untuk KEDUA jalur.
+	const calibration = Math.min(iterations, 5_000)
+	const calStart = performance.now()
+	await deriveWith(calibration)
+	const estimateMs = ((performance.now() - calStart) / calibration) * iterations
+
+	let last = 0
+	onProgress(0)
+	const startedAt = performance.now()
+	const timer = setInterval(() => {
+		if (estimateMs <= 0) return
+		// Kap 0.99: bar tidak pernah "penuh" sebelum derive benar-benar selesai,
+		// dan tidak pernah mundur bila estimasi meleset.
+		const fraction = Math.min(0.99, (performance.now() - startedAt) / estimateMs)
+		if (fraction > last) {
+			last = fraction
+			onProgress(fraction)
+		}
+	}, 100)
+
+	try {
+		return await deriveWith(iterations)
+	} finally {
+		clearInterval(timer)
+		onProgress(1)
+	}
 }
 
 const requireNonEmpty = (value: string, label: string): void => {
@@ -194,6 +232,8 @@ export const encryptSecret = async (
 	iterations: number = KDF_ITERATIONS,
 	/** Untuk pengujian: paksa jalur Web Crypto ATAU fallback murni JS. */
 	webCrypto: Crypto = getCrypto(),
+	/** Progress 0..1 selama PBKDF2 (untuk UI). */
+	onProgress?: (fraction: number) => void,
 ): Promise<EncryptedBlob> => {
 	requireNonEmpty(secret, 'Rahasia yang dienkripsi')
 	requireNonEmpty(passphrase, 'Passphrase vault')
@@ -204,7 +244,7 @@ export const encryptSecret = async (
 	const salt = webCrypto.getRandomValues(new Uint8Array(SALT_BYTES))
 	const iv = webCrypto.getRandomValues(new Uint8Array(IV_BYTES))
 
-	const key = await deriveAesKey(passphrase, salt, iterations, ['encrypt'], webCrypto)
+	const key = await deriveAesKey(passphrase, salt, iterations, ['encrypt'], webCrypto, onProgress)
 	const ciphertext = await webCrypto.subtle.encrypt(
 		{ name: 'AES-GCM', iv },
 		key,
@@ -233,6 +273,8 @@ export const decryptSecret = async (
 	passphrase: string,
 	/** Untuk pengujian: paksa jalur Web Crypto ATAU fallback murni JS. */
 	webCrypto: Crypto = getCrypto(),
+	/** Progress 0..1 selama PBKDF2 (untuk UI). */
+	onProgress?: (fraction: number) => void,
 ): Promise<string> => {
 	validateBlob(blob)
 	requireNonEmpty(passphrase, 'Passphrase vault')
@@ -243,6 +285,7 @@ export const decryptSecret = async (
 		blob.iterations,
 		['decrypt'],
 		webCrypto,
+		onProgress,
 	)
 
 	let plain: ArrayBuffer

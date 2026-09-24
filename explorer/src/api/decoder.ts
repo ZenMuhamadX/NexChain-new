@@ -11,7 +11,7 @@ export function hexToString(hex: string): string {
 	for (let i = 0; i < clean.length; i += 2) {
 		const code = Number.parseInt(clean.slice(i, i + 2), 16)
 		if (Number.isNaN(code)) {
-			throw new RpcClientError('decode', 'Respons hex tidak valid.')
+			throw new RpcClientError('decode', 'Invalid hex response.')
 		}
 		output += String.fromCharCode(code)
 	}
@@ -23,7 +23,7 @@ export function decodeHexJson<T>(value: unknown): T {
 	if (typeof value !== 'string') {
 		throw new RpcClientError(
 			'invalid-response',
-			'Ekspektasi respons hex JSON dari NexChain RPC.',
+			'Expected a hex-encoded JSON response from the NexChain RPC.',
 		)
 	}
 	try {
@@ -32,7 +32,7 @@ export function decodeHexJson<T>(value: unknown): T {
 		if (error instanceof RpcClientError) throw error
 		throw new RpcClientError(
 			'decode',
-			'Respons hex tidak berisi JSON yang valid.',
+			'The hex response did not contain valid JSON.',
 		)
 	}
 }
@@ -42,7 +42,7 @@ export function decodeHexString(value: unknown): string {
 	if (typeof value !== 'string') {
 		throw new RpcClientError(
 			'invalid-response',
-			'Ekspektasi respons hex string dari NexChain RPC.',
+			'Expected a hex-encoded string response from the NexChain RPC.',
 		)
 	}
 	return hexToString(value)

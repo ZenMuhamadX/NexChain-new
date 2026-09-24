@@ -1,6 +1,15 @@
+import { useState } from 'react'
 import { CopyButton } from './CopyButton'
 
-/** Inspector JSON lipat — untuk data mentah apa pun. */
+/**
+ * Inspector data mentah.
+ *
+ * Perbaikan bug interaksi: tombol copy dulu ditanam DI DALAM `<summary>`,
+ * sehingga klik "Copy JSON" sekaligus membuka/menutup panel. `<summary>`
+ * juga wajib anak langsung `<details>`, jadi membungkusnya dengan flex tidak
+ * akan bekerja. Solusinya: kontrol penuh lewat React state, dengan
+ * `aria-expanded` yang benar — tombol copy dan toggle kini independen.
+ */
 export function RawJson({
 	data,
 	summary = 'Raw JSON',
@@ -8,20 +17,28 @@ export function RawJson({
 	data: unknown
 	summary?: string
 }) {
+	const [open, setOpen] = useState(false)
+	const json = JSON.stringify(data, null, 2)
+
 	return (
-		<details className="raw-json">
-			<summary>
-				{summary}
+		<div className="raw-json">
+			<div className="raw-json-head">
+				<button
+					type="button"
+					className="raw-json-toggle"
+					aria-expanded={open}
+					onClick={() => setOpen((value) => !value)}
+				>
+					<span className="raw-json-caret" aria-hidden="true">
+						{open ? '▾' : '▸'}
+					</span>
+					{summary}
+				</button>
 				<span className="raw-json-action">
-					<CopyButton
-						value={JSON.stringify(data, null, 2)}
-						label="Copy JSON"
-					/>
+					<CopyButton value={json} label="Copy JSON" />
 				</span>
-			</summary>
-			<pre className="raw-json-body">
-				{JSON.stringify(data, null, 2)}
-			</pre>
-		</details>
+			</div>
+			{open ? <pre className="raw-json-body">{json}</pre> : null}
+		</div>
 	)
 }

@@ -165,6 +165,76 @@ h3 {
 	animation: spin 0.7s linear infinite;
 }
 
+.spinner--sm {
+	width: 14px;
+	height: 14px;
+	border-width: 2px;
+}
+
+/* ---- Pill progres PBKDF2 (pojok kanan-bawah) ---- */
+.crypto-progress {
+	position: fixed;
+	right: 14px;
+	bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+	z-index: 60;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 210px;
+	padding: 10px 14px;
+	background: var(--bg-raised);
+	border: 1px solid var(--border-strong);
+	border-radius: var(--radius-sm);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+	pointer-events: none;
+	animation: fade-in 0.15s ease-out;
+}
+
+.crypto-progress__row {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+}
+
+.crypto-progress__label {
+	flex: 1;
+	min-width: 0;
+	font-size: 13px;
+	color: var(--text-dim);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.crypto-progress__pct {
+	font-family: var(--mono);
+	font-size: 12px;
+	color: var(--accent);
+	font-variant-numeric: tabular-nums;
+}
+
+.crypto-progress__track {
+	height: 4px;
+	background: var(--bg-hover);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.crypto-progress__bar {
+	height: 100%;
+	background: var(--accent);
+	border-radius: 2px;
+	transition: width 0.2s linear;
+}
+
+@media (max-width: 480px) {
+	.crypto-progress {
+		left: 14px;
+		right: 14px;
+		min-width: 0;
+	}
+}
+
 @keyframes spin {
 	to {
 		transform: rotate(360deg);

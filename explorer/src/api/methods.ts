@@ -42,7 +42,7 @@ const hexJsonOrThrow = async <T>(
 	if (value === undefined) {
 		throw new RpcClientError(
 			'invalid-response',
-			`${method} tidak mengembalikan data.`,
+			`${method} returned no data.`,
 		)
 	}
 	return value

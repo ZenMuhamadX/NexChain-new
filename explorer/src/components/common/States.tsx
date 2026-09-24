@@ -43,14 +43,17 @@ export function EmptyState({
 	title,
 	hint,
 	action,
+	titleAs: Title = 'p',
 }: {
 	title: string
 	hint?: ReactNode
 	action?: ReactNode
+	/** Pakai 'h1' bila empty state ini menjadi satu-satunya judul halaman. */
+	titleAs?: 'p' | 'h1'
 }) {
 	return (
 		<div className="state-block">
-			<p className="state-title">{title}</p>
+			<Title className="state-title">{title}</Title>
 			{hint ? <p className="state-message">{hint}</p> : null}
 			{action}
 		</div>

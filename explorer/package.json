@@ -8,6 +8,8 @@
 		"build": "tsc --noEmit && vite build",
 		"typecheck": "tsc --noEmit",
 		"preview": "vite preview",
+		"a11y": "node scripts/contrast-check.mjs",
+		"audit:ui": "node scripts/contrast-check.mjs && node scripts/class-coverage.mjs",
 		"smoke": "bun scripts/smoke.ts"
 	},
 	"dependencies": {

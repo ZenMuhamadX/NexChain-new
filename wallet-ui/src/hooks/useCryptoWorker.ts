@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import type { TxInterface } from 'interface/structTx'
 import type { comTxInterface } from 'interface/structComTx'
 import { getCryptoTimeout } from '@/lib/deviceCrypto'
+import { publishCryptoProgress } from '@/lib/cryptoProgress'
 import type { EncryptedBlob } from 'client/wallet/vaultCrypto'
 
 // ---- UUID Fallback (crypto.randomUUID not available in all browsers) ----
@@ -35,10 +36,18 @@ type WorkerRequestType =
 
 interface WorkerResponse<T = any> {
   id: string
-  type: WorkerRequestType
-  success: boolean
+  /**
+   * 'PROGRESS' = pesan tambahan SELAMA operasi berjalan (bukan hasil);
+   * tipe lain = balasan final yang me-resolve/men-reject promise.
+   */
+  type: WorkerRequestType | 'PROGRESS'
+  success?: boolean
   result?: T
   error?: string
+  /** Hanya pada type 'PROGRESS': fraksi 0..1. */
+  progress?: number
+  /** Hanya pada type 'PROGRESS': tipe operasi asli (untuk label UI). */
+  op?: WorkerRequestType
 }
 
 export type { EncryptedBlob } from 'client/wallet/vaultCrypto'
@@ -73,7 +82,7 @@ export const useCryptoWorker = () => {
     workerRef.current = worker
 
     worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
-      const { id, type, success, result, error: err } = event.data
+      const { id, type, success, result, error: err, progress, op } = event.data
 
       // Handle READY signal
       if (type === 'READY' as any) {
@@ -81,9 +90,19 @@ export const useCryptoWorker = () => {
         return
       }
 
+      // Progres intermediate: jangan sentuh pending (bukan hasil akhir)
+      if (type === 'PROGRESS') {
+        if (typeof progress === 'number') publishCryptoProgress({ phase: op ?? 'CRYPTO', fraction: progress })
+        return
+      }
+
       const pending = pendingRef.current.get(id)
       if (pending) {
         pendingRef.current.delete(id)
+        // Sinyal selesai agar pill progres sembunyi
+        if (type === 'ENCRYPT_SECRET' || type === 'DECRYPT_SECRET') {
+          publishCryptoProgress({ phase: type, fraction: 1 })
+        }
         if (success) {
           pending.resolve(result)
         } else {
@@ -127,6 +146,9 @@ export const useCryptoWorker = () => {
       setTimeout(() => {
         if (pendingRef.current.has(id)) {
           pendingRef.current.delete(id)
+          if (type === 'ENCRYPT_SECRET' || type === 'DECRYPT_SECRET') {
+            publishCryptoProgress({ phase: type, fraction: 1 })
+          }
           reject(new Error(`${type} timeout after ${timeout}ms`))
         }
       }, timeout)
@@ -208,7 +230,7 @@ const initSingletonWorker = (): Promise<void> => {
       })
 
       workerSingleton.onmessage = (event: MessageEvent<WorkerResponse>) => {
-        const { id, type, success, result, error: err } = event.data
+        const { id, type, success, result, error: err, progress, op } = event.data
 
         if (type === 'READY' as any) {
           singletonReady = true
@@ -216,9 +238,19 @@ const initSingletonWorker = (): Promise<void> => {
           return
         }
 
+        // Progres intermediate: sebarkan ke UI tanpa menyelesaikan request
+        if (type === 'PROGRESS') {
+          if (typeof progress === 'number') publishCryptoProgress({ phase: op ?? 'CRYPTO', fraction: progress })
+          return
+        }
+
         const pending = singletonPending.get(id)
         if (pending) {
           singletonPending.delete(id)
+          // Sinyal selesai agar pill progres sembunyi
+          if (type === 'ENCRYPT_SECRET' || type === 'DECRYPT_SECRET') {
+            publishCryptoProgress({ phase: type, fraction: 1 })
+          }
           if (success) {
             pending.resolve(result)
           } else {
@@ -252,6 +284,9 @@ const singletonRequest = async <T,>(type: WorkerRequestType, payload: any): Prom
     setTimeout(() => {
       if (singletonPending.has(id)) {
         singletonPending.delete(id)
+        if (type === 'ENCRYPT_SECRET' || type === 'DECRYPT_SECRET') {
+          publishCryptoProgress({ phase: type, fraction: 1 })
+        }
         reject(new Error(`${type} timeout after ${timeout}ms`))
       }
     }, timeout)

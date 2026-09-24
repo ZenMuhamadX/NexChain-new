@@ -1,17 +1,17 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { rpc } from '../api/methods'
 import { isNotFound } from '../api/rpcClient'
 import type { HistoryEntry, structBalance } from '../api/types'
+import { Breadcrumbs } from '../components/Breadcrumbs'
 import { TxTable } from '../components/TxTable'
 import { CopyButton } from '../components/common/CopyButton'
 import { RawJson } from '../components/common/RawJson'
 import { StatCard } from '../components/common/StatCard'
-import {
-	EmptyState,
-	ErrorState,
-	LoadingState,
-} from '../components/common/States'
+import { PageSkeleton, SkeletonTable } from '../components/common/Skeleton'
+import { EmptyState, ErrorState } from '../components/common/States'
 import { useAsync } from '../hooks/useAsync'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { ADDRESS_PATTERN } from '../lib/classify'
 import {
 	formatDateTime,
@@ -19,18 +19,26 @@ import {
 	formatNxcExact,
 	formatNumber,
 	timeAgo,
+	truncateMiddle,
 } from '../lib/format'
+
+const PAGE_SIZE = 25
 
 /**
  * Halaman address: saldo, nonce, jumlah transaksi, riwayat.
  * Format divalidasi dulu di client — backend melempar error untuk
  * address yang tidak valid, jadi lebih baik ditolak sebelum request.
  *
- * (Bagian saldo/badge kontrak DIHAPUS bersama fitur smart contract.)
+ * Riwayat dipaging di sisi klien: endpoint mengembalikan SELURUH history
+ * dalam satu respons, sehingga tanpa pagination alamat dengan ribuan
+ * transaksi akan me-render semuanya sekaligus dan menghentikan browser.
  */
 export function AddressPage() {
 	const { address = '' } = useParams()
 	const valid = ADDRESS_PATTERN.test(address)
+	const [page, setPage] = useState(1)
+
+	useDocumentTitle(valid ? `Address ${address.slice(0, 10)}…` : 'Address')
 
 	const account = useAsync<structBalance | undefined>(
 		async () => await rpc.getAccount(address),
@@ -44,12 +52,18 @@ export function AddressPage() {
 		{ enabled: valid },
 	)
 
+	useEffect(() => {
+		setPage(1)
+	}, [address])
+
 	const balance = account.data
 
 	if (!valid) {
 		return (
 			<div className="page">
+				<Breadcrumbs items={[{ label: 'Address' }]} />
 				<EmptyState
+					titleAs="h1"
 					title="Invalid address"
 					hint={
 						<>
@@ -67,12 +81,21 @@ export function AddressPage() {
 		)
 	}
 
-	if (account.loading && !balance) return <LoadingState label="Loading account…" />
+	if (account.loading && !balance) {
+		return (
+			<div className="page">
+				<Breadcrumbs items={[{ label: address }]} />
+				<PageSkeleton label="Loading account…" />
+			</div>
+		)
+	}
 
 	if (!balance && account.error && isNotFound(account.error)) {
 		return (
 			<div className="page">
+				<Breadcrumbs items={[{ label: address }]} />
 				<EmptyState
+					titleAs="h1"
 					title="Account not found"
 					hint={
 						<>
@@ -94,7 +117,9 @@ export function AddressPage() {
 	if (!balance) {
 		return (
 			<div className="page">
+				<Breadcrumbs items={[{ label: address }]} />
 				<EmptyState
+					titleAs="h1"
 					title="Account not found"
 					hint={
 						<>
@@ -114,16 +139,29 @@ export function AddressPage() {
 	const txs = history.data?.history ?? []
 	const txCount = history.data?.count ?? 0
 
+	const totalPages = Math.max(1, Math.ceil(txs.length / PAGE_SIZE))
+	const current = Math.min(page, totalPages)
+	const start = (current - 1) * PAGE_SIZE
+	const visible = txs.slice(start, start + PAGE_SIZE)
+
 	return (
 		<div className="page">
-			<div className="card address-hero">
+			<Breadcrumbs items={[{ label: `Address ${address.slice(0, 12)}…` }]} />
+
+			<div className="page-head">
 				<div>
-					<p className="section-title" style={{ margin: 0 }}>
-						Wallet address
-					</p>
-					<p className="mono" style={{ margin: '0.3rem 0 0' }}>
-						{balance.address}
-					</p>
+					<h1>
+						Address{' '}
+						<span className="mono muted">{truncateMiddle(address, 12, 10)}</span>
+					</h1>
+					<p className="muted">Balance, nonce and transaction history.</p>
+				</div>
+			</div>
+
+			<div className="card address-hero">
+				<div className="address-hero-main">
+					<p className="section-title">Wallet address</p>
+					<p className="address-hero-value mono">{balance.address}</p>
 				</div>
 				<CopyButton value={balance.address} label="Copy address" />
 			</div>
@@ -162,13 +200,40 @@ export function AddressPage() {
 					<h2>
 						History <span className="muted">({formatNumber(txCount)} tx)</span>
 					</h2>
+					{totalPages > 1 ? (
+						<div className="pager">
+							<button
+								type="button"
+								className="btn"
+								disabled={current <= 1}
+								onClick={() => setPage(current - 1)}
+							>
+								← Newer
+							</button>
+							<span className="pager-page">
+								Page {formatNumber(current)} of {formatNumber(totalPages)}
+							</span>
+							<button
+								type="button"
+								className="btn"
+								disabled={current >= totalPages}
+								onClick={() => setPage(current + 1)}
+							>
+								Older →
+							</button>
+						</div>
+					) : null}
 				</div>
+
 				{history.loading && !history.data ? (
-					<LoadingState label="Loading history…" />
+					<div className="state-block" role="status" aria-live="polite">
+						<span className="sr-only">Loading history…</span>
+						<SkeletonTable rows={6} cols={5} />
+					</div>
 				) : history.error && !history.data ? (
 					<ErrorState error={history.error} onRetry={history.refresh} />
-				) : txs.length > 0 ? (
-					<TxTable transactions={txs as HistoryEntry[]} />
+				) : visible.length > 0 ? (
+					<TxTable transactions={visible as HistoryEntry[]} />
 				) : (
 					<EmptyState
 						title="No transactions yet"
