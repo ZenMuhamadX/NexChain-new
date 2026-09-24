@@ -9,6 +9,15 @@
  * Communication: postMessage with request/response pattern using correlation IDs.
  */
 
+// Buffer polyfill — WAJIB: bip39 memanggil Buffer.from/isBuffer.
+// Worker punya context terpisah dari main thread, jadi polyfill di main.tsx TIDAK berlaku di sini.
+import { Buffer } from 'buffer'
+
+const g = globalThis as { Buffer?: typeof Buffer }
+if (typeof g.Buffer === 'undefined') {
+  g.Buffer = Buffer
+}
+
 import { encryptSecret, decryptSecret } from 'client/wallet/vaultCrypto'
 import { generateKeysFromMnemonic } from 'key/genKeyFromMnemonic'
 import { signTransaction } from 'sign/signTransaction'
@@ -64,6 +73,7 @@ const handleDeriveKeys = async (payload: DeriveKeysPayload): Promise<{
 }> => {
   // Normalisasi mnemonic (defense in depth: vault sudah normalisasi, tapi worker juga)
   const normalized = payload.mnemonic.trim().replace(/\s+/g, ' ')
+
   const derived = generateKeysFromMnemonic(normalized)
   // generateKeysFromMnemonic returns { privateKey: 'Nx...', publicKey: 'Nx...' }
   // We need address derived from publicKey (without Nx prefix)

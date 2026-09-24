@@ -65,24 +65,57 @@ const HEX_RE = /^[0-9a-f]+$/
 let fallbackAnnounced = false
 
 /**
+ * Deteksi apakah context aman (HTTPS atau localhost).
+ * Web Crypto HANYA boleh dipakai di secure context.
+ */
+const isSecureContext = (): boolean => {
+	// Node/Bun environment
+	if (typeof window === 'undefined' && typeof globalThis !== 'undefined' && globalThis.process?.versions?.node) {
+		return true
+	}
+	// Browser: cek isSecureContext API (standar)
+	if (typeof window !== 'undefined' && typeof window.isSecureContext === 'boolean') {
+		return window.isSecureContext
+	}
+	// Fallback manual check untuk browser lama
+	if (typeof location !== 'undefined') {
+		const protocol = location.protocol
+		const hostname = location.hostname
+		return protocol === 'https:' || hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1'
+	}
+	return false
+}
+
+/**
  * Crypto yang dipakai vault.
  *
- * Urutan: Web Crypto bila `crypto.subtle` ada (context aman / Node >= 18),
+ * Urutan: Web Crypto HANYA di secure context (HTTPS/localhost),
  * SELAIN ITU fallback murni JS — pengguna di `http://<ip-lan>:5174` tetap
  * bisa create/unlock wallet, bukan lagi error "membutuhkan konteks aman".
  */
 const getCrypto = (): Crypto => {
-	// Cast eksplisit: proyek ini di-typecheck dengan DOM sekaligus @types/node,
-	// yang sama-sama menyatakan `crypto`; cast struktural menghindari ambiguitas.
+	// Force fallback di insecure context (HTTP + non-localhost)
+	if (!isSecureContext()) {
+		if (!fallbackAnnounced) {
+			fallbackAnnounced = true
+			console.warn(
+				`[vault] Insecure context detected (${
+					typeof location === 'undefined' ? 'unknown' : location.origin
+				}) — memakai fallback PBKDF2+AES-GCM murni JS. Skema dan format ciphertext IDENTIK dengan Web Crypto.`,
+			)
+		}
+		return createJsCrypto()
+	}
+
+	// Secure context: pakai Web Crypto native
 	const webCrypto = (globalThis as { crypto?: Crypto }).crypto
 	if (webCrypto?.subtle) return webCrypto
 
+	// Fallback safety net
 	if (!fallbackAnnounced) {
 		fallbackAnnounced = true
 		console.warn(
-			`[vault] crypto.subtle tidak tersedia (origin tidak aman: ${
-				typeof location === 'undefined' ? 'tanpa lokasi' : location.origin
-			}) — memakai fallback PBKDF2+AES-GCM murni JS. Skema dan format ciphertext IDENTIK dengan Web Crypto.`,
+			`[vault] crypto.subtle tidak tersedia di secure context — memakai fallback JS.`,
 		)
 	}
 	return createJsCrypto()

@@ -96,13 +96,16 @@ export const createWalletVault = (
 
 	/** Mnemonic -> kunci + alamat, memakai jalur turunan yang SUDAH teruji. */
 	const deriveFromMnemonic = (mnemonic: string): UnlockedWallet => {
-		const { privateKey, publicKey } = generateKeysFromMnemonic(mnemonic)
+		// Normalisasi spasi: handle copy-paste dengan spasi ganda/newline
+		// Idempotent: aman dipakai berulang, tidak mengubah mnemonic yang sudah bersih
+		const normalized = mnemonic.trim().replace(/\s+/g, ' ')
+		const { privateKey, publicKey } = generateKeysFromMnemonic(normalized)
 		return {
 			// generateAddressFromPublicKey menerima hex TANPA prefix Nx
 			address: generateAddressFromPublicKey(publicKey.slice(2)),
 			publicKey,
 			privateKey,
-			mnemonic,
+			mnemonic: normalized,
 		}
 	}
 

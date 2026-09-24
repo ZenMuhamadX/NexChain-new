@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import type { TxInterface } from 'interface/structTx'
 import type { comTxInterface } from 'interface/structComTx'
 import { getCryptoTimeout } from '@/lib/deviceCrypto'
+import type { EncryptedBlob } from 'client/wallet/vaultCrypto'
 
 // ---- UUID Fallback (crypto.randomUUID not available in all browsers) ----
 const generateId = (): string => {
@@ -40,14 +41,7 @@ interface WorkerResponse<T = any> {
   error?: string
 }
 
-export interface EncryptedBlob {
-  version: number
-  kdf: string
-  iterations: number
-  salt: string
-  iv: string
-  ciphertext: string
-}
+export type { EncryptedBlob } from 'client/wallet/vaultCrypto'
 
 export interface DerivedKeys {
   privateKey: string
