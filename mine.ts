@@ -1,12 +1,27 @@
-// import { mineBlock } from "nexchain/miner/mining";
+import { runMiner } from 'client/miner/runMiner'
 
-import { createGenesisBlock } from "nexchain/block/createGenesisBlock";
+/**
+ * Jalur lokal: `bun run miner [alamat]` — menjalankan miner eksternal yang
+ * menghitung PoW di proses INI dan mengirimnya ke node via JSON-RPC.
+ *
+ * Node TIDAK lagi meng-mine sendiri (dulu `mineBlock` menutup loop PoW di
+ * dalam proses node → freeze event loop & RPC harus dimatikan). Dengan pola
+ * ini node dan miner bisa jalan berdampingan; RPC tetap melayani selama
+ * blok diproduksi ±30 detik sekali (difficulty adaptif).
+ *
+ * Alamat penerima hadiah: argumen CLI, atau fallback ke wallet node bila
+ * tidak ada argumen (pemakaian lokal; miner di mesin lain wajib mengirim
+ * alamatnya sendiri).
+ */
+const argAddress = process.argv[2]
+const minerAddress = argAddress
 
-// import { getAccount } from "account/balance/getAccount";
-// import { toNxc } from "nexchain/nexucoin/toNxc";
+if (!minerAddress) {
+	console.error(
+		'Usage: bun run miner <NxC...alamat-penerima-hadiah>\n' +
+			'(atau sediakan wallet node di config/wallet.conf.json untuk fallback otomatis)',
+	)
+	process.exit(1)
+}
 
-// mineBlock("NxC41296362ed2b66dd3bd0a4c96b440ecf36973189")
-
-// getAccount('NxC41296362ed2b66dd3bd0a4c96b440ecf36973189').then(res => console.log(toNxc(res?.balance)))
-
-createGenesisBlock()
+runMiner(minerAddress)

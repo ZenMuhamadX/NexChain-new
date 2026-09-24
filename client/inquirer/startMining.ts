@@ -1,41 +1,45 @@
 import { askQuestion } from 'client/inquirer/askQuestion'
-import { mineBlock } from 'nexchain/miner/mining'
+import { runMiner } from 'client/miner/runMiner'
+import { getMyWalletAddress } from 'account/myWalletAddress'
+import { isValidAddress } from 'nexchain/transaction/utils/isValidAddress'
 
+/**
+ * CLI interaktif untuk menjalankan miner eksternal.
+ *
+ * Berbeda dengan versi lama yang memanggil `mineBlock` (loop PoW di dalam
+ * proses node — RPC harus dimatikan saat mining), kini mining sepenuhnya
+ * terjadi lewat `nex_getWork`/`nex_submitWork` ke node: proses ini hanya
+ * klien HTTP penghitung PoW, sehingga node tetap melayani RPC 24/7.
+ * Ctrl+C ditangani di dalam `runMiner` (berhenti rapi di antara chunk hash).
+ */
 export const CLIMining = async () => {
-	// Meminta alamat dari pengguna
-	const address = await askQuestion({
-		message: 'Enter your address',
+	// Default alamat dari wallet node bila ada (hanya baca file wallet).
+	let defaultAddress = ''
+	try {
+		defaultAddress = getMyWalletAddress() ?? ''
+	} catch {
+		defaultAddress = ''
+	}
+
+	let address: string = await askQuestion({
+		message: 'Enter your address (penerima hadiah blok)',
 		name: 'address',
 		type: 'input',
-		description: 'Enter address for receiver reward',
+		description:
+			'Miner eksternal: PoW dihitung di sini, node tetap melayani RPC.',
+		default: defaultAddress || undefined,
 	})
+
+	while (!isValidAddress(address)) {
+		console.log(`Alamat tidak valid (format NxC + 40 hex): "${address}"`)
+		address = await askQuestion({
+			message: 'Enter your address (penerima hadiah blok)',
+			name: 'address',
+			type: 'input',
+			default: defaultAddress || undefined,
+		})
+	}
 
 	console.log('Mining dimulai dengan alamat:', address)
-
-	let isMining = true // Flag untuk mengontrol proses mining
-
-	// Menangani Ctrl + C
-	process.on('SIGINT', async () => {
-		isMining = false
-		console.log('\nProses mining dihentikan sementara...')
-
-		const confirmation = await askQuestion({
-			message: 'Apakah Anda yakin ingin menghentikan mining dan keluar?',
-			name: 'confirmExit',
-			type: 'confirm',
-		})
-
-		if (confirmation.confirmExit) {
-			console.log('Mining dihentikan. Keluar dari aplikasi.')
-			process.exit()
-		} else {
-			console.log('Melanjutkan proses mining...')
-			isMining = true
-		}
-	})
-
-	// Loop asinkron untuk mining
-	while (isMining) {
-		await mineBlock(address) // Menunggu hingga miningBlock selesai sebelum memulai lagi
-	}
+	await runMiner(address)
 }
