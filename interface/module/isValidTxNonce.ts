@@ -36,9 +36,8 @@ export const validateTransactionNonce = async (
 	// Hitung tx sender yang masih pending di mempool
 	const mempool = await loadMempool().catch(() => [])
 	const pendingCount = Array.isArray(mempool)
-		? mempool.filter(
-				(tx: TxInterface) => tx.sender === transaction.sender,
-			).length
+		? mempool.filter((tx: TxInterface) => tx.sender === transaction.sender)
+				.length
 		: 0
 
 	const expectedNonce = accountNonce + pendingCount

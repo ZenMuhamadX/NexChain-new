@@ -14,10 +14,8 @@
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
 		"resolveJsonModule": true,
-		"baseUrl": ".",
-		"ignoreDeprecations": "6.0",
 		"paths": {
-			"@/*": ["src/*"],
+			"@/*": ["./src/*"],
 			"account/*": ["../account/*"],
 			"base/*": ["../base/*"],
 			"client/*": ["../client/*"],

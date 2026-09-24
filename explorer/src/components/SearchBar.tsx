@@ -17,7 +17,9 @@ function readRecent(): string[] {
 	try {
 		const raw = localStorage.getItem(RECENT_KEY)
 		const list = raw ? (JSON.parse(raw) as unknown) : null
-		return Array.isArray(list) ? list.filter((v): v is string => typeof v === 'string') : []
+		return Array.isArray(list)
+			? list.filter((v): v is string => typeof v === 'string')
+			: []
 	} catch {
 		return []
 	}
@@ -64,7 +66,8 @@ export function SearchBar() {
 	// shortcut "/" — lewati kalau user sedang mengetik di kontrol lain.
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return
+			if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey)
+				return
 			const target = event.target as HTMLElement | null
 			const tag = target?.tagName.toLowerCase()
 			if (
@@ -160,7 +163,9 @@ export function SearchBar() {
 							onClick={() => go(item)}
 						>
 							<span className="mono">{item}</span>
-							<span className="chip">{KIND_LABEL[classifyQuery(item)] || 'query'}</span>
+							<span className="chip">
+								{KIND_LABEL[classifyQuery(item)] || 'query'}
+							</span>
 						</button>
 					))}
 					<button

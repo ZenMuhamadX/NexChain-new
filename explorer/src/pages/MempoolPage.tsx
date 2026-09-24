@@ -6,7 +6,11 @@ import { TxTable } from '../components/TxTable'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useAsync } from '../hooks/useAsync'
 import { useChain } from '../hooks/useChainState'
-import { EmptyState, ErrorState, LoadingState } from '../components/common/States'
+import {
+	EmptyState,
+	ErrorState,
+	LoadingState,
+} from '../components/common/States'
 import { formatNumber } from '../lib/format'
 
 const PAGE_SIZE = 25
@@ -31,7 +35,13 @@ export function MempoolPage() {
 		return <LoadingState label="Loading mempool…" />
 	}
 	if (pool.error && !pool.data) {
-		return <ErrorState error={pool.error} onRetry={pool.refresh} title="Mempool unavailable" />
+		return (
+			<ErrorState
+				error={pool.error}
+				onRetry={pool.refresh}
+				title="Mempool unavailable"
+			/>
+		)
 	}
 
 	return (
@@ -58,7 +68,9 @@ export function MempoolPage() {
 									className="btn"
 									onClick={() => setShown((value) => value + PAGE_SIZE)}
 								>
-									Show {formatNumber(Math.min(PAGE_SIZE, pending.length - shown))} more
+									Show{' '}
+									{formatNumber(Math.min(PAGE_SIZE, pending.length - shown))}{' '}
+									more
 								</button>
 							</div>
 						) : (

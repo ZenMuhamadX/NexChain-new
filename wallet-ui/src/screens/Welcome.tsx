@@ -16,8 +16,8 @@ export const Welcome = ({
 		</span>
 		<h1>NexChain Wallet</h1>
 		<p className="muted">
-			Dompet browser untuk jaringan eksperimental NexChain. Kunci disimpan
-			lokal di perangkat ini — tidak pernah dikirim ke mana pun.
+			Dompet browser untuk jaringan eksperimental NexChain. Kunci disimpan lokal
+			di perangkat ini — tidak pernah dikirim ke mana pun.
 		</p>
 		<div className="stack">
 			<button className="primary" onClick={() => go('create')}>

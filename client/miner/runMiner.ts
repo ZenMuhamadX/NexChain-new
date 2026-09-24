@@ -241,16 +241,16 @@ export const runMiner = async (minerAddress: string): Promise<void> => {
 				hash: solution.hash,
 			})
 			if (submitted.status) {
-				console.log(
-					`Blok #${submitted.height} DITERIMA: ${submitted.hash}\n`,
-				)
+				console.log(`Blok #${submitted.height} DITERIMA: ${submitted.hash}\n`)
 			} else {
 				console.error(
 					`Ditolak: ${submitted.error ?? 'unknown'} — ambil job baru...\n`,
 				)
 			}
 		} catch (error) {
-			console.error(`Submit gagal: ${errorMessage(error)} — ambil job baru...\n`)
+			console.error(
+				`Submit gagal: ${errorMessage(error)} — ambil job baru...\n`,
+			)
 		}
 		// ---- 4. ulangi: blok sudah bergerak, job lama pasti basi ----------
 	}

@@ -15,7 +15,12 @@ interface SettingsProps {
  * Tab Pengaturan: ganti URL RPC (persist ke localStorage), kunci wallet,
  * dan hapus semua data (wipe IndexedDB + localStorage).
  */
-export const Settings = ({ onLock, onWipe, setTab, mnemonic }: SettingsProps): React.JSX.Element => {
+export const Settings = ({
+	onLock,
+	onWipe,
+	setTab,
+	mnemonic,
+}: SettingsProps): React.JSX.Element => {
 	const [url, setUrl] = useState(getRpcUrl())
 	const [message, setMessage] = useState('')
 	const [error, setError] = useState('')
@@ -45,9 +50,17 @@ export const Settings = ({ onLock, onWipe, setTab, mnemonic }: SettingsProps): R
 			<h2>Pengaturan</h2>
 
 			<div className="group">
-				<label className="label" htmlFor="rpc">URL RPC Node</label>
+				<label className="label" htmlFor="rpc">
+					URL RPC Node
+				</label>
 				<div className="input-action">
-					<input id="rpc" className="mono" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://localhost:8000/rpc" />
+					<input
+						id="rpc"
+						className="mono"
+						value={url}
+						onChange={(e) => setUrl(e.target.value)}
+						placeholder="http://localhost:8000/rpc"
+					/>
 					<button onClick={saveUrl}>Simpan URL</button>
 				</div>
 				{message ? <p className="ok">{message}</p> : null}
@@ -58,7 +71,10 @@ export const Settings = ({ onLock, onWipe, setTab, mnemonic }: SettingsProps): R
 				<div className="group">
 					<p className="label">Mnemonic</p>
 					<div className="row">
-						<button className="ghost" onClick={() => setShowMnemonic((v) => !v)}>
+						<button
+							className="ghost"
+							onClick={() => setShowMnemonic((v) => !v)}
+						>
 							<Icon name={showMnemonic ? 'eyeOff' : 'eye'} size={15} />
 							{showMnemonic ? 'Sembunyikan' : 'Tampilkan'}
 						</button>
@@ -67,13 +83,21 @@ export const Settings = ({ onLock, onWipe, setTab, mnemonic }: SettingsProps): R
 							{copied ? 'Tersalin' : 'Salin'}
 						</button>
 					</div>
-					{showMnemonic ? <p className="mono mnemonic-show">{mnemonic}</p> : null}
+					{showMnemonic ? (
+						<p className="mono mnemonic-show">{mnemonic}</p>
+					) : null}
 				</div>
 			) : null}
 
 			<div className="group">
 				<div className="row">
-					<button className="ghost" onClick={() => { onLock(); setTab('ringkasan') }}>
+					<button
+						className="ghost"
+						onClick={() => {
+							onLock()
+							setTab('ringkasan')
+						}}
+					>
 						<Icon name="lock" size={15} />
 						Kunci Wallet
 					</button>

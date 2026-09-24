@@ -42,7 +42,11 @@ body,
 
 body {
 	background:
-		radial-gradient(1100px 480px at 50% -180px, rgba(139, 149, 255, 0.07), transparent 65%),
+		radial-gradient(
+			1100px 480px at 50% -180px,
+			rgba(139, 149, 255, 0.07),
+			transparent 65%
+		),
 		var(--bg);
 	color: var(--text);
 	font-family:

@@ -19,7 +19,8 @@ const css = readFileSync(join(root, 'src', 'style.css'), 'utf8')
 const IDENT = /^[a-zA-Z][\w-]*$/
 
 const cssClasses = new Set()
-for (const match of css.matchAll(/\.([a-zA-Z][\w-]*)/g)) cssClasses.add(match[1])
+for (const match of css.matchAll(/\.([a-zA-Z][\w-]*)/g))
+	cssClasses.add(match[1])
 
 /** class yang hanya muncul lewat interpolasi — wajib ada juga. */
 const DYNAMIC_CLASSES = [

@@ -25,7 +25,9 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
 						{crumb.to && !isLast ? (
 							<Link to={crumb.to}>{crumb.label}</Link>
 						) : (
-							<span aria-current={isLast ? 'page' : undefined}>{crumb.label}</span>
+							<span aria-current={isLast ? 'page' : undefined}>
+								{crumb.label}
+							</span>
 						)}
 					</Fragment>
 				)

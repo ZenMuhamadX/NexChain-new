@@ -58,7 +58,10 @@ const main = async (): Promise<void> => {
 			BufferNpm.from('abc').toString('hex') === '616263',
 			'buffer npm: Buffer.from bekerja',
 		)
-		ok(BufferNpm.isBuffer(BufferNpm.from([1, 2, 3])), 'buffer npm: Buffer.isBuffer bekerja')
+		ok(
+			BufferNpm.isBuffer(BufferNpm.from([1, 2, 3])),
+			'buffer npm: Buffer.isBuffer bekerja',
+		)
 
 		// --- 2. vault Phase C di atas KV memori ---
 		const kv = createMemoryKV()
@@ -68,7 +71,10 @@ const main = async (): Promise<void> => {
 		// frasa dibangkitkan lewat modul key/ yang SAMA dengan jalur UI (SetupWallet)
 		const phrase = genRandomMnemonic()
 		const info = await vault.importMnemonic(phrase, 'rahasia-123')
-		ok((await vault.hasWallet()) && info.address.startsWith('NxC'), 'vault: import mnemonic + alamat NxC')
+		ok(
+			(await vault.hasWallet()) && info.address.startsWith('NxC'),
+			'vault: import mnemonic + alamat NxC',
+		)
 		ok(vault.isUnlocked(), 'vault: langsung terbuka setelah import')
 
 		const derived = vault.getUnlocked()
@@ -86,7 +92,10 @@ const main = async (): Promise<void> => {
 		ok(wrongRejected, 'vault: passphrase salah ditolak')
 
 		await vault.unlock('rahasia-123')
-		ok(vault.getUnlocked().address === info.address, 'vault: unlock mengembalikan alamat sama')
+		ok(
+			vault.getUnlocked().address === info.address,
+			'vault: unlock mengembalikan alamat sama',
+		)
 
 		// --- 3. alur kirim murni (tanpa I/O) ---
 		const receiver = 'NxC' + '0'.repeat(39) + '1'
@@ -96,9 +105,15 @@ const main = async (): Promise<void> => {
 			feeNexu: '5000',
 		}
 		const errors = validateSendForm(form, info.address)
-		ok(Object.keys(errors).length === 0, 'sendFlow: form valid lolos validasi (mirror server)')
+		ok(
+			Object.keys(errors).length === 0,
+			'sendFlow: form valid lolos validasi (mirror server)',
+		)
 
-		const bad = validateSendForm({ ...form, feeNexu: '999999999999999999999999' }, info.address)
+		const bad = validateSendForm(
+			{ ...form, feeNexu: '999999999999999999999999' },
+			info.address,
+		)
 		ok(bad.fee !== undefined, 'sendFlow: fee > jumlah ditolak (aturan server)')
 
 		const unsigned = createUnsignedTransaction(
@@ -112,16 +127,24 @@ const main = async (): Promise<void> => {
 			},
 			0,
 		)
-		ok(unsigned.status && unsigned.tx !== undefined, 'alur: createUnsignedTransaction sukses')
+		ok(
+			unsigned.status && unsigned.tx !== undefined,
+			'alur: createUnsignedTransaction sukses',
+		)
 
 		if (unsigned.tx) {
 			const signed = signTransaction(unsigned.tx, derived.privateKey)
 			ok(
-				signed.sign.r.length > 0 && signed.sign.s.length > 0 && signed.sign.v > 0,
+				signed.sign.r.length > 0 &&
+					signed.sign.s.length > 0 &&
+					signed.sign.v > 0,
 				'alur: signTransaction menghasilkan r/s/v',
 			)
 			const encoded = encodeTx(signed)
-			ok(typeof encoded === 'string' && encoded.length > 0, 'alur: encodeTx menghasilkan base64')
+			ok(
+				typeof encoded === 'string' && encoded.length > 0,
+				'alur: encodeTx menghasilkan base64',
+			)
 			ok(
 				/^[A-Za-z0-9+/]+={0,2}$/.test(encoded),
 				'alur: payload berupa base64 msgpack (bukan JSON telanjang)',
@@ -135,7 +158,10 @@ const main = async (): Promise<void> => {
 		//    memakai aturan berbeda (default = module.exports) sehingga bug ini
 		//    TIDAK pernah terdeteksi oleh gate runtime di Bun.
 		const requireCjs = createRequire(import.meta.url)
-		const bip39Ns = requireCjs('bip39') as { __esModule?: boolean; default?: unknown }
+		const bip39Ns = requireCjs('bip39') as {
+			__esModule?: boolean
+			default?: unknown
+		}
 		ok(
 			bip39Ns.__esModule === true && bip39Ns.default === undefined,
 			'interop: bip39 __esModule=true TANPA properti default (akar bug)',
@@ -160,8 +186,19 @@ const main = async (): Promise<void> => {
 		// Guard: nol default-import bip39 di seluruh root module yang di-alias UI.
 		const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
 		const scanDirs = [
-			'account', 'base', 'client', 'common', 'interface', 'key',
-			'logging', 'nexchain', 'p2p', 'rpc', 'scripts', 'sign', 'wallet',
+			'account',
+			'base',
+			'client',
+			'common',
+			'interface',
+			'key',
+			'logging',
+			'nexchain',
+			'p2p',
+			'rpc',
+			'scripts',
+			'sign',
+			'wallet',
 		]
 		let offender = ''
 		for (const dir of scanDirs) {

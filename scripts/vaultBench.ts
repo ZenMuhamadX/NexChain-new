@@ -58,11 +58,14 @@ const configs: Config[] = [
 	},
 	...[20, 100, 250].map((asyncTick) => ({
 		label: `noble asyncTick=${asyncTick}`,
-		run: () => pbkdf2Async(sha256, PASS, SALT, { c: ITER, dkLen: DK, asyncTick }),
+		run: () =>
+			pbkdf2Async(sha256, PASS, SALT, { c: ITER, dkLen: DK, asyncTick }),
 	})),
 ]
 
-const best = new Map<string, number>(configs.map((c) => [c.label, Number.POSITIVE_INFINITY]))
+const best = new Map<string, number>(
+	configs.map((c) => [c.label, Number.POSITIVE_INFINITY]),
+)
 const all = new Map<string, number[]>(configs.map((c) => [c.label, []]))
 
 console.log(
@@ -96,7 +99,9 @@ for (const config of configs) {
 	)
 }
 
-const syncBest = best.get(configs.find((c) => c.label.startsWith('noble sync'))!.label)!
+const syncBest = best.get(
+	configs.find((c) => c.label.startsWith('noble sync'))!.label,
+)!
 console.log('\n  --- overhead yield (vs noble sync) ---')
 for (const config of configs.filter((c) => c.label.includes('asyncTick'))) {
 	const ms = best.get(config.label)!
@@ -110,5 +115,7 @@ for (const config of configs.filter((c) => c.label.includes('asyncTick'))) {
 
 console.log('\n  --- semua run (untuk melihat sebaran noise) ---')
 for (const [label, runs] of all) {
-	console.log(`  ${label.padEnd(34)} ${runs.map((r) => r.toFixed(0)).join(' / ')} ms`)
+	console.log(
+		`  ${label.padEnd(34)} ${runs.map((r) => r.toFixed(0)).join(' / ')} ms`,
+	)
 }

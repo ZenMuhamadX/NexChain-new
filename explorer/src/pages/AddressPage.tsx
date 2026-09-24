@@ -152,7 +152,9 @@ export function AddressPage() {
 				<div>
 					<h1>
 						Address{' '}
-						<span className="mono muted">{truncateMiddle(address, 12, 10)}</span>
+						<span className="mono muted">
+							{truncateMiddle(address, 12, 10)}
+						</span>
 					</h1>
 					<p className="muted">Balance, nonce and transaction history.</p>
 				</div>

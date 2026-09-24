@@ -157,7 +157,8 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 		if (!genesis) {
 			return {
 				status: false,
-				error: 'Genesis block not found — buat genesis dulu (auto saat RPC boot)',
+				error:
+					'Genesis block not found — buat genesis dulu (auto saat RPC boot)',
 			}
 		}
 

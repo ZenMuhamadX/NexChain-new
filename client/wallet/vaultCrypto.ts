@@ -70,18 +70,31 @@ let fallbackAnnounced = false
  */
 const isSecureContext = (): boolean => {
 	// Node/Bun environment
-	if (typeof window === 'undefined' && typeof globalThis !== 'undefined' && globalThis.process?.versions?.node) {
+	if (
+		typeof window === 'undefined' &&
+		typeof globalThis !== 'undefined' &&
+		globalThis.process?.versions?.node
+	) {
 		return true
 	}
 	// Browser: cek isSecureContext API (standar)
-	if (typeof window !== 'undefined' && typeof window.isSecureContext === 'boolean') {
+	if (
+		typeof window !== 'undefined' &&
+		typeof window.isSecureContext === 'boolean'
+	) {
 		return window.isSecureContext
 	}
 	// Fallback manual check untuk browser lama
 	if (typeof location !== 'undefined') {
 		const protocol = location.protocol
 		const hostname = location.hostname
-		return protocol === 'https:' || hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1'
+		return (
+			protocol === 'https:' ||
+			hostname === 'localhost' ||
+			hostname === '127.0.0.1' ||
+			hostname === '[::1]' ||
+			hostname === '::1'
+		)
 	}
 	return false
 }
@@ -170,7 +183,10 @@ const deriveAesKey = async (
 		if (estimateMs <= 0) return
 		// Kap 0.99: bar tidak pernah "penuh" sebelum derive benar-benar selesai,
 		// dan tidak pernah mundur bila estimasi meleset.
-		const fraction = Math.min(0.99, (performance.now() - startedAt) / estimateMs)
+		const fraction = Math.min(
+			0.99,
+			(performance.now() - startedAt) / estimateMs,
+		)
 		if (fraction > last) {
 			last = fraction
 			onProgress(fraction)
@@ -194,9 +210,7 @@ const requireNonEmpty = (value: string, label: string): void => {
 /** Validasi catatan dari penyimpanan sebelum dipakai (bisa jadi korup/diganti). */
 const validateBlob = (blob: EncryptedBlob): void => {
 	if (!blob || blob.kdf !== KDF_NAME) {
-		throw new Error(
-			`Format vault tidak didukung (kdf: ${String(blob?.kdf)}).`,
-		)
+		throw new Error(`Format vault tidak didukung (kdf: ${String(blob?.kdf)}).`)
 	}
 	if (blob.version !== VAULT_VERSION) {
 		throw new Error(`Versi vault tidak didukung (${String(blob.version)}).`)
@@ -244,7 +258,14 @@ export const encryptSecret = async (
 	const salt = webCrypto.getRandomValues(new Uint8Array(SALT_BYTES))
 	const iv = webCrypto.getRandomValues(new Uint8Array(IV_BYTES))
 
-	const key = await deriveAesKey(passphrase, salt, iterations, ['encrypt'], webCrypto, onProgress)
+	const key = await deriveAesKey(
+		passphrase,
+		salt,
+		iterations,
+		['encrypt'],
+		webCrypto,
+		onProgress,
+	)
 	const ciphertext = await webCrypto.subtle.encrypt(
 		{ name: 'AES-GCM', iv },
 		key,

@@ -73,33 +73,35 @@ const timeoutSignal = (): AbortSignal | null =>
 		? AbortSignal.timeout(RPC_TIMEOUT_MS)
 		: null
 
-export const client: JSONRPCClient = new JSONRPCClient(async (jsonRPCRequest) => {
-	let response: Response
-	try {
-		response = await fetch(rpcUrl, {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-			},
-			body: JSON.stringify(jsonRPCRequest),
-			signal: timeoutSignal(),
+export const client: JSONRPCClient = new JSONRPCClient(
+	async (jsonRPCRequest) => {
+		let response: Response
+		try {
+			response = await fetch(rpcUrl, {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json',
+				},
+				body: JSON.stringify(jsonRPCRequest),
+				signal: timeoutSignal(),
+			})
+		} catch (error) {
+			// Gagal jaringan ATAU timeout — keduanya diberi konteks endpoint supaya
+			// banner UI bisa langsung menunjuk ke URL yang salah (bukan sekadar
+			// "Load failed" yang tidak menyebut apa pun).
+			const reason = error instanceof Error ? error.message : String(error)
+			throw new Error(`${rpcUrl} tidak terjangkau: ${reason}`)
+		}
+		if (response.status === 200) {
+			// Use client.receive when you received a JSON-RPC response.
+			return response
+				.json()
+				.then((jsonRPCResponse) => client.receive(jsonRPCResponse))
+		}
+		console.error({
+			status: response.status,
+			statusText: response.statusText,
 		})
-	} catch (error) {
-		// Gagal jaringan ATAU timeout — keduanya diberi konteks endpoint supaya
-		// banner UI bisa langsung menunjuk ke URL yang salah (bukan sekadar
-		// "Load failed" yang tidak menyebut apa pun).
-		const reason = error instanceof Error ? error.message : String(error)
-		throw new Error(`${rpcUrl} tidak terjangkau: ${reason}`)
-	}
-	if (response.status === 200) {
-		// Use client.receive when you received a JSON-RPC response.
-		return response
-			.json()
-			.then((jsonRPCResponse) => client.receive(jsonRPCResponse))
-	}
-	console.error({
-		status: response.status,
-		statusText: response.statusText,
-	})
-	return Promise.reject(new Error('JSON-RPC error'))
-})
+		return Promise.reject(new Error('JSON-RPC error'))
+	},
+)

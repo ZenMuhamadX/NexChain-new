@@ -52,9 +52,7 @@ const fetchBlockRange = async (
 		(h) => h >= 0,
 	)
 	const blocks = await Promise.all(
-		heights.map((h) =>
-			getBlockByHeight(h, 'json').catch(() => undefined),
-		),
+		heights.map((h) => getBlockByHeight(h, 'json').catch(() => undefined)),
 	)
 	return blocks
 		.filter((block): block is Block => block !== undefined && block !== null)
@@ -74,14 +72,14 @@ const parseCount = (params: unknown): number | undefined => {
 }
 
 // Normalisasi params range: {from,count} | [from,count] | number(from)
-const parseRangeParams = (params: unknown): {
+const parseRangeParams = (
+	params: unknown,
+): {
 	from: number | undefined
 	count: number | undefined
 } => {
 	const num = (value: unknown): number | undefined =>
-		typeof value === 'number' && Number.isFinite(value)
-			? value
-			: undefined
+		typeof value === 'number' && Number.isFinite(value) ? value : undefined
 	if (typeof params === 'number') return { from: num(params), count: undefined }
 	if (Array.isArray(params))
 		return { from: num(params[0]), count: num(params[1]) }
@@ -136,7 +134,10 @@ rpc.addMethod('nex_getChainId', async () => {
 rpc.addMethod('nex_getRecentBlocks', async (params?: unknown) => {
 	const state = await getBlockState()
 	if (!state) return []
-	return await fetchBlockRange(state.currentBlockHeight, parseCount(params) ?? 10)
+	return await fetchBlockRange(
+		state.currentBlockHeight,
+		parseCount(params) ?? 10,
+	)
 })
 
 // Explorer: pagination blok dari height `from` ke bawah

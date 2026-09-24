@@ -26,13 +26,17 @@ const fetchChainId = async (): Promise<number | undefined> => {
  * bukan masing-masing bikin request sendiri.
  */
 export function useChainState(pollMs = 5000): ChainInfo {
-	const { data, error, loading, refresh } = useAsync(async () => {
-		const [state, chainId] = await Promise.all([
-			rpc.getBlockState(),
-			fetchChainId(),
-		])
-		return { state, chainId }
-	}, [], { pollMs })
+	const { data, error, loading, refresh } = useAsync(
+		async () => {
+			const [state, chainId] = await Promise.all([
+				rpc.getBlockState(),
+				fetchChainId(),
+			])
+			return { state, chainId }
+		},
+		[],
+		{ pollMs },
+	)
 
 	return {
 		state: data?.state,

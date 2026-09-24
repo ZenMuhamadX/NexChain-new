@@ -4,7 +4,13 @@ import { Icon } from '../ui/Icon'
 import type { Tab } from '../types'
 
 /** Tab Terima: tampilkan alamat penuh + QR sederhana (via API eksternal opsional). */
-export const Receive = ({ address, setTab }: { address: string; setTab: (t: Tab) => void }): React.JSX.Element => {
+export const Receive = ({
+	address,
+	setTab,
+}: {
+	address: string
+	setTab: (t: Tab) => void
+}): React.JSX.Element => {
 	const [copied, setCopied] = useState(false)
 
 	const copy = async (): Promise<void> => {
@@ -23,9 +29,13 @@ export const Receive = ({ address, setTab }: { address: string; setTab: (t: Tab)
 					<Icon name={copied ? 'check' : 'copy'} size={15} />
 					{copied ? 'Tersalin' : 'Salin'}
 				</button>
-				<button className="ghost" onClick={() => setTab('ringkasan')}>Kembali</button>
+				<button className="ghost" onClick={() => setTab('ringkasan')}>
+					Kembali
+				</button>
 			</div>
-			<p className="hint">Pastikan jaringan selaras sebelum meminta pengiriman.</p>
+			<p className="hint">
+				Pastikan jaringan selaras sebelum meminta pengiriman.
+			</p>
 		</section>
 	)
 }

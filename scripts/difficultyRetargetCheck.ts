@@ -66,11 +66,19 @@ ok('300s -> 24.25 (kuantisasi 0.25)', r300 === 24.25, `got ${r300}`)
 
 // Idle panjang: langkah di-clamp -4 lalu dijepit floor -> 9-4=5 -> 8.
 const rFloor = retargetByTime(9, T0, T0 + 1_000_000_000)
-ok(`idle panjang -> floor ${MIN_DIFFICULTY_BITS}`, rFloor === MIN_DIFFICULTY_BITS, `got ${rFloor}`)
+ok(
+	`idle panjang -> floor ${MIN_DIFFICULTY_BITS}`,
+	rFloor === MIN_DIFFICULTY_BITS,
+	`got ${rFloor}`,
+)
 
 // Blok sangat cepat (1 detik): langkah di-clamp +2 -> 47+2=49 -> ceiling 48.
 const rCeil = retargetByTime(47, T0, T0 + 1_000)
-ok(`sangat cepat -> ceiling ${MAX_DIFFICULTY_BITS}`, rCeil === MAX_DIFFICULTY_BITS, `got ${rCeil}`)
+ok(
+	`sangat cepat -> ceiling ${MAX_DIFFICULTY_BITS}`,
+	rCeil === MAX_DIFFICULTY_BITS,
+	`got ${rCeil}`,
+)
 
 // Guard: jarak waktu negatif (kemunduran jam) -> flat, bukan koreksi.
 ok('jarak negatif -> flat 27.5', retargetByTime(BASE, T0 + 5_000, T0) === BASE)
@@ -109,7 +117,11 @@ const exp = mkJob(27.5)
 const lastTs = Date.now() - 300_000
 const target = Date.now() + JOB_TTL_MS + 60_000
 const rExp = cleanupExpiredJobs(lastTs, target)
-ok('expiry -> retarget dari job TERBARU (27.5 -> 23.5)', rExp === 23.5, `got ${rExp}`)
+ok(
+	'expiry -> retarget dari job TERBARU (27.5 -> 23.5)',
+	rExp === 23.5,
+	`got ${rExp}`,
+)
 ok('job kadaluarsa dihapus', getJob(exp.jobId) === undefined)
 ok('job ikut terhapus (map bersih)', getJob(live.jobId) === undefined)
 ok(

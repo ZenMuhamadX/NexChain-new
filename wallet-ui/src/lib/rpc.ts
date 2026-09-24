@@ -69,16 +69,14 @@ export interface HistoryRow {
  * mengirim. Mempool difilter ke address yang relevan dan didedup per txHash
  * (konfirmasi menang bila sudah ada di keduanya).
  */
-export const fetchHistory = async (
-	address: string,
-): Promise<HistoryRow[]> => {
+export const fetchHistory = async (address: string): Promise<HistoryRow[]> => {
 	const raw = (await rpcRequest('nex_getTransactionsByAddress', address)) as
-		| { count?: number; history?: (string | HistoryEntry)[] }
-		| undefined
+		{ count?: number; history?: (string | HistoryEntry)[] } | undefined
 
 	const confirmed: HistoryEntry[] = []
 	for (const item of raw?.history ?? []) {
-		const entry = typeof item === 'string' ? decodeHexJson<HistoryEntry>(item) : item
+		const entry =
+			typeof item === 'string' ? decodeHexJson<HistoryEntry>(item) : item
 		if (entry) confirmed.push(entry)
 	}
 
@@ -110,9 +108,10 @@ export interface SendRawResult {
 export const sendRawTransaction = async (
 	signed: TxInterface,
 ): Promise<SendRawResult> => {
-	const response = (await rpcRequest('nex_sendRawTransaction', encodeTx(signed))) as
-		| SendRawResult
-		| undefined
+	const response = (await rpcRequest(
+		'nex_sendRawTransaction',
+		encodeTx(signed),
+	)) as SendRawResult | undefined
 
 	const result: SendRawResult = { status: response?.status === true }
 	if (typeof response?.txHash === 'string') result.txHash = response.txHash

@@ -3,11 +3,12 @@ import { rpc } from '../api/methods'
 import { TxTable } from '../components/TxTable'
 import { HashValue } from '../components/common/HashValue'
 import { StatCard } from '../components/common/StatCard'
+import { CardSkeleton, SkeletonLines } from '../components/common/Skeleton'
 import {
-	CardSkeleton,
-	SkeletonLines,
-} from '../components/common/Skeleton'
-import { EmptyState, ErrorState, LoadingState } from '../components/common/States'
+	EmptyState,
+	ErrorState,
+	LoadingState,
+} from '../components/common/States'
 import { useAsync } from '../hooks/useAsync'
 import { useChain } from '../hooks/useChainState'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -33,12 +34,24 @@ export function DashboardPage() {
 		pollMs: 5000,
 	})
 	const mempool = useAsync(() => rpc.getMempool(), [], { pollMs: 8000 })
-	if (!chain.state && chain.loading) return <LoadingState label="Connecting to node…" />
+	if (!chain.state && chain.loading)
+		return <LoadingState label="Connecting to node…" />
 	if (!chain.state && chain.error) {
-		return <ErrorState error={chain.error} onRetry={chain.refresh} title="RPC unreachable" />
+		return (
+			<ErrorState
+				error={chain.error}
+				onRetry={chain.refresh}
+				title="RPC unreachable"
+			/>
+		)
 	}
 	if (!chain.state) {
-		return <ErrorState error={new Error('Chain state unavailable')} onRetry={chain.refresh} />
+		return (
+			<ErrorState
+				error={new Error('Chain state unavailable')}
+				onRetry={chain.refresh}
+			/>
+		)
 	}
 
 	const state = chain.state
@@ -85,7 +98,9 @@ export function DashboardPage() {
 				/>
 				<StatCard
 					label="Avg block time"
-					value={avgBlockTime !== undefined ? formatDuration(avgBlockTime) : '—'}
+					value={
+						avgBlockTime !== undefined ? formatDuration(avgBlockTime) : '—'
+					}
 					hint={`last ${windowed.length} blocks`}
 				/>
 				<StatCard
@@ -136,7 +151,8 @@ export function DashboardPage() {
 							<div className="kv">
 								<dt>Timestamp</dt>
 								<dd title={formatDateTime(latest.timestamp)}>
-									{timeAgo(latest.timestamp)} · {formatDateTime(latest.timestamp)}
+									{timeAgo(latest.timestamp)} ·{' '}
+									{formatDateTime(latest.timestamp)}
 								</dd>
 							</div>
 							<div className="kv">
@@ -175,7 +191,9 @@ export function DashboardPage() {
 					<div className="card-head">
 						<h2>
 							Mempool{' '}
-							<span className="muted">({formatNumber(pending.length)} pending)</span>
+							<span className="muted">
+								({formatNumber(pending.length)} pending)
+							</span>
 						</h2>
 						<Link className="btn btn-ghost" to="/mempool">
 							View all →
@@ -206,7 +224,6 @@ export function DashboardPage() {
 					)}
 				</section>
 			</div>
-
 		</div>
 	)
 }

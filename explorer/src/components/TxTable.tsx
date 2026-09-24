@@ -28,9 +28,7 @@ export function TxTable({
 }: {
 	transactions: (HistoryEntry | undefined)[]
 }) {
-	const rows = transactions.filter(
-		(tx): tx is HistoryEntry => tx !== undefined,
-	)
+	const rows = transactions.filter((tx): tx is HistoryEntry => tx !== undefined)
 	if (rows.length === 0) return null
 
 	const showBlock = rows.some((tx) => tx.metadata !== undefined)

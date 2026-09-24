@@ -20,16 +20,16 @@ export function BlocksPage() {
 	const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1
 
 	const latest = chain.state?.currentBlockHeight
-	const from = latest !== undefined ? latest - (page - 1) * PAGE_SIZE : undefined
+	const from =
+		latest !== undefined ? latest - (page - 1) * PAGE_SIZE : undefined
 	const inRange = from !== undefined && from >= 0
 
 	// Polling: tanpa ini `timeAgo` membeku sampai user reload manual,
 	// padahal chain terus berjalan di belakangnya.
-	const blocks = useAsync(
-		() => rpc.getBlocksRange(from!, PAGE_SIZE),
-		[from],
-		{ enabled: inRange, pollMs: POLL_MS },
-	)
+	const blocks = useAsync(() => rpc.getBlocksRange(from!, PAGE_SIZE), [from], {
+		enabled: inRange,
+		pollMs: POLL_MS,
+	})
 
 	const setPage = (next: number) => {
 		const search = new URLSearchParams()
@@ -55,7 +55,8 @@ export function BlocksPage() {
 	}
 
 	// Halaman melewati akhir rantai (from < 0) atau hasil kosong.
-	const isEmptyPage = inRange && !blocks.loading && (blocks.data?.length ?? 0) === 0
+	const isEmptyPage =
+		inRange && !blocks.loading && (blocks.data?.length ?? 0) === 0
 	const hasMore = (blocks.data?.length ?? 0) === PAGE_SIZE
 	const first = from ?? 0
 	const last = first - (blocks.data?.length ?? 0) + 1
@@ -68,8 +69,8 @@ export function BlocksPage() {
 					<p className="muted">
 						{inRange && blocks.data && blocks.data.length > 0 ? (
 							<>
-								Heights #{formatNumber(first)} – #{formatNumber(last)} · tip{' '}
-								#{formatNumber(latest!)}
+								Heights #{formatNumber(first)} – #{formatNumber(last)} · tip #
+								{formatNumber(latest!)}
 							</>
 						) : (
 							<>Tip #{formatNumber(latest ?? 0)}</>

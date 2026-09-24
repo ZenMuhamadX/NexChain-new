@@ -7,7 +7,11 @@
  * backend-nya memuat dependensi runtime (LevelDB) yang tak relevan bagi UI.
  */
 import type { structBalance } from 'interface/structBalance'
-import type { blockStruct, blockSummary, HexString } from 'interface/structBlock'
+import type {
+	blockStruct,
+	blockSummary,
+	HexString,
+} from 'interface/structBlock'
 import type { TxInterface } from 'interface/structTx'
 
 export type { blockStruct, blockSummary, HexString, structBalance, TxInterface }

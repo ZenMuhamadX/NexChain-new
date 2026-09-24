@@ -200,7 +200,10 @@ const findSolution = (
 	return null
 }
 
-const runMiner = async (rpcUrl: string, minerAddress: string): Promise<void> => {
+const runMiner = async (
+	rpcUrl: string,
+	minerAddress: string,
+): Promise<void> => {
 	let running = true
 	process.once('SIGINT', () => {
 		running = false
@@ -289,22 +292,26 @@ const runMiner = async (rpcUrl: string, minerAddress: string): Promise<void> => 
 
 		// ---- 3. submit ---------------------------------------------------
 		try {
-			const submitted = await rpcCall<SubmitResponse>(rpcUrl, 'nex_submitWork', {
-				jobId: work.jobId,
-				nonce: solution.nonce,
-				hash: solution.hash,
-			})
+			const submitted = await rpcCall<SubmitResponse>(
+				rpcUrl,
+				'nex_submitWork',
+				{
+					jobId: work.jobId,
+					nonce: solution.nonce,
+					hash: solution.hash,
+				},
+			)
 			if (submitted.status) {
-				console.log(
-					`Blok #${submitted.height} DITERIMA: ${submitted.hash}\n`,
-				)
+				console.log(`Blok #${submitted.height} DITERIMA: ${submitted.hash}\n`)
 			} else {
 				console.error(
 					`Ditolak: ${submitted.error ?? 'unknown'} — ambil job baru...\n`,
 				)
 			}
 		} catch (error) {
-			console.error(`Submit gagal: ${errorMessage(error)} — ambil job baru...\n`)
+			console.error(
+				`Submit gagal: ${errorMessage(error)} — ambil job baru...\n`,
+			)
 		}
 		// ---- 4. ulangi: blok sudah bergerak, job lama pasti basi ----------
 	}

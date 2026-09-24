@@ -32,17 +32,14 @@ export function SearchResultsPage() {
 	const kind = classifyQuery(query)
 	const isHash = kind === 'hash'
 
-	const { data, error, loading, refresh } = useAsync(
-		async () => {
-			if (!isHash) return { block: false, tx: false }
-			const hash = query.replace(/^0x/, '')
-			const block = await rpc.getBlockByHash(hash).catch(() => undefined)
-			if (block) return { block: true, tx: false }
-			const tx = await rpc.getTransactionByHash(hash).catch(() => undefined)
-			return { block: false, tx: Boolean(tx) }
-		},
-		[query, isHash],
-	)
+	const { data, error, loading, refresh } = useAsync(async () => {
+		if (!isHash) return { block: false, tx: false }
+		const hash = query.replace(/^0x/, '')
+		const block = await rpc.getBlockByHash(hash).catch(() => undefined)
+		if (block) return { block: true, tx: false }
+		const tx = await rpc.getTransactionByHash(hash).catch(() => undefined)
+		return { block: false, tx: Boolean(tx) }
+	}, [query, isHash])
 
 	// — tujuan redirect, dihitung setelah semua hook —
 	if (kind === 'height') return <Navigate to={`/block/${query}`} replace />
@@ -50,9 +47,11 @@ export function SearchResultsPage() {
 	if (data?.block) {
 		return <Navigate to={`/block/${query.replace(/^0x/, '')}`} replace />
 	}
-	if (data?.tx) return <Navigate to={`/tx/${query.replace(/^0x/, '')}`} replace />
+	if (data?.tx)
+		return <Navigate to={`/tx/${query.replace(/^0x/, '')}`} replace />
 
-	if (isHash && loading && !data) return <LoadingState label="Resolving hash…" />
+	if (isHash && loading && !data)
+		return <LoadingState label="Resolving hash…" />
 
 	if (isHash && error && !data && !isNotFound(error)) {
 		return <ErrorState error={error} onRetry={refresh} />

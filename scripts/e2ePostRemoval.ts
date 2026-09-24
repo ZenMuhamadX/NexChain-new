@@ -56,7 +56,8 @@ const rpcCall = <T>(method: string, params?: unknown): Promise<T> =>
 const hexJson = async <T>(
 	method: string,
 	params?: unknown,
-): Promise<T | undefined> => decodeHexJson<T>(await rpcCall<unknown>(method, params))
+): Promise<T | undefined> =>
+	decodeHexJson<T>(await rpcCall<unknown>(method, params))
 
 interface BlockStateLite {
 	currentBlockHeight?: number
@@ -76,7 +77,8 @@ const getBal = async (address: string): Promise<number> =>
 	(await hexJson<AccountLite>('nex_getAccount', address))?.balance ?? 0
 
 const pendingOf = async (address: string): Promise<number> =>
-	(await hexJson<PendingLite>('nex_getPendingBalance', address))?.pendingAmount ?? 0
+	(await hexJson<PendingLite>('nex_getPendingBalance', address))
+		?.pendingAmount ?? 0
 
 const nextNonce = async (address: string): Promise<number> =>
 	(await hexJson<number>('nex_getNextNonce', address)) ?? 0
@@ -132,7 +134,11 @@ const sendTx = async (
 	if (legacyFlags) {
 		// Klien LAMA masih menyertakan flag kontrak — field ini tidak ikut
 		// di-hash, dan kini bersifat opsional: harus tetap diterima mempool.
-		tx = { ...tx, isSenderContract: true, isReceiverContract: true } as TxInterface
+		tx = {
+			...tx,
+			isSenderContract: true,
+			isReceiverContract: true,
+		} as TxInterface
 	}
 	try {
 		const accepted = await rpcCall<boolean>('nex_sendTransaction', encodeTx(tx))
@@ -216,9 +222,15 @@ console.log(`E2E pasca-penghapusan kontrak — sender ${sender}\n`)
 const pre = await hexJson<unknown[]>('nex_getMempool')
 const preCount = Array.isArray(pre) ? pre.length : 0
 if (preCount > 0) {
-	console.log(`  (mempool punya ${preCount} sisa — di-drain dulu dengan 1 blok)`)
+	console.log(
+		`  (mempool punya ${preCount} sisa — di-drain dulu dengan 1 blok)`,
+	)
 	const drained = await mineOneBlock()
-	ok('drain blok sisa mempool', drained !== null, drained ? `height=${drained}` : 'timeout')
+	ok(
+		'drain blok sisa mempool',
+		drained !== null,
+		drained ? `height=${drained}` : 'timeout',
+	)
 }
 const pre2 = await hexJson<unknown[]>('nex_getMempool')
 const mem0 = Array.isArray(pre2) ? pre2.length : 0
@@ -239,10 +251,11 @@ try {
 
 // ---- 2. getWork → seluruh rantai LAMA diverifikasi dengan skema baru ----
 const H0 = await heightOf()
-const work = await rpcCall<{ status?: boolean; height?: number; error?: string }>(
-	'nex_getWork',
-	{ minerAddress: sender },
-)
+const work = await rpcCall<{
+	status?: boolean
+	height?: number
+	error?: string
+}>('nex_getWork', { minerAddress: sender })
 ok(
 	'getWork lolos — rantai LAMA valid dengan skema baru (verifyStruct opsional)',
 	work?.status === true && work.height === H0 + 1,
@@ -265,7 +278,10 @@ ok(
 	pendA === A_AMOUNT + A_FEE,
 	`pending=${pendA}, ekspektasi=${A_AMOUNT + A_FEE}`,
 )
-ok('saldo konfirmasi belum berubah (belum dieksekusi)', (await getBal(sender)) === bal0)
+ok(
+	'saldo konfirmasi belum berubah (belum dieksekusi)',
+	(await getBal(sender)) === bal0,
+)
 // CATATAN: nex_getAccount mengembalikan objek DEFAULT {balance:0,...} untuk
 // alamat yang belum pernah ada — bukan null. Yang dicek: saldo & transaksi 0.
 const r1Before = await hexJson<{ balance?: number; transactionCount?: number }>(
@@ -283,7 +299,11 @@ const R2 = await freshAddress()
 const B_AMOUNT = 7
 const B_FEE = 1
 const txB = await sendTx(R2, B_AMOUNT, B_FEE, true)
-ok('TX-B (flag kontrak gaya lama) tetap diterima — kompat klien lama', txB.ok, txB.error ?? '')
+ok(
+	'TX-B (flag kontrak gaya lama) tetap diterima — kompat klien lama',
+	txB.ok,
+	txB.error ?? '',
+)
 const pendB = await pendingOf(sender)
 ok(
 	'reserve bertambah tepat setelah TX-B',
@@ -324,10 +344,18 @@ ok(
 
 // ---- 7. mine 1 blok (miner eksternal, node tetap hidup) ----
 const H1 = await mineOneBlock()
-ok('blok diproduksi miner eksternal', H1 !== null, H1 !== null ? `height=${H1}` : `timeout; log: ${minerLog.slice(-400)}`)
+ok(
+	'blok diproduksi miner eksternal',
+	H1 !== null,
+	H1 !== null ? `height=${H1}` : `timeout; log: ${minerLog.slice(-400)}`,
+)
 
 if (H1 !== null) {
-	const ourHashes = [txA.txHash!, txB.txHash!, ...accepted.map((item) => item.txHash!)]
+	const ourHashes = [
+		txA.txHash!,
+		txB.txHash!,
+		...accepted.map((item) => item.txHash!),
+	]
 
 	const pendAfter = await pendingOf(sender)
 	ok('pending → 0 setelah blok', pendAfter === 0, `pending=${pendAfter}`)
@@ -335,7 +363,11 @@ if (H1 !== null) {
 	const r1 = await getBal(R1)
 	const r2 = await getBal(R2)
 	const r3 = await getBal(R3)
-	ok('receiver TX-A = amount TEPAT (sekali, tanpa double-credit)', r1 === A_AMOUNT, `got=${r1}`)
+	ok(
+		'receiver TX-A = amount TEPAT (sekali, tanpa double-credit)',
+		r1 === A_AMOUNT,
+		`got=${r1}`,
+	)
 	ok('receiver TX-B = amount TEPAT', r2 === B_AMOUNT, `got=${r2}`)
 	ok(
 		`receiver burst = ${S}×amount TEPAT (eksekusi tepat sekali)`,
@@ -344,7 +376,10 @@ if (H1 !== null) {
 	)
 
 	// blok & coinbase
-	const blk = await hexJson<{ block?: Record<string, any> }>('nex_getBlockByHeight', H1)
+	const blk = await hexJson<{ block?: Record<string, any> }>(
+		'nex_getBlockByHeight',
+		H1,
+	)
 	const block = blk?.block
 	const coinbase = block?.transactions?.[0]
 	const totalReward: number = block?.totalReward ?? 0
@@ -385,10 +420,11 @@ if (H1 !== null) {
 
 // ---- 8. getWork setelah blok baru: rantai baru + lama tetap lolos ----
 const H2 = await heightOf()
-const work2 = await rpcCall<{ status?: boolean; height?: number; error?: string }>(
-	'nex_getWork',
-	{ minerAddress: sender },
-)
+const work2 = await rpcCall<{
+	status?: boolean
+	height?: number
+	error?: string
+}>('nex_getWork', { minerAddress: sender })
 ok(
 	'getWork setelah blok baru — verifikasi penuh tetap lolos',
 	work2?.status === true && work2.height === H2 + 1,

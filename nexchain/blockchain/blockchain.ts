@@ -39,9 +39,7 @@ export class BlockChains {
 		block: Block,
 	): Promise<{ status: boolean; block: Block | undefined }> {
 		try {
-			if (
-				!verifyMerkleRoot(block.block.transactions, block.block.merkleRoot)
-			) {
+			if (!verifyMerkleRoot(block.block.transactions, block.block.merkleRoot)) {
 				throw new Error('Merkle root verification failed.')
 			}
 

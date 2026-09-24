@@ -141,10 +141,14 @@ for (const [name, tokens] of themes) {
 
 /* ---------- budget Fase 0: type scale & spacing ---------- */
 console.log('\n── budget token (Fase 0) ──')
-const paddings = [...new Set([...src.matchAll(/padding:\s*([^;]+);/g)].map((m) => m[1].trim()))]
+const paddings = [
+	...new Set([...src.matchAll(/padding:\s*([^;]+);/g)].map((m) => m[1].trim())),
+]
 const rootColors = tokensOf(blockOf(':root'))
 const fsTokens = [...rootColors.keys()].filter((k) => k.startsWith('--fs-'))
-const spaceTokens = [...rootColors.keys()].filter((k) => k.startsWith('--space-'))
+const spaceTokens = [...rootColors.keys()].filter((k) =>
+	k.startsWith('--space-'),
+)
 
 const budget = [
 	['token --fs-* (type scale)', fsTokens.length, 7],

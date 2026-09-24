@@ -27,9 +27,15 @@ export function TxDetailPage() {
 	const { hash = '' } = useParams()
 	const chain = useChain()
 
-	const { data: tx, error, loading, refresh } = useAsync<
-		HistoryEntry | undefined
-	>(async () => await rpc.getTransactionByHash(hash), [hash])
+	const {
+		data: tx,
+		error,
+		loading,
+		refresh,
+	} = useAsync<HistoryEntry | undefined>(
+		async () => await rpc.getTransactionByHash(hash),
+		[hash],
+	)
 
 	useDocumentTitle(`Transaction ${truncateMiddle(hash, 12, 10)}`)
 
@@ -92,7 +98,9 @@ export function TxDetailPage() {
 	const meta = tx.metadata
 	const tip = chain.state?.currentBlockHeight
 	const confirmations =
-		meta && tip !== undefined ? Math.max(tip - meta.blockHeight + 1, 1) : undefined
+		meta && tip !== undefined
+			? Math.max(tip - meta.blockHeight + 1, 1)
+			: undefined
 
 	return (
 		<div className="page">
@@ -162,7 +170,9 @@ export function TxDetailPage() {
 				<StatCard label="Format" value={tx.format} hint="wallet ↔ wallet" />
 				<StatCard
 					label="Confirmations"
-					value={confirmations !== undefined ? formatNumber(confirmations) : '—'}
+					value={
+						confirmations !== undefined ? formatNumber(confirmations) : '—'
+					}
 					hint={tip !== undefined ? `tip #${formatNumber(tip)}` : undefined}
 				/>
 			</section>
@@ -220,7 +230,10 @@ export function TxDetailPage() {
 									head={14}
 									tail={12}
 								/>
-								<span className="muted" title={formatDateTime(meta.blockTimestamp)}>
+								<span
+									className="muted"
+									title={formatDateTime(meta.blockTimestamp)}
+								>
 									mined {timeAgo(meta.blockTimestamp)}
 								</span>
 							</dd>

@@ -81,40 +81,67 @@ console.log('\n--- vaultCrypto: Web Crypto PBKDF2 + AES-GCM ---')
 const blob = await encryptSecret(SECRET, PASSPHRASE, FAST)
 const decrypted = await decryptSecret(blob, PASSPHRASE)
 
-ok('roundtrip: enkripsi -> dekripsi mengembalikan rahasia persis', decrypted === SECRET)
-ok('salt 32 hex (16 byte)', blob.salt.length === 32 && /^[0-9a-f]+$/.test(blob.salt))
+ok(
+	'roundtrip: enkripsi -> dekripsi mengembalikan rahasia persis',
+	decrypted === SECRET,
+)
+ok(
+	'salt 32 hex (16 byte)',
+	blob.salt.length === 32 && /^[0-9a-f]+$/.test(blob.salt),
+)
 ok('iv 24 hex (12 byte)', blob.iv.length === 24 && /^[0-9a-f]+$/.test(blob.iv))
-ok('ciphertext hex, bukan plaintext', /^[0-9a-f]+$/.test(blob.ciphertext) && !blob.ciphertext.includes(SECRET))
+ok(
+	'ciphertext hex, bukan plaintext',
+	/^[0-9a-f]+$/.test(blob.ciphertext) && !blob.ciphertext.includes(SECRET),
+)
 ok('kdf & versi tercatat benar', blob.kdf === KDF_NAME && blob.version === 1)
 
 const blob2 = await encryptSecret(SECRET, PASSPHRASE, FAST)
 ok(
 	'salt+iv acak: rahasia sama -> ciphertext berbeda',
-	blob2.ciphertext !== blob.ciphertext && blob2.salt !== blob.salt && blob2.iv !== blob.iv,
+	blob2.ciphertext !== blob.ciphertext &&
+		blob2.salt !== blob.salt &&
+		blob2.iv !== blob.iv,
 )
 
 ok(
 	'passphrase salah DITOLAK (AES-GCM auth)',
-	(await toErrorAsync(() => decryptSecret(blob, WRONG))).includes('Passphrase salah'),
+	(await toErrorAsync(() => decryptSecret(blob, WRONG))).includes(
+		'Passphrase salah',
+	),
 )
-const flipped = (blob.ciphertext[0] === '0' ? '1' : '0') + blob.ciphertext.slice(1)
+const flipped =
+	(blob.ciphertext[0] === '0' ? '1' : '0') + blob.ciphertext.slice(1)
 ok(
 	'ciphertext diutak-atik DITOLAK (tag GCM)',
-	(await toErrorAsync(() => decryptSecret({ ...blob, ciphertext: flipped }, PASSPHRASE))).includes('Passphrase salah'),
+	(
+		await toErrorAsync(() =>
+			decryptSecret({ ...blob, ciphertext: flipped }, PASSPHRASE),
+		)
+	).includes('Passphrase salah'),
 )
 ok(
 	'kdf asing DITOLAK',
-	(await toErrorAsync(() =>
-		decryptSecret({ ...blob, kdf: 'scrypt' as unknown as typeof KDF_NAME }, PASSPHRASE),
-	)).includes('tidak didukung'),
+	(
+		await toErrorAsync(() =>
+			decryptSecret(
+				{ ...blob, kdf: 'scrypt' as unknown as typeof KDF_NAME },
+				PASSPHRASE,
+			),
+		)
+	).includes('tidak didukung'),
 )
 ok(
 	'salt salah panjang DITOLAK',
-	(await toErrorAsync(() => decryptSecret({ ...blob, salt: 'ab' }, PASSPHRASE))).includes('hex'),
+	(
+		await toErrorAsync(() => decryptSecret({ ...blob, salt: 'ab' }, PASSPHRASE))
+	).includes('hex'),
 )
 ok(
 	'passphrase kosong DITOLAK saat enkripsi',
-	(await toErrorAsync(() => encryptSecret(SECRET, '', FAST))).includes('tidak boleh kosong'),
+	(await toErrorAsync(() => encryptSecret(SECRET, '', FAST))).includes(
+		'tidak boleh kosong',
+	),
 )
 
 const defaultBlob = await encryptSecret(SECRET, PASSPHRASE)
@@ -144,16 +171,24 @@ ok(
 )
 ok(
 	'js: passphrase salah DITOLAK (tag GCM)',
-	(await toErrorAsync(() => decryptSecret(jsBlob, WRONG, jsCrypto))).includes('Passphrase salah'),
+	(await toErrorAsync(() => decryptSecret(jsBlob, WRONG, jsCrypto))).includes(
+		'Passphrase salah',
+	),
 )
-const jsFlipped = (jsBlob.ciphertext[0] === '0' ? '1' : '0') + jsBlob.ciphertext.slice(1)
+const jsFlipped =
+	(jsBlob.ciphertext[0] === '0' ? '1' : '0') + jsBlob.ciphertext.slice(1)
 ok(
 	'js: ciphertext diutak-atik DITOLAK',
-	(await toErrorAsync(() => decryptSecret({ ...jsBlob, ciphertext: jsFlipped }, PASSPHRASE, jsCrypto))).includes('Passphrase salah'),
+	(
+		await toErrorAsync(() =>
+			decryptSecret({ ...jsBlob, ciphertext: jsFlipped }, PASSPHRASE, jsCrypto),
+		)
+	).includes('Passphrase salah'),
 )
 ok(
 	'js: salt+iv acak (dua enkripsi berbeda)',
-	jsBlob.salt !== (await encryptSecret(SECRET, PASSPHRASE, FAST, jsCrypto)).salt,
+	jsBlob.salt !==
+		(await encryptSecret(SECRET, PASSPHRASE, FAST, jsCrypto)).salt,
 )
 
 // --- interop dua arah: wallet dibuat di http harus terbuka di https dan sebaliknya ---
@@ -166,7 +201,12 @@ ok(
 	(await decryptSecret(blob, PASSPHRASE, jsCrypto)) === SECRET,
 )
 
-const jsDefaultBlob = await encryptSecret(SECRET, PASSPHRASE, undefined, jsCrypto)
+const jsDefaultBlob = await encryptSecret(
+	SECRET,
+	PASSPHRASE,
+	undefined,
+	jsCrypto,
+)
 ok(
 	'js: parameter produksi (PBKDF2 310k iterasi) roundtrip',
 	jsDefaultBlob.iterations === KDF_ITERATIONS &&
@@ -181,12 +221,16 @@ Object.defineProperty(globalThis, 'crypto', {
 	configurable: true,
 	// Persis kondisi insecure context: getRandomValues MASIH ada, subtle TIDAK.
 	value: {
-		getRandomValues: (array: ArrayBufferView): ArrayBufferView =>
-			nativeCrypto.getRandomValues(array),
+		getRandomValues: (
+			array: ArrayBufferView<ArrayBuffer>,
+		): ArrayBufferView<ArrayBuffer> => nativeCrypto.getRandomValues(array),
 	},
 })
 try {
-	ok('simulasi: crypto.subtle benar-benar hilang', globalThis.crypto.subtle === undefined)
+	ok(
+		'simulasi: crypto.subtle benar-benar hilang',
+		globalThis.crypto.subtle === undefined,
+	)
 
 	// Tanpa argumen keempat = memakai getCrypto() internal, yaitu jalur yang
 	// dilewati pengguna saat membuka http://<ip-lan>:5174.
@@ -196,9 +240,13 @@ try {
 		(await decryptSecret(insecureBlob, PASSPHRASE)) === SECRET,
 	)
 } finally {
-	if (cryptoDescriptor) Object.defineProperty(globalThis, 'crypto', cryptoDescriptor)
+	if (cryptoDescriptor)
+		Object.defineProperty(globalThis, 'crypto', cryptoDescriptor)
 }
-ok('simulasi: crypto dikembalikan ke kondisi semula', globalThis.crypto.subtle !== undefined)
+ok(
+	'simulasi: crypto dikembalikan ke kondisi semula',
+	globalThis.crypto.subtle !== undefined,
+)
 
 // ============ 2. vault: create / unlock / lock ============
 console.log('\n--- walletVault: create / unlock / lock ---')
@@ -214,13 +262,20 @@ ok(
 )
 
 const info = await vault.create(PASSPHRASE)
-ok('create: alamat format NxC + 40 hex', /^NxC[0-9a-f]{40}$/.test(info.address), info.address)
+ok(
+	'create: alamat format NxC + 40 hex',
+	/^NxC[0-9a-f]{40}$/.test(info.address),
+	info.address,
+)
 ok('create: hasWallet true', (await vault.hasWallet()) === true)
 ok('create: vault langsung terbuka', vault.isUnlocked() === true)
 
 const created = vault.getUnlocked()
 const direct = generateKeysFromMnemonic(created.mnemonic)
-ok('create: private key identik dengan turunan langsung', created.privateKey === direct.privateKey)
+ok(
+	'create: private key identik dengan turunan langsung',
+	created.privateKey === direct.privateKey,
+)
 ok(
 	'create: alamat identik dengan turunan langsung',
 	created.address === generateAddressFromPublicKey(direct.publicKey.slice(2)),
@@ -231,7 +286,10 @@ const record = await kv.get<VaultRecord>('primary')
 ok('record ada & punya blob', record !== undefined && record.blob !== undefined)
 if (record) {
 	const dump = JSON.stringify(record)
-	ok('record TIDAK memuat mnemonic (plaintext)', !dump.includes(created.mnemonic))
+	ok(
+		'record TIDAK memuat mnemonic (plaintext)',
+		!dump.includes(created.mnemonic),
+	)
 	ok(
 		'record TIDAK memuat private key (plaintext)',
 		!dump.includes(direct.privateKey.replace(/^Nx/, '')),
@@ -240,7 +298,10 @@ if (record) {
 		'record memuat alamat + publicKey (publik, boleh plaintext)',
 		record.address === info.address && record.publicKey === info.publicKey,
 	)
-	ok('record blob memakai KDF produksi', record.blob.iterations === KDF_ITERATIONS)
+	ok(
+		'record blob memakai KDF produksi',
+		record.blob.iterations === KDF_ITERATIONS,
+	)
 } else {
 	ok('record ada (dibatalkan karena undefined)', false)
 	ok('record tidak bocor (dibatalkan karena undefined)', false)
@@ -251,8 +312,14 @@ if (record) {
 // --- lock / unlock ---
 vault.lock()
 ok('lock: isUnlocked false', vault.isUnlocked() === false)
-ok('lock: getUnlocked DITOLAK', toError(() => vault.getUnlocked()).includes('terkunci'))
-ok('lock: getInfo tetap terbaca tanpa passphrase', (await vault.getInfo())?.address === info.address)
+ok(
+	'lock: getUnlocked DITOLAK',
+	toError(() => vault.getUnlocked()).includes('terkunci'),
+)
+ok(
+	'lock: getInfo tetap terbaca tanpa passphrase',
+	(await vault.getInfo())?.address === info.address,
+)
 
 ok(
 	'unlock: passphrase salah DITOLAK',
@@ -262,8 +329,14 @@ ok('unlock: gagal -> tetap terkunci', vault.isUnlocked() === false)
 
 const reopened = await vault.unlock(PASSPHRASE)
 ok('unlock: passphrase benar -> info cocok', reopened.address === info.address)
-ok('unlock: mnemonic roundtrip persis', vault.getUnlocked().mnemonic === created.mnemonic)
-ok('unlock: private key konsisten', vault.getUnlocked().privateKey === created.privateKey)
+ok(
+	'unlock: mnemonic roundtrip persis',
+	vault.getUnlocked().mnemonic === created.mnemonic,
+)
+ok(
+	'unlock: private key konsisten',
+	vault.getUnlocked().privateKey === created.privateKey,
+)
 
 // ============ 3. persistensi antar-instance ============
 console.log('\n--- walletVault: persistensi (buka-tutup aplikasi) ---')
@@ -271,9 +344,15 @@ console.log('\n--- walletVault: persistensi (buka-tutup aplikasi) ---')
 vault.lock()
 const vault2 = createWalletVault(kv) // "reload" — status terbuka tidak dibawa
 ok('reload: isUnlocked mulai false', vault2.isUnlocked() === false)
-ok('reload: info masih terbaca', (await vault2.getInfo())?.address === info.address)
+ok(
+	'reload: info masih terbaca',
+	(await vault2.getInfo())?.address === info.address,
+)
 await vault2.unlock(PASSPHRASE)
-ok('reload: unlock menghasilkan private key sama', vault2.getUnlocked().privateKey === created.privateKey)
+ok(
+	'reload: unlock menghasilkan private key sama',
+	vault2.getUnlocked().privateKey === created.privateKey,
+)
 
 // ============ 4. import ============
 console.log('\n--- walletVault: importMnemonic ---')
@@ -285,16 +364,25 @@ ok('import: setelah wipe vault kosong', (await vault2.hasWallet()) === false)
 const imported = await vault2.importMnemonic(SECRET, IMPORT_PASS)
 ok(
 	'import: alamat sama dengan turunan langsung',
-	imported.address === generateAddressFromPublicKey(generateKeysFromMnemonic(SECRET).publicKey.slice(2)),
+	imported.address ===
+		generateAddressFromPublicKey(
+			generateKeysFromMnemonic(SECRET).publicKey.slice(2),
+		),
 )
 ok('import: mnemonic tersimpan utuh', vault2.getUnlocked().mnemonic === SECRET)
 ok(
 	'import: mnemonic tidak valid DITOLAK',
-	(await toErrorAsync(() => vault.importMnemonic('bukan mnemonic sama sekali', IMPORT_PASS))).includes('Invalid mnemonic'),
+	(
+		await toErrorAsync(() =>
+			vault.importMnemonic('bukan mnemonic sama sekali', IMPORT_PASS),
+		)
+	).includes('Invalid mnemonic'),
 )
 ok(
 	'import: vault sudah terisi DITOLAK',
-	(await toErrorAsync(() => vault.importMnemonic(SECRET, IMPORT_PASS))).includes('sudah berisi'),
+	(
+		await toErrorAsync(() => vault.importMnemonic(SECRET, IMPORT_PASS))
+	).includes('sudah berisi'),
 )
 
 // ============ 5. address anchor ke jalur Node ============
@@ -326,7 +414,10 @@ await vault.wipe()
 ok('wipe: hasWallet false', (await vault.hasWallet()) === false)
 ok('wipe: getInfo undefined', (await vault.getInfo()) === undefined)
 ok('wipe: terkunci', vault.isUnlocked() === false)
-ok('wipe: setelah wipe bisa create lagi', (await vault.create(PASSPHRASE)).address.startsWith('NxC'))
+ok(
+	'wipe: setelah wipe bisa create lagi',
+	(await vault.create(PASSPHRASE)).address.startsWith('NxC'),
+)
 
 // ============ 7. backend IndexedDB sungguhan ============
 console.log('\n--- IndexedDB: createIdbKV dieksekusi (fake-indexeddb) ---')
@@ -338,7 +429,11 @@ ok('idb: buka database & object store', idbKV !== undefined)
 ok('idb: vault kosong', !(await idbVault.hasWallet()))
 
 const idbInfo = await idbVault.create(PASSPHRASE)
-ok('idb: create -> alamat format NxC + 40 hex', /^NxC[0-9a-f]{40}$/.test(idbInfo.address), idbInfo.address)
+ok(
+	'idb: create -> alamat format NxC + 40 hex',
+	/^NxC[0-9a-f]{40}$/.test(idbInfo.address),
+	idbInfo.address,
+)
 const idbUnlocked = idbVault.getUnlocked()
 
 const idbRecord = await idbKV.get<VaultRecord>('primary')
@@ -360,7 +455,10 @@ if (idbRecord) {
 idbVault.lock()
 const idbKV2 = await createIdbKV(IDB_DB)
 const idbVault2 = createWalletVault(idbKV2)
-ok('idb: koneksi kedua membaca record sama', (await idbVault2.getInfo())?.address === idbInfo.address)
+ok(
+	'idb: koneksi kedua membaca record sama',
+	(await idbVault2.getInfo())?.address === idbInfo.address,
+)
 
 let idbWrongRejected = false
 try {
@@ -368,7 +466,10 @@ try {
 } catch {
 	idbWrongRejected = true
 }
-ok('idb: passphrase salah ditolak & tetap terkunci', idbWrongRejected && !idbVault2.isUnlocked())
+ok(
+	'idb: passphrase salah ditolak & tetap terkunci',
+	idbWrongRejected && !idbVault2.isUnlocked(),
+)
 
 await idbVault2.unlock(PASSPHRASE)
 ok(

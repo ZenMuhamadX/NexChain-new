@@ -59,8 +59,7 @@ export function tryHexText(hex: string | undefined | null): string | null {
 		const text = hexToString(hex)
 		for (let i = 0; i < text.length; i += 1) {
 			const code = text.charCodeAt(i)
-			const printable =
-				code >= 0x20 && code <= 0x7e // ASCII printable
+			const printable = code >= 0x20 && code <= 0x7e // ASCII printable
 			if (!printable && text[i] !== '\n' && text[i] !== '\t') return null
 		}
 		return text

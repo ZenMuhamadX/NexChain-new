@@ -40,10 +40,7 @@ const hexJsonOrThrow = async <T>(
 ): Promise<T> => {
 	const value = await hexJson<T>(method, params)
 	if (value === undefined) {
-		throw new RpcClientError(
-			'invalid-response',
-			`${method} returned no data.`,
-		)
+		throw new RpcClientError('invalid-response', `${method} returned no data.`)
 	}
 	return value
 }

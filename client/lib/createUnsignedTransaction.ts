@@ -43,7 +43,9 @@ export const createUnsignedTransaction = (
 ): UnsignedTransactionResult => {
 	// Konversi amount ke Nexu jika formatnya adalah NXC
 	const convertedAmount =
-		transaction.format === 'NXC' ? toNexu(transaction.amount) : transaction.amount
+		transaction.format === 'NXC'
+			? toNexu(transaction.amount)
+			: transaction.amount
 
 	if (convertedAmount < MIN_AMOUNT_NEXU) {
 		return {

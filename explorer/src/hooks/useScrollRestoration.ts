@@ -18,7 +18,9 @@ const store = new Map<string, number>()
 try {
 	const raw = sessionStorage.getItem(STORE_KEY)
 	if (raw) {
-		for (const [key, value] of Object.entries(JSON.parse(raw) as Record<string, number>)) {
+		for (const [key, value] of Object.entries(
+			JSON.parse(raw) as Record<string, number>,
+		)) {
 			store.set(key, value)
 		}
 	}

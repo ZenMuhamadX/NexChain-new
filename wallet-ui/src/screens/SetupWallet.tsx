@@ -21,7 +21,11 @@ interface SetupProps {
  *   `Invalid mnemonic phrase` bila salah) sebelum menyentuh vault.
  * - passphrase WAJIB (kebijakan vault: `Wallet requires a passphrase`).
  */
-export const SetupWallet = ({ mode, onDone, go }: SetupProps): React.JSX.Element => {
+export const SetupWallet = ({
+	mode,
+	onDone,
+	go,
+}: SetupProps): React.JSX.Element => {
 	const [mnemonic, setMnemonic] = useState<string>(() =>
 		mode === 'create' ? genRandomMnemonic() : '',
 	)
@@ -84,7 +88,10 @@ export const SetupWallet = ({ mode, onDone, go }: SetupProps): React.JSX.Element
 							rows={3}
 						/>
 						<div className="row end">
-							<button className="ghost" onClick={() => setReveal((value) => !value)}>
+							<button
+								className="ghost"
+								onClick={() => setReveal((value) => !value)}
+							>
 								<Icon name={reveal ? 'eyeOff' : 'eye'} size={15} />
 								{reveal ? 'Sembunyikan' : 'Tampilkan'}
 							</button>
@@ -145,8 +152,16 @@ export const SetupWallet = ({ mode, onDone, go }: SetupProps): React.JSX.Element
 				<button className="ghost" onClick={() => go('welcome')} disabled={busy}>
 					Kembali
 				</button>
-				<button className="primary grow" onClick={() => void submit()} disabled={busy}>
-					{busy ? 'Menyimpan…' : mode === 'create' ? 'Simpan & Lanjut' : 'Impor'}
+				<button
+					className="primary grow"
+					onClick={() => void submit()}
+					disabled={busy}
+				>
+					{busy
+						? 'Menyimpan…'
+						: mode === 'create'
+							? 'Simpan & Lanjut'
+							: 'Impor'}
 				</button>
 			</div>
 		</section>

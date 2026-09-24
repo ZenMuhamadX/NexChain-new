@@ -51,10 +51,7 @@ export const clampDifficulty = (bits: number): number => {
 	// Hindari -0 dan bulatkan representasi float (mis. 20.25 aman, tapi
 	// hasil operasi float bisa menghasilkan 20.249999999999996).
 	const clean = Object.is(quantized, -0) ? 0 : quantized
-	return Math.min(
-		MAX_DIFFICULTY_BITS,
-		Math.max(MIN_DIFFICULTY_BITS, clean),
-	)
+	return Math.min(MAX_DIFFICULTY_BITS, Math.max(MIN_DIFFICULTY_BITS, clean))
 }
 
 /**
@@ -112,9 +109,7 @@ export const calcNextDifficulty = (
 	}
 	const step = Math.log2(TARGET_BLOCK_TIME_MS / actualMs)
 	const clampedStep =
-		step > 0
-			? Math.min(MAX_RISE_BITS, step)
-			: Math.max(-MAX_FALL_BITS, step)
+		step > 0 ? Math.min(MAX_RISE_BITS, step) : Math.max(-MAX_FALL_BITS, step)
 	return clampDifficulty(current + clampedStep)
 }
 

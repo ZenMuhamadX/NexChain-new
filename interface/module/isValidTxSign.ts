@@ -26,11 +26,7 @@ export const validateTransactionSignature = async (
 
 	const signer = recoverSignerAddress(transaction.txHash, transaction.sign)
 	if (signer === undefined) {
-		return validateField(
-			true,
-			'transactionValidator',
-			'Invalid signature',
-		)
+		return validateField(true, 'transactionValidator', 'Invalid signature')
 	}
 
 	if (signer !== transaction.sender) {

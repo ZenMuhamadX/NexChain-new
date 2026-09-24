@@ -121,7 +121,9 @@ export const createJsCrypto = (): Crypto => {
 				unsupported(`turunan kunci '${derivedKeyType.name}'`)
 			}
 			const hashName =
-				typeof algorithm.hash === 'string' ? algorithm.hash : algorithm.hash.name
+				typeof algorithm.hash === 'string'
+					? algorithm.hash
+					: algorithm.hash.name
 			if (hashName.toUpperCase() !== 'SHA-256') {
 				unsupported(`hash KDF '${hashName}'`)
 			}
@@ -161,7 +163,9 @@ export const createJsCrypto = (): Crypto => {
 			requireUsage(key, 'encrypt')
 			// @noble/ciphers mengembalikan ciphertext || tag 16 byte — sama
 			// persis dengan yang dikembalikan crypto.subtle.encrypt.
-			const sealed = gcm(key.bytes, toBytes(algorithm.iv)).encrypt(toBytes(data))
+			const sealed = gcm(key.bytes, toBytes(algorithm.iv)).encrypt(
+				toBytes(data),
+			)
 			return Promise.resolve(toArrayBuffer(sealed))
 		},
 
@@ -176,7 +180,9 @@ export const createJsCrypto = (): Crypto => {
 			requireRole(key, 'aes')
 			requireUsage(key, 'decrypt')
 			try {
-				const opened = gcm(key.bytes, toBytes(algorithm.iv)).decrypt(toBytes(data))
+				const opened = gcm(key.bytes, toBytes(algorithm.iv)).decrypt(
+					toBytes(data),
+				)
 				return Promise.resolve(toArrayBuffer(opened))
 			} catch (error) {
 				// Tag GCM tidak cocok: passphrase salah ATAU ciphertext diubah.
@@ -188,7 +194,9 @@ export const createJsCrypto = (): Crypto => {
 	}
 
 	const shim = {
-		getRandomValues: <T extends ArrayBufferView | null>(array: T): T => {
+		getRandomValues: <T extends ArrayBufferView<ArrayBuffer> | null>(
+			array: T,
+		): T => {
 			if (array === null) return array
 			if (native?.getRandomValues) return native.getRandomValues(array)
 			const bytes = randomBytes(array.byteLength)

@@ -44,24 +44,19 @@ export function BlockDetailPage() {
 	const byHash = HASH.test(id)
 	const cleanHash = id.replace(/^0x/, '')
 
-	const { data, error, loading, refresh } = useAsync<BlockResponse | undefined>(
-		async () => {
-			if (byHeight) return await rpc.getBlockByHeight(Number(id))
-			if (byHash) return rpc.getBlockByHash(cleanHash)
-			return undefined
-		},
-		[id],
-	)
+	const { data, error, loading, refresh } = useAsync<
+		BlockResponse | undefined
+	>(async () => {
+		if (byHeight) return await rpc.getBlockByHeight(Number(id))
+		if (byHash) return rpc.getBlockByHash(cleanHash)
+		return undefined
+	}, [id])
 
 	// tujuh blok di sekitar height ini — untuk chain strip & skala meter
 	const heightParam = byHeight ? Number(id) : undefined
 	const tip = chain.state?.currentBlockHeight
 	const neighbors = useAsync(
-		() =>
-			rpc.getBlocksRange(
-				Math.min((heightParam ?? 0) + 3, tip ?? 0),
-				7,
-			),
+		() => rpc.getBlocksRange(Math.min((heightParam ?? 0) + 3, tip ?? 0), 7),
 		[heightParam, tip],
 		{ enabled: heightParam !== undefined && tip !== undefined },
 	)
@@ -84,7 +79,9 @@ export function BlockDetailPage() {
 	if (invalid) {
 		return (
 			<div className="page">
-				<Breadcrumbs items={[{ label: 'Blocks', to: '/blocks' }, { label: 'Invalid' }]} />
+				<Breadcrumbs
+					items={[{ label: 'Blocks', to: '/blocks' }, { label: 'Invalid' }]}
+				/>
 				<EmptyState
 					titleAs="h1"
 					title="Invalid block reference"
@@ -119,7 +116,9 @@ export function BlockDetailPage() {
 	if ((data === undefined && !error) || (error && isNotFound(error))) {
 		return (
 			<div className="page">
-				<Breadcrumbs items={[{ label: 'Blocks', to: '/blocks' }, { label: id }]} />
+				<Breadcrumbs
+					items={[{ label: 'Blocks', to: '/blocks' }, { label: id }]}
+				/>
 				<EmptyState
 					titleAs="h1"
 					title="Block not found"
@@ -188,7 +187,9 @@ export function BlockDetailPage() {
 				<div className="block-hero-main">
 					<h1 className="block-hero-height">
 						#{formatNumber(currentHeight)}
-						<span className={`badge badge-${block.status}`}>{block.status}</span>
+						<span className={`badge badge-${block.status}`}>
+							{block.status}
+						</span>
 					</h1>
 					<p className="block-hero-meta">
 						{formatDateTime(block.header.timestamp)} ·{' '}
@@ -240,7 +241,9 @@ export function BlockDetailPage() {
 						<div className="meter-head">
 							<span className="meter-label">Confirmations</span>
 							<span className="meter-value">
-								{confirmations !== undefined ? formatNumber(confirmations) : '—'}
+								{confirmations !== undefined
+									? formatNumber(confirmations)
+									: '—'}
 							</span>
 						</div>
 						<div
@@ -292,7 +295,10 @@ export function BlockDetailPage() {
 							role="img"
 							aria-label={`${sizePct} percent of the largest nearby block`}
 						>
-							<div className="meter-fill" style={{ width: `${Math.max(sizePct, 2)}%` }} />
+							<div
+								className="meter-fill"
+								style={{ width: `${Math.max(sizePct, 2)}%` }}
+							/>
 						</div>
 						<p className="stat-hint">
 							{strip.length > 0
@@ -449,7 +455,9 @@ export function BlockDetailPage() {
 				<div className="card-head">
 					<h2>
 						Transactions{' '}
-						<span className="muted">({formatNumber(block.transactions.length)})</span>
+						<span className="muted">
+							({formatNumber(block.transactions.length)})
+						</span>
 					</h2>
 				</div>
 				{block.transactions.length > 0 ? (
@@ -467,7 +475,8 @@ export function BlockDetailPage() {
 							</div>
 						) : (
 							<p className="muted pad-sm">
-								Showing all {formatNumber(block.transactions.length)} transactions.
+								Showing all {formatNumber(block.transactions.length)}{' '}
+								transactions.
 							</p>
 						)}
 					</>

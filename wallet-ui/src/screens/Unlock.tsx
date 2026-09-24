@@ -62,7 +62,11 @@ export const Unlock = ({
 				<button className="ghost" onClick={() => go('welcome')} disabled={busy}>
 					Kembali
 				</button>
-				<button className="primary grow" onClick={() => void submit()} disabled={busy}>
+				<button
+					className="primary grow"
+					onClick={() => void submit()}
+					disabled={busy}
+				>
 					{busy ? 'Membuka…' : 'Buka Kunci'}
 				</button>
 			</div>

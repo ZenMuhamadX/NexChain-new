@@ -105,7 +105,12 @@ interface IconProps {
 	style?: React.CSSProperties
 }
 
-export const Icon = ({ name, size = 16, className, style }: IconProps): React.JSX.Element => (
+export const Icon = ({
+	name,
+	size = 16,
+	className,
+	style,
+}: IconProps): React.JSX.Element => (
 	<svg
 		width={size}
 		height={size}

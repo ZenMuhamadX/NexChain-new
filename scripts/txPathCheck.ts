@@ -68,7 +68,10 @@ ok(`address snapshot tetap (${addr})`, addr === SNAPSHOT_ADDRESS)
 
 // ---- 2. build + sign -> recover cocok dengan sender ----
 const draft = build(0)
-ok('builder menerima nonce & menghasilkan tx', draft.status === true && !!draft.tx)
+ok(
+	'builder menerima nonce & menghasilkan tx',
+	draft.status === true && !!draft.tx,
+)
 const tx = signTransaction(draft.tx!, privateKey)
 ok(
 	'recover signer == sender',
@@ -102,7 +105,10 @@ const round = decodeTx(encodeTx(tx))
 ok('encodeTx -> decodeTx identik', JSON.stringify(round) === JSON.stringify(tx))
 
 // ---- 7. validasi signature murni: lolos & anti-forge ----
-ok('validateTransactionSignature menerima tx sendiri', await validateTransactionSignature(tx))
+ok(
+	'validateTransactionSignature menerima tx sendiri',
+	await validateTransactionSignature(tx),
+)
 const attacker = generateKeysFromMnemonic(
 	'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong',
 ).privateKey
@@ -112,9 +118,7 @@ ok(
 	(await validateTransactionSignature(forged)) === false,
 )
 // Balik seluruh byte terakhir r -> dijamin berbeda (XOR 0xff), bukan kebetulan sama
-const flippedLast = (
-	parseInt(tx.sign.r.slice(-2), 16) ^ 0xff
-)
+const flippedLast = (parseInt(tx.sign.r.slice(-2), 16) ^ 0xff)
 	.toString(16)
 	.padStart(2, '0')
 const tampered = {
@@ -132,10 +136,14 @@ ok(
 	'sender == receiver ditolak',
 	validateTransactionSenderReceiver({ ...tx, receiver: tx.sender }) === false,
 )
-const small = createUnsignedTransaction({ ...input, format: 'nexu', amount: 0.5 }, 0)
+const small = createUnsignedTransaction(
+	{ ...input, format: 'nexu', amount: 0.5 },
+	0,
+)
 ok(
 	'amount < 1 nexu ditolak dengan pesan yang sama',
-	!small.status && small.error === 'Transaction amount must be at least 1 nexu.',
+	!small.status &&
+		small.error === 'Transaction amount must be at least 1 nexu.',
 )
 
 // ============ Phase E: URL RPC tidak lagi hardcoded ============

@@ -13,6 +13,8 @@ export const logRequest = (
 		'-'
 	const ua = req.headers['user-agent'] || '-'
 	const rpcMethod = (req.body as any)?.method ?? '-'
-	logToConsole(`${ip} ${req.method} ${req.path} Rpc-Method:${rpcMethod} UA:${ua}`)
+	logToConsole(
+		`${ip} ${req.method} ${req.path} Rpc-Method:${rpcMethod} UA:${ua}`,
+	)
 	next()
 }

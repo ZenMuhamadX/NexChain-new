@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getVault } from './lib/vault'
 import type { UnlockedWallet, WalletVault } from 'client/wallet/walletVault'
-import { fetchAccount, fetchChainId, fetchNextNonce, fetchPending } from './lib/rpc'
+import {
+	fetchAccount,
+	fetchChainId,
+	fetchNextNonce,
+	fetchPending,
+} from './lib/rpc'
 import type { Screen, Tab } from './types'
 import { Icon } from './ui/Icon'
 import type { IconName } from './ui/Icon'
@@ -123,7 +128,10 @@ export const App = (): React.JSX.Element => {
 		setTab('ringkasan')
 	}
 
-	const handleSetup = async (mnemonic: string, passphrase: string): Promise<void> => {
+	const handleSetup = async (
+		mnemonic: string,
+		passphrase: string,
+	): Promise<void> => {
 		if (!vault) throw new Error('Vault belum siap.')
 		// Untuk create MAUPUN import: frasa yang ditampilkan di layar diimpor
 		// balik, sehingga wallet = frasa yang dilihat & dicatat user (bukan
@@ -149,7 +157,11 @@ export const App = (): React.JSX.Element => {
 
 	const handleWipe = async (): Promise<void> => {
 		if (!vault) return
-		if (!window.confirm('Hapus wallet dari perangkat ini? TANPA mnemonic cadangan, dana tidak bisa dipulihkan.')) {
+		if (
+			!window.confirm(
+				'Hapus wallet dari perangkat ini? TANPA mnemonic cadangan, dana tidak bisa dipulihkan.',
+			)
+		) {
 			return
 		}
 		await vault.wipe()
@@ -256,8 +268,12 @@ export const App = (): React.JSX.Element => {
 						onSent={() => void refresh(wallet.address)}
 					/>
 				)}
-				{tab === 'terima' && <Receive address={wallet.address} setTab={setTab} />}
-				{tab === 'riwayat' && <History address={wallet.address} setTab={setTab} />}
+				{tab === 'terima' && (
+					<Receive address={wallet.address} setTab={setTab} />
+				)}
+				{tab === 'riwayat' && (
+					<History address={wallet.address} setTab={setTab} />
+				)}
 				{tab === 'pengaturan' && (
 					<Settings
 						mnemonic={wallet.mnemonic}

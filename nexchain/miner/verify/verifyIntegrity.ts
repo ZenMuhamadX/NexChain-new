@@ -83,8 +83,7 @@ export const verifyChainIntegrity = async (): Promise<boolean> => {
 
 	while (true) {
 		const block = (await getBlockByHeight(currentHeight, 'json')) as
-			| Block
-			| undefined
+			Block | undefined
 		if (!block) {
 			logToConsole('Chain integrity verified.')
 			return true

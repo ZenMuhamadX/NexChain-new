@@ -52,9 +52,7 @@ export function HashValue({
 					type="button"
 					className="copy-btn"
 					aria-pressed={expanded}
-					aria-label={
-						expanded ? 'Show shortened value' : 'Show full value'
-					}
+					aria-label={expanded ? 'Show shortened value' : 'Show full value'}
 					title={expanded ? 'Show shortened value' : 'Show full value'}
 					onClick={() => setExpanded((value2) => !value2)}
 				>

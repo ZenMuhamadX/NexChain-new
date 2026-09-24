@@ -9,9 +9,7 @@ import { createGenesisBlock } from 'nexchain/block/createGenesisBlock'
 import { logToConsole } from 'logging/logging'
 
 // Port bisa dioverride lewat env (NEX_RPC_PORT / PORT) — dulu hardcode 8000.
-const PORT = Number(
-	process.env.NEX_RPC_PORT ?? process.env.PORT ?? 8000,
-)
+const PORT = Number(process.env.NEX_RPC_PORT ?? process.env.PORT ?? 8000)
 
 // Host bind bisa dioverride lewat env (RPC_BIND_HOST) — lihat .env.example.
 // Default 127.0.0.1 (secure by default): RPC hanya terjangkau dari mesin ini;

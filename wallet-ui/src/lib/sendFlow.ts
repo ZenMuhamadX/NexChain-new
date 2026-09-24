@@ -177,7 +177,10 @@ export const buildSignedTransactionAsync = async (
 	} catch (error) {
 		return {
 			ok: false,
-			error: error instanceof Error ? error.message : 'Gagal menandatangani (worker).',
+			error:
+				error instanceof Error
+					? error.message
+					: 'Gagal menandatangani (worker).',
 		}
 	}
 }
@@ -207,7 +210,12 @@ export const sendForm = async (
 	try {
 		const nonce = await fetchNextNonce(sender)
 		// Gunakan async version dengan Web Worker untuk signing non-blocking
-		const built = await buildSignedTransactionAsync(form, sender, privateKey, nonce)
+		const built = await buildSignedTransactionAsync(
+			form,
+			sender,
+			privateKey,
+			nonce,
+		)
 		if (!built.ok || !built.tx) {
 			return { ok: false, error: built.error ?? 'Gagal menyusun transaksi.' }
 		}
@@ -230,7 +238,8 @@ export const sendForm = async (
 	} catch (error) {
 		return {
 			ok: false,
-			error: error instanceof Error ? error.message : 'Gagal mengirim transaksi.',
+			error:
+				error instanceof Error ? error.message : 'Gagal mengirim transaksi.',
 		}
 	}
 }
