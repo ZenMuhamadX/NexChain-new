@@ -11,6 +11,33 @@ Nexchain is a new generation decentralized blockchain designed to provide a simp
 - **Wallet Integration:** Includes a built-in wallet for easy digital asset management.
 - **Graphical User Interface (GUI):** Offers a user-friendly interface as an additional option.
 
+## Devnet (Bitcoin-standard PoW)
+
+Arsitektur mining mengikuti standar Bitcoin: **blok tidak ditandatangani siapa pun** — hanya transaksi yang ditandatangani (oleh pengirimnya). Node **tidak memiliki wallet** dan tidak pernah menghitung PoW sendiri:
+
+- `bun run rpc:start` → node menyusun template blok, miner eksternal menerima job lewat `nex_getWork` (wajib mengirim `minerAddress`), mencari nonce, lalu mengirim solusi ke `nex_submitWork`.
+- Miner eksternal: `bun run scripts/mineCLI.ts "NxC…"` atau `client/miner/runMiner.ts` (keyless, murni HTTP).
+- Integritas rantai diverifikasi lewat PoW + hash chain + merkle + struktur (lihat `nexchain/miner/verify/verifyIntegrity.ts`) — tanpa pemeriksaan signature blok.
+
+### Genesis (hardcoded, tanpa premine)
+
+Blok genesis dikunci di kode (`nexchain/block/genesis.ts`), deterministik, dan **tidak terhubung wallet mana pun** — coinbase 500 NXC dibayar ke **burned address** (tidak ada private key, dana terkunci selamanya seperti BTC genesis):
+
+- Nama jaringan: devnet · Chain ID: 26 (`NEX_CHAIN_ID`)
+- Genesis hash: `0000043b0bc286f26da2957e750d8a2303c492fac66ca56c6f9ba1a99a71be57` · Nonce: 48369
+- Burned address: `NxC0000000000000000000000000000000000000000`
+- Reward: 500 NXC · Timestamp: `2024-09-28T12:00:00Z` · Difficulty awal: 20 bits
+
+Verifikasi konstanta: `bun run genesis:check`. Pada boot, node menulis genesis dari kode bila DB kosong, dan **menolak start** bila genesis di DB berbeda hash dari konstanta (anti-fork/tamper).
+
+### Fork (jaringan benar-benar terpisah)
+
+1. Ubah `NEX_CHAIN_ID` di `.env` (atau konstanta `GENESIS_TIMESTAMP`/`GENESIS_MESSAGE` di `nexchain/block/genesis.ts`).
+2. `bun run genesis:solve` → tempel `GENESIS_NONCE` & `GENESIS_HASH` ke `nexchain/block/genesis.ts`.
+3. `bun run genesis:check` → pastikan valid, lalu reset `base/` dan mulai node.
+
+Data devnet/test: dana uji dikirim lewat transaksi airdrop normal setelah genesis (bukan dari premine).
+
 ## License
 
 Nexchain Core is released under the MIT license. For more information, please see the [LICENSE](LICENSE) file or visit the [Open Source Initiative](https://opensource.org/licenses/MIT).

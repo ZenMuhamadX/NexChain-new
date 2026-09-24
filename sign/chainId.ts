@@ -1,6 +1,25 @@
-﻿// Konstanta chain jaringan NexChain.
-// Nilai ini HARUS sama di semua komponen (node, RPC, wallet, explorer).
-export const CHAIN_ID = 26
+﻿// Identitas jaringan NexChain (EIP-155 chain id).
+//
+// Nilai diambil dari env `NEX_CHAIN_ID` (default 26) dan harus SAMA di semua
+// komponen pada jaringan yang sama (node, RPC, wallet, explorer).
+//
+// Mengikuti standar PoW Bitcoin: identitas jaringan ditentukan oleh konstanta
+// genesis + chain id. Fork yang mengubah `NEX_CHAIN_ID` (dan konstanta
+// genesis — lihat `nexchain/block/genesis.ts`) menghasilkan rantai yang
+// sepenuhnya terpisah; transaksi tidak bisa di-replay lintas jaringan karena
+// chain id ikut di-hash ke payload transaksi (`nexchain/transaction/createTxHash`).
+const DEFAULT_CHAIN_ID = 26
+
+const parseChainId = (): number => {
+	const raw = process.env.NEX_CHAIN_ID
+	if (raw !== undefined) {
+		const parsed = Number(raw)
+		if (Number.isInteger(parsed) && parsed > 0) return parsed
+	}
+	return DEFAULT_CHAIN_ID
+}
+
+export const CHAIN_ID = parseChainId()
 
 /**
  * EIP-155: encode recovery param (0/1) ke value `v`.

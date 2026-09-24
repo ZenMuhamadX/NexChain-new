@@ -64,11 +64,6 @@ export const verifyStruct = async (chains: Block) => {
 			hashingAlgorithm: Joi.string().optional(),
 		}).required(),
 		height: Joi.number().required(),
-		sign: Joi.object({
-			r: Joi.string().required(),
-			s: Joi.string().required(),
-			v: Joi.number().required(),
-		}).required(),
 		chainId: Joi.number().required(),
 		size: Joi.number().required(),
 		totalTransactionFees: Joi.any().optional(),

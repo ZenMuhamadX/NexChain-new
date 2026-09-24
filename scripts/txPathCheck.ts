@@ -26,6 +26,7 @@ import { setRpcUrl, getRpcUrl } from 'client/rpc-client/lib/rpcClient'
 import { encodeTx } from 'nexchain/hex/tx/encodeTx'
 import { decodeTx } from 'nexchain/hex/tx/decodeTx'
 import { comTxInterface } from 'interface/structComTx'
+import { encodeV } from 'sign/chainId'
 
 let pass = 0
 let fail = 0
@@ -77,7 +78,10 @@ ok(
 	'recover signer == sender',
 	recoverSignerAddress(tx.txHash!, tx.sign) === SNAPSHOT_ADDRESS,
 )
-ok('v membawa CHAIN_ID 26 (EIP-155)', tx.sign.v === 87 || tx.sign.v === 88)
+ok(
+	'v membawa CHAIN_ID saat ini (EIP-155)',
+	tx.sign.v === encodeV(0) || tx.sign.v === encodeV(1),
+)
 
 // ---- 3. setara dengan logika inline lama (hash/r/s/hexInput identik) ----
 ok(

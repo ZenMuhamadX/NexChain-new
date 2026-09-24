@@ -5,6 +5,14 @@ import { TxInterface } from './structTx'
 
 export type HexString = `0x${string}`
 
+/**
+ * Struktur blok — standar PoW Bitcoin: blok TIDAK punya tanda tangan
+ * (field `sign` dihapus). Keamanan blok berasal dari PoW + hash chain +
+ * merkle + validasi penuh. Satu-satunya tanda tangan di rantai adalah
+ * per-transaksi (`TxInterface.sign`, dibuat pengirim) dan — khusus genesis —
+ * identitas jaringan ditentukan konstanta hash yang dikunci di kode
+ * (`nexchain/block/genesis.ts`).
+ */
 export interface blockStruct {
 	header: header
 	height: number
@@ -16,11 +24,6 @@ export interface blockStruct {
 	status: 'confirmed' | 'pending'
 	blockReward: number
 	totalReward: number
-	sign: {
-		v: number
-		r: string
-		s: string
-	}
 	coinbaseTransaction: coinBaseTx
 	metadata?: metadata
 	transactions: TxInterface[]

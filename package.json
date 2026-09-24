@@ -12,6 +12,8 @@
 		"check:tx": "bun run scripts/txPathCheck.ts",
 		"check:wallet": "bun run scripts/walletVaultCheck.ts",
 		"check:difficulty": "bun run scripts/difficultyRetargetCheck.ts",
+		"genesis:check": "bun run scripts/genesisCheck.ts",
+		"genesis:solve": "bun run scripts/genesisCheck.ts --solve",
 		"rpc:start": "bun run rpc/server.ts",
 		"explorer:dev": "bun run --cwd explorer dev",
 		"explorer:build": "bun run --cwd explorer build",
