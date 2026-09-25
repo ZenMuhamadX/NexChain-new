@@ -10,6 +10,7 @@ import {
 import type { Screen, Tab } from './types'
 import { Icon } from './ui/Icon'
 import type { IconName } from './ui/Icon'
+import { Notice } from './ui/Notice'
 import { Welcome } from './screens/Welcome'
 import { SetupWallet } from './screens/SetupWallet'
 import { Unlock } from './screens/Unlock'
@@ -20,7 +21,6 @@ import { History } from './screens/History'
 import { Settings } from './screens/Settings'
 import { errorMessage } from './lib/format'
 
-/** Ikon per tab — presentasi murni. */
 const TAB_ICONS: Record<Tab, IconName> = {
 	ringkasan: 'home',
 	kirim: 'arrowUpRight',
@@ -29,18 +29,15 @@ const TAB_ICONS: Record<Tab, IconName> = {
 	pengaturan: 'sliders',
 }
 
-/**
- * Aplikasi wallet browser (Phase D).
- *
- * Status aplikasi = dua dimensi independen:
- *   1. `screen`  — alur terkunci (welcome/create/import/unlock)
- *   2. `tab`     — tab utama, hanya berlaku saat vault terbuka
- *
- * Vault (Phase C) adalah SATU instance per sesi; private key hidup hanya di
- * memori vault. Reload halaman → vault terkunci lagi → layar unlock.
- */
+const TAB_LABELS: Record<Tab, string> = {
+	ringkasan: 'Ringkasan',
+	kirim: 'Kirim',
+	terima: 'Terima',
+	riwayat: 'Riwayat',
+	pengaturan: 'Pengaturan',
+}
+
 export const App = (): React.JSX.Element => {
-	// ---- status vault ----
 	const [vault, setVault] = useState<WalletVault | undefined>()
 	const [wallet, setWallet] = useState<UnlockedWallet | undefined>()
 	const [screen, setScreen] = useState<Screen>('welcome')
@@ -48,15 +45,13 @@ export const App = (): React.JSX.Element => {
 	const [bootError, setBootError] = useState('')
 	const [tab, setTab] = useState<Tab>('ringkasan')
 
-	// ---- data jaringan ----
 	const [balance, setBalance] = useState(0)
 	const [pending, setPending] = useState(0)
 	const [nonce, setNonce] = useState(0)
-	const [chainId, setChainId] = useState<number>(26)
+	const [chainId, setChainId] = useState<number | undefined>()
 	const [loading, setLoading] = useState(false)
 	const [netError, setNetError] = useState('')
 
-	/** Ambil saldo/pending/nonce/chainId untuk alamat aktif. */
 	const refresh = useCallback(async (address: string): Promise<void> => {
 		setLoading(true)
 		setNetError('')
@@ -78,7 +73,6 @@ export const App = (): React.JSX.Element => {
 		}
 	}, [])
 
-	/** Boot: buka vault sekali, lalu tentukan layar awal. */
 	useEffect(() => {
 		let alive = true
 		void (async () => {
@@ -86,15 +80,8 @@ export const App = (): React.JSX.Element => {
 				const instance = await getVault()
 				if (!alive) return
 				setVault(instance)
-				if (instance.isUnlocked()) {
-					// Refresh jaringan TIDAK ditunggu di sini: efek `wallet` di bawah
-					// yang memicunya, jadi layar tidak tertahan bila node sedang mati.
-					setWallet(instance.getUnlocked())
-				} else if (await instance.hasWallet()) {
-					setScreen('unlock')
-				} else {
-					setScreen('welcome')
-				}
+				if (instance.isUnlocked()) setWallet(instance.getUnlocked())
+				else if (await instance.hasWallet()) setScreen('unlock')
 			} catch (error) {
 				if (alive) setBootError(errorMessage(error))
 			} finally {
@@ -104,25 +91,15 @@ export const App = (): React.JSX.Element => {
 		return () => {
 			alive = false
 		}
-	}, [refresh])
+	}, [])
 
-	// Refresh berkala selama tab terbuka — seluruh data berasal dari RPC.
 	useEffect(() => {
 		if (!wallet) return
 		void refresh(wallet.address)
-		const timer = setInterval(() => void refresh(wallet.address), 15_000)
-		return () => clearInterval(timer)
+		const timer = window.setInterval(() => void refresh(wallet.address), 15_000)
+		return () => window.clearInterval(timer)
 	}, [wallet, refresh])
 
-	// ---- aksi vault ----
-	/**
-	 * Buka sesi terkunci TANPA menunggu RPC.
-	 *
-	 * Sebelumnya `await refresh(...)` di sini membuat tombol "Buka"/"Simpan"
-	 * berputar sampai 4 request pertama selesai (atau menggantung bila node
-	 * mati — `fetch` tanpa timeout). Refresh dipicu oleh efek `wallet`, jadi
-	 * data tetap terisi, hanya tidak menahan alur unlock.
-	 */
 	const enterWallet = (instance: WalletVault): void => {
 		setWallet(instance.getUnlocked())
 		setTab('ringkasan')
@@ -133,9 +110,6 @@ export const App = (): React.JSX.Element => {
 		passphrase: string,
 	): Promise<void> => {
 		if (!vault) throw new Error('Vault belum siap.')
-		// Untuk create MAUPUN import: frasa yang ditampilkan di layar diimpor
-		// balik, sehingga wallet = frasa yang dilihat & dicatat user (bukan
-		// frasa lain yang dibangkitkan `vault.create` di belakang layar).
 		await vault.importMnemonic(mnemonic, passphrase)
 		enterWallet(vault)
 	}
@@ -157,13 +131,6 @@ export const App = (): React.JSX.Element => {
 
 	const handleWipe = async (): Promise<void> => {
 		if (!vault) return
-		if (
-			!window.confirm(
-				'Hapus wallet dari perangkat ini? TANPA mnemonic cadangan, dana tidak bisa dipulihkan.',
-			)
-		) {
-			return
-		}
 		await vault.wipe()
 		setWallet(undefined)
 		setBalance(0)
@@ -172,13 +139,12 @@ export const App = (): React.JSX.Element => {
 		setScreen('welcome')
 	}
 
-	// ---- render ----
 	if (booting) {
 		return (
-			<div className="shell center">
-				<div className="boot">
+			<div className="auth-shell auth-shell--center">
+				<div className="loading-state">
 					<span className="spinner" aria-hidden="true" />
-					<p className="muted">Menyiapkan wallet…</p>
+					<p>Menyiapkan vault lokal…</p>
 				</div>
 			</div>
 		)
@@ -186,68 +152,99 @@ export const App = (): React.JSX.Element => {
 
 	if (bootError) {
 		return (
-			<div className="shell center">
-				<p className="error">Gagal menyiapkan penyimpanan: {bootError}</p>
+			<div className="auth-shell auth-shell--center">
+				<Notice variant="error">{`Gagal menyiapkan penyimpanan: ${bootError}`}</Notice>
 			</div>
 		)
 	}
 
-	// ---- alur terkunci ----
 	if (!wallet) {
 		return (
-			<div className="shell center">
-				{screen === 'unlock' && vault ? (
-					<Unlock onUnlock={handleUnlock} go={setScreen} />
-				) : screen === 'create' || screen === 'import' ? (
-					<SetupWallet mode={screen} onDone={handleSetup} go={setScreen} />
-				) : (
-					<Welcome go={setScreen} />
-				)}
+			<div className="auth-shell">
+				<header className="auth-header">
+					<div className="brand brand--dark">
+						<span className="brand-mark" aria-hidden="true">
+							<Icon name="diamond" size={15} />
+						</span>
+						<span>NexChain Wallet</span>
+					</div>
+					<span className="security-label">
+						<Icon name="lock" size={13} aria-hidden="true" /> Vault lokal
+					</span>
+				</header>
+				<main className="auth-main">
+					{screen === 'unlock' && vault ? (
+						<Unlock onUnlock={handleUnlock} go={setScreen} />
+					) : screen === 'create' || screen === 'import' ? (
+						<SetupWallet mode={screen} onDone={handleSetup} go={setScreen} />
+					) : (
+						<Welcome go={setScreen} />
+					)}
+				</main>
 			</div>
 		)
 	}
 
-	// ---- sesi terbuka ----
+	const networkState = netError ? 'offline' : loading ? 'connecting' : 'connected'
+	const networkLabel = netError
+		? 'RPC offline'
+		: loading
+			? 'Menghubungkan…'
+			: chainId !== undefined
+				? `Chain ${chainId}`
+				: 'Terhubung'
+
 	return (
-		<div className="shell">
-			<header className="topbar">
-				<span className="brand">
-					<span className="brand-mark" aria-hidden="true">
-						<Icon name="diamond" size={13} />
-					</span>
-					NexChain Wallet
-				</span>
-				<nav className="tabs">
-					{(
-						[
-							['ringkasan', 'Ringkasan'],
-							['kirim', 'Kirim'],
-							['terima', 'Terima'],
-							['riwayat', 'Riwayat'],
-							['pengaturan', 'Pengaturan'],
-						] as const
-					).map(([value, label]) => (
-						<button
-							key={value}
-							className={tab === value ? 'tab active' : 'tab'}
-							onClick={() => setTab(value)}
-							aria-current={tab === value ? 'page' : undefined}
-						>
-							<Icon name={TAB_ICONS[value]} size={15} />
-							{label}
+		<div className="app-shell">
+			<header className="app-header">
+				<div className="app-header__inner">
+					<div className="brand brand--dark">
+						<span className="brand-mark" aria-hidden="true">
+							<Icon name="diamond" size={16} />
+						</span>
+						<span>
+							<strong>NexChain</strong>
+							<small>Wallet</small>
+						</span>
+					</div>
+					<nav className="primary-nav" aria-label="Wallet navigation">
+						{(Object.keys(TAB_LABELS) as Tab[]).map((value) => (
+							<button
+								key={value}
+								type="button"
+								className={`nav-link ${tab === value ? 'nav-link--active' : ''}`}
+								onClick={() => setTab(value)}
+								aria-current={tab === value ? 'page' : undefined}
+							>
+								<Icon name={TAB_ICONS[value]} size={15} aria-hidden="true" />
+								<span>{TAB_LABELS[value]}</span>
+							</button>
+						))}
+					</nav>
+					<div className="header-actions">
+						<span className={`network-pill network-pill--${networkState}`} title={networkLabel}>
+							<span className="network-dot" aria-hidden="true" />
+							<span>{networkLabel}</span>
+						</span>
+						<button type="button" className="button button--ghost button--sm" onClick={handleLock}>
+							<Icon name="lock" size={14} aria-hidden="true" />
+							<span>Kunci</span>
 						</button>
-					))}
-				</nav>
-				<button className="lock" onClick={handleLock} aria-label="Kunci wallet">
-					<Icon name="lock" size={14} />
-					Kunci
-				</button>
+					</div>
+				</div>
 			</header>
 
 			<main className="content">
-				{netError ? <p className="error banner">RPC: {netError}</p> : null}
+				{netError ? (
+					<Notice
+						variant="error"
+						action={{ label: 'Retry', onClick: () => void refresh(wallet.address) }}
+					>
+						RPC belum dapat dihubungi. Periksa URL node di Settings.
+					</Notice>
+				) : null}
 
-				{tab === 'ringkasan' && (
+				{tab === 'ringkasan' ? (
 					<Dashboard
 						address={wallet.address}
 						balance={balance}
@@ -258,8 +255,8 @@ export const App = (): React.JSX.Element => {
 						refresh={() => void refresh(wallet.address)}
 						setTab={setTab}
 					/>
-				)}
-				{tab === 'kirim' && (
+				) : null}
+				{tab === 'kirim' ? (
 					<Send
 						sender={wallet.address}
 						privateKey={wallet.privateKey}
@@ -267,21 +264,16 @@ export const App = (): React.JSX.Element => {
 						setTab={setTab}
 						onSent={() => void refresh(wallet.address)}
 					/>
-				)}
-				{tab === 'terima' && (
-					<Receive address={wallet.address} setTab={setTab} />
-				)}
-				{tab === 'riwayat' && (
-					<History address={wallet.address} setTab={setTab} />
-				)}
-				{tab === 'pengaturan' && (
+				) : null}
+				{tab === 'terima' ? <Receive address={wallet.address} /> : null}
+				{tab === 'riwayat' ? <History address={wallet.address} setTab={setTab} /> : null}
+				{tab === 'pengaturan' ? (
 					<Settings
 						mnemonic={wallet.mnemonic}
 						onLock={handleLock}
-						onWipe={() => void handleWipe()}
-						setTab={setTab}
+						onWipe={handleWipe}
 					/>
-				)}
+				) : null}
 			</main>
 		</div>
 	)

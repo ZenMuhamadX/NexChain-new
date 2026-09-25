@@ -15,7 +15,7 @@ const PORT = Number(process.env.NEX_RPC_PORT ?? process.env.PORT ?? 8000)
 // Default 127.0.0.1 (secure by default): RPC hanya terjangkau dari mesin ini;
 // di VPS cukup di-proxy Nginx Proxy Manager (port 80/443) tanpa membuka 8000.
 // Set RPC_BIND_HOST=0.0.0.0 bila miner/explorer ada di mesin lain (LAN dev).
-const HOST = process.env.RPC_BIND_HOST ?? '127.0.0.1'
+const HOST = process.env.RPC_BIND_HOST as string || '0.0.0.0'
 
 // Jalankan server
 app.listen(PORT, HOST, async () => {

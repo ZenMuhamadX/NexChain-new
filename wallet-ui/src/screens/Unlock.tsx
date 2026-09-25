@@ -1,12 +1,9 @@
 import { useState } from 'react'
 import { errorMessage } from '../lib/format'
 import { Icon } from '../ui/Icon'
+import { Notice } from '../ui/Notice'
 import type { Screen } from '../types'
 
-/**
- * Layar buka kunci: passphrase menurunkan ulang private key dari mnemonic
- * terenkripsi (Phase C) — private key hanya hidup di memori.
- */
 export const Unlock = ({
 	onUnlock,
 	go,
@@ -18,7 +15,8 @@ export const Unlock = ({
 	const [error, setError] = useState('')
 	const [busy, setBusy] = useState(false)
 
-	const submit = async (): Promise<void> => {
+	const submit = async (event?: React.FormEvent): Promise<void> => {
+		event?.preventDefault()
 		if (!passphrase) {
 			setError('Masukkan passphrase.')
 			return
@@ -35,41 +33,40 @@ export const Unlock = ({
 	}
 
 	return (
-		<section className="card center">
-			<span className="hero-mark">
-				<Icon name="lock" size={22} />
-			</span>
-			<h1>Buka Kunci Wallet</h1>
-			<p className="muted">Masukkan passphrase untuk mengakses wallet.</p>
-			<div className="field">
-				<label className="label" htmlFor="passphrase">
-					Passphrase
-				</label>
-				<input
-					id="passphrase"
-					type="password"
-					value={passphrase}
-					autoComplete="current-password"
-					autoFocus
-					onChange={(event) => setPassphrase(event.target.value)}
-					onKeyDown={(event) => {
-						if (event.key === 'Enter') void submit()
-					}}
-				/>
+		<section className="auth-card auth-card--unlock">
+			<div className="auth-card__mark" aria-hidden="true">
+				<Icon name="lock" size={26} />
 			</div>
-			{error ? <p className="error">{error}</p> : null}
-			<div className="row">
-				<button className="ghost" onClick={() => go('welcome')} disabled={busy}>
-					Kembali
-				</button>
-				<button
-					className="primary grow"
-					onClick={() => void submit()}
-					disabled={busy}
-				>
-					{busy ? 'Membuka…' : 'Buka Kunci'}
-				</button>
-			</div>
+			<p className="eyebrow">SELAMAT DATANG</p>
+			<h1>Buka wallet Anda</h1>
+			<p className="auth-lead">Private key hanya berada di memori selama sesi ini terbuka.</p>
+			<form onSubmit={(event) => void submit(event)}>
+				<input className="sr-only" aria-hidden="true" tabIndex={-1} autoComplete="username" name="username" value="nexchain-wallet" readOnly />
+				<div className="field">
+					<label className="label" htmlFor="passphrase">
+						Passphrase
+					</label>
+					<input
+						id="passphrase"
+						className="input"
+						type="password"
+						value={passphrase}
+						autoComplete="current-password"
+						autoFocus
+						onChange={(event) => setPassphrase(event.target.value)}
+					/>
+				</div>
+				{error ? <Notice variant="error">{error}</Notice> : null}
+				<div className="form-actions">
+					<button type="button" className="button button--ghost" onClick={() => go('welcome')} disabled={busy}>
+						Kembali
+					</button>
+					<button type="submit" className="button button--primary" disabled={busy}>
+						{busy ? 'Membuka…' : 'Buka wallet'}
+						<Icon name="arrowUpRight" size={15} aria-hidden="true" />
+					</button>
+				</div>
+			</form>
 		</section>
 	)
 }

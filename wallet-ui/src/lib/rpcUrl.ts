@@ -1,4 +1,5 @@
 import { setRpcUrl, getRpcUrl } from 'client/rpc-client/lib/rpcClient'
+import { errorMessage } from './format'
 
 /**
  * Persistensi URL RPC di browser.
@@ -92,6 +93,53 @@ export const persistRpcUrl = (url: string): void => {
 		localStorage.setItem(STORAGE_KEY, url.trim())
 	} catch {
 		// gagal persist bukan gagal koneksi; URL tetap berlaku untuk sesi ini
+	}
+}
+
+export interface RpcConnectionResult {
+	ok: boolean
+	chainId?: number
+	error?: string
+}
+
+/** Lightweight connection probe used by Settings without changing the active client. */
+export const testRpcUrl = async (value: string): Promise<RpcConnectionResult> => {
+	let parsed: URL
+	try {
+		parsed = new URL(value.trim())
+	} catch {
+		return { ok: false, error: 'URL RPC tidak valid.' }
+	}
+	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+		return { ok: false, error: 'URL RPC harus diawali http:// atau https://.' }
+	}
+
+	const controller = new AbortController()
+	const timeout = window.setTimeout(() => controller.abort(), 8_000)
+	try {
+		const response = await fetch(parsed.toString(), {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'nex_getChainId' }),
+			signal: controller.signal,
+		})
+		if (!response.ok) return { ok: false, error: `Node membalas HTTP ${response.status}.` }
+		const body = (await response.json()) as {
+			result?: number
+			error?: { message?: string }
+		}
+		if (body.error) return { ok: false, error: body.error.message ?? 'Node menolak probe.' }
+		if (typeof body.result !== 'number') return { ok: false, error: 'Respons chain ID tidak valid.' }
+		return { ok: true, chainId: body.result }
+	} catch (error) {
+		return {
+			ok: false,
+			error: error instanceof DOMException && error.name === 'AbortError'
+				? 'Node tidak merespons dalam 8 detik.'
+				: errorMessage(error),
+		}
+	} finally {
+		window.clearTimeout(timeout)
 	}
 }
 
