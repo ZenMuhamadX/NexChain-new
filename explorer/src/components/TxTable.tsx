@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { HistoryEntry } from '../api/types'
+import { useTimeDisplay } from '../hooks/useTimeDisplay'
 import {
 	formatDateTime,
 	formatNxc,
@@ -25,32 +26,55 @@ export function TxStatus({ status }: { status: HistoryEntry['status'] }) {
  */
 export function TxTable({
 	transactions,
+	compact = false,
 }: {
 	transactions: (HistoryEntry | undefined)[]
+	compact?: boolean
 }) {
 	const rows = transactions.filter((tx): tx is HistoryEntry => tx !== undefined)
+	const { mode: timeMode, toggle: toggleTimeMode } = useTimeDisplay()
 	if (rows.length === 0) return null
 
-	const showBlock = rows.some((tx) => tx.metadata !== undefined)
+	const showBlock = !compact && rows.some((tx) => tx.metadata !== undefined)
 
 	return (
 		<div className="table-wrap">
-			<table className="table table-responsive">
+			<table
+				className={`table table-responsive${compact ? ' tx-table-compact' : ''}`}
+			>
 				<caption className="sr-only">
-					Transactions — hash, sender, receiver, amount, fee, age and status
+					{compact
+						? 'Transactions — hash, amount, age and status'
+						: 'Transactions — hash, sender, receiver, amount, fee, age and status'}
 				</caption>
 				<thead>
 					<tr>
 						<th scope="col">TxHash</th>
-						<th scope="col">From</th>
-						<th scope="col">To</th>
+						{!compact ? (
+							<>
+								<th scope="col">From</th>
+								<th scope="col">To</th>
+							</>
+						) : null}
 						<th scope="col" className="num">
 							Amount
 						</th>
-						<th scope="col" className="num">
-							Fee
+						{!compact ? (
+							<th scope="col" className="num">
+								Fee
+							</th>
+						) : null}
+						<th scope="col" aria-sort="none">
+							<button
+								type="button"
+								className="table-time-toggle"
+								onClick={toggleTimeMode}
+								aria-label={`Show ${timeMode === 'age' ? 'date and time' : 'transaction age'}`}
+								title="Toggle age and date/time"
+							>
+								{timeMode === 'age' ? 'Age' : 'Date Time'}
+							</button>
 						</th>
-						<th scope="col">Age</th>
 						<th scope="col">Status</th>
 						{showBlock ? (
 							<th scope="col" className="num">
@@ -75,32 +99,43 @@ export function TxTable({
 									<span className="muted">—</span>
 								)}
 							</td>
-							<td data-label="From">
-								<Link
-									className="link mono"
-									to={`/address/${tx.sender}`}
-									title={tx.sender}
-								>
-									{truncateMiddle(tx.sender, 8, 6)}
-								</Link>
-							</td>
-							<td data-label="To">
-								<Link
-									className="link mono"
-									to={`/address/${tx.receiver}`}
-									title={tx.receiver}
-								>
-									{truncateMiddle(tx.receiver, 8, 6)}
-								</Link>
-							</td>
+							{!compact ? (
+								<>
+									<td data-label="From">
+										<Link
+											className="link mono"
+											to={`/address/${tx.sender}`}
+											title={tx.sender}
+										>
+											{truncateMiddle(tx.sender, 8, 6)}
+										</Link>
+									</td>
+									<td data-label="To">
+										<Link
+											className="link mono"
+											to={`/address/${tx.receiver}`}
+											title={tx.receiver}
+										>
+											{truncateMiddle(tx.receiver, 8, 6)}
+										</Link>
+									</td>
+								</>
+							) : null}
 							<td data-label="Amount" className="num">
 								{formatNxc(tx.amount, 6)}
 							</td>
-							<td data-label="Fee" className="num">
-								<Unit>{formatNumber(tx.fee)}</Unit>
-							</td>
-							<td data-label="Age" title={formatDateTime(tx.timestamp)}>
-								{timeAgo(tx.timestamp)}
+							{!compact ? (
+								<td data-label="Fee" className="num">
+									<Unit>{formatNumber(tx.fee)}</Unit>
+								</td>
+							) : null}
+							<td
+								data-label={timeMode === 'age' ? 'Age' : 'Date Time'}
+								title={formatDateTime(tx.timestamp)}
+							>
+								{timeMode === 'age'
+									? timeAgo(tx.timestamp)
+									: formatDateTime(tx.timestamp)}
 							</td>
 							<td data-label="Status">
 								<TxStatus status={tx.status} />

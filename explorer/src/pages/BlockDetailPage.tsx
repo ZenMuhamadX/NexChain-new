@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { rpc } from '../api/methods'
-import { isNotFound } from '../api/rpcClient'
 import { tryHexText } from '../api/decoder'
+import { isNotFound } from '../api/rpcClient'
 import type { BlockResponse } from '../api/types'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { TxTable } from '../components/TxTable'
 import { HashValue } from '../components/common/HashValue'
 import { RawJson } from '../components/common/RawJson'
-import { StatCard } from '../components/common/StatCard'
 import { PageSkeleton } from '../components/common/Skeleton'
 import { EmptyState, ErrorState } from '../components/common/States'
 import { useAsync } from '../hooks/useAsync'
@@ -25,16 +24,7 @@ import {
 
 const HASH = /^(0x)?[0-9a-fA-F]{64}$/
 const TX_PAGE = 50
-/** Skala meter konfirmasi (visual saja — tidak mengklaim aturan finalitas). */
-const CONFIRMATION_SCALE = 12
 
-/**
- * Detail blok — menerima height (`/block/873`) ATAU hash
- * (`/block/000007cc…`), deteksi otomatis dari bentuk param.
- *
- * Fase 2B (visual): hero rantai + meter pengganti dua tombol ←/→ polos,
- * supaya "di mana blok ini dan seberapa matang" terjawab tanpa scroll.
- */
 export function BlockDetailPage() {
 	const { id = '' } = useParams()
 	const chain = useChain()
@@ -52,7 +42,6 @@ export function BlockDetailPage() {
 		return undefined
 	}, [id])
 
-	// tujuh blok di sekitar height ini — untuk chain strip & skala meter
 	const heightParam = byHeight ? Number(id) : undefined
 	const tip = chain.state?.currentBlockHeight
 	const neighbors = useAsync(
@@ -75,7 +64,6 @@ export function BlockDetailPage() {
 	}, [id])
 
 	const invalid = !byHeight && !byHash
-
 	if (invalid) {
 		return (
 			<div className="page">
@@ -87,7 +75,7 @@ export function BlockDetailPage() {
 					title="Invalid block reference"
 					hint={
 						<>
-							<code>{id}</code> is neither a height nor a 64-char hash.
+							<code>{id}</code> is neither a height nor a 64-character hash.
 						</>
 					}
 					action={
@@ -111,8 +99,6 @@ export function BlockDetailPage() {
 		)
 	}
 
-	// Kasus height tidak ada: backend balas tanpa key `result` → undefined.
-	// Kasus hash tidak ada: LevelDB throw → JSON-RPC error "…not found…".
 	if ((data === undefined && !error) || (error && isNotFound(error))) {
 		return (
 			<div className="page">
@@ -146,35 +132,19 @@ export function BlockDetailPage() {
 	const nextDisabled = tip !== undefined && currentHeight >= tip
 	const coinbaseText = tryHexText(block.coinbaseTransaction.extraData)
 	const metaText = block.metadata ? tryHexText(block.metadata.extraData) : null
-
-	// --- data untuk strip & meter ---
-	const strip = (neighbors.data ?? [])
-		.filter(
-			(candidate) =>
-				candidate.height >= currentHeight - 3 &&
-				candidate.height <= currentHeight + 3,
-		)
-		.sort((a, b) => a.height - b.height)
-
-	const myTx = block.transactions.length
-	const peakTx = strip.reduce((peak, b) => Math.max(peak, b.txCount), myTx)
-	const densityPct = peakTx > 0 ? Math.round((myTx / peakTx) * 100) : 0
-
-	const peakSize = strip.reduce((peak, b) => Math.max(peak, b.size), block.size)
-	const sizePct = peakSize > 0 ? Math.round((block.size / peakSize) * 100) : 0
-
 	const confirmations =
 		tip !== undefined ? Math.max(tip - currentHeight + 1, 1) : undefined
-	const confirmationPct =
-		confirmations !== undefined
-			? Math.min(100, Math.round((confirmations / CONFIRMATION_SCALE) * 100))
-			: 0
-
+	const averageBlockTime =
+		neighbors.data && neighbors.data.length >= 2
+			? (neighbors.data[0].timestamp -
+					neighbors.data[neighbors.data.length - 1].timestamp) /
+				(neighbors.data.length - 1)
+			: undefined
 	const visibleTxs = block.transactions.slice(0, shownTxs)
 	const txHidden = block.transactions.length - visibleTxs.length
 
 	return (
-		<div className="page">
+		<div className="page detail-page">
 			<Breadcrumbs
 				items={[
 					{ label: 'Blocks', to: '/blocks' },
@@ -182,330 +152,251 @@ export function BlockDetailPage() {
 				]}
 			/>
 
-			{/* --- hero: posisi dalam rantai, terbaca tanpa scroll --- */}
-			<section className="block-hero" aria-label="Block overview">
-				<div className="block-hero-main">
-					<h1 className="block-hero-height">
+			<section className="detail-header" aria-labelledby="block-title">
+				<div className="detail-heading">
+					<p className="detail-eyebrow">Block</p>
+					<h1 id="block-title">
 						#{formatNumber(currentHeight)}
 						<span className={`badge badge-${block.status}`}>
 							{block.status}
 						</span>
 					</h1>
-					<p className="block-hero-meta">
+					<p>
 						{formatDateTime(block.header.timestamp)} ·{' '}
-						{timeAgo(block.header.timestamp)} · {formatSize(block.size)} ·{' '}
-						{formatNumber(block.transactions.length)} tx
+						{timeAgo(block.header.timestamp)} ·{' '}
+						{formatNumber(block.transactions.length)} transactions
 					</p>
 				</div>
-
-				<nav className="chain-nav" aria-label="Previous and next block">
-					<Link
-						className={`chain-node${prevDisabled ? ' is-disabled' : ''}`}
-						to={`/block/${currentHeight - 1}`}
-						aria-disabled={prevDisabled}
-						onClick={(event) =>
-							prevDisabled ? event.preventDefault() : undefined
-						}
-					>
-						<span className="chain-node-label">← Previous</span>
-						<span className="chain-node-value">
-							#{formatNumber(currentHeight - 1)}
-						</span>
-					</Link>
-					<span className="chain-node is-current" aria-current="page">
-						<span className="chain-node-label">This block</span>
-						<span className="chain-node-value">
-							#{formatNumber(currentHeight)}
-						</span>
-					</span>
-					<Link
-						className={`chain-node${nextDisabled ? ' is-disabled' : ''}`}
-						to={`/block/${currentHeight + 1}`}
-						aria-disabled={nextDisabled}
-						onClick={(event) =>
-							nextDisabled ? event.preventDefault() : undefined
-						}
-					>
-						<span className="chain-node-label">Next →</span>
-						<span className="chain-node-value">
-							#{formatNumber(currentHeight + 1)}
-						</span>
-					</Link>
-				</nav>
-			</section>
-
-			{/* --- meter: konfirmasi, densitas tx, ukuran --- */}
-			<section className="card" aria-label="Block meters">
-				<div className="meter-grid">
-					<div className="meter-block">
-						<div className="meter-head">
-							<span className="meter-label">Confirmations</span>
-							<span className="meter-value">
-								{confirmations !== undefined
-									? formatNumber(confirmations)
-									: '—'}
-							</span>
-						</div>
-						<div
-							className="meter-track"
-							role="img"
-							aria-label={`${confirmations ?? 0} confirmations`}
-						>
-							<div
-								className="meter-fill"
-								style={{ width: `${confirmationPct}%` }}
-							/>
-						</div>
-						<p className="stat-hint">
-							{tip !== undefined
-								? `Tip is #${formatNumber(tip)} · blocks start at 1 confirmation`
-								: 'Waiting for chain tip…'}
-						</p>
-					</div>
-
-					<div className="meter-block">
-						<div className="meter-head">
-							<span className="meter-label">Transactions</span>
-							<span className="meter-value">{formatNumber(myTx)}</span>
-						</div>
-						<div
-							className="meter-track"
-							role="img"
-							aria-label={`${densityPct} percent of the busiest nearby block`}
-						>
-							<div
-								className={`meter-fill${densityPct >= 100 ? ' is-full' : ''}`}
-								style={{ width: `${Math.max(densityPct, 2)}%` }}
-							/>
-						</div>
-						<p className="stat-hint">
-							{strip.length > 0
-								? `${densityPct}% of the busiest block in this window`
-								: 'Transactions recorded in this block'}
-						</p>
-					</div>
-
-					<div className="meter-block">
-						<div className="meter-head">
-							<span className="meter-label">Block size</span>
-							<span className="meter-value">{formatSize(block.size)}</span>
-						</div>
-						<div
-							className="meter-track"
-							role="img"
-							aria-label={`${sizePct} percent of the largest nearby block`}
-						>
-							<div
-								className="meter-fill"
-								style={{ width: `${Math.max(sizePct, 2)}%` }}
-							/>
-						</div>
-						<p className="stat-hint">
-							{strip.length > 0
-								? `${sizePct}% of the largest block in this window`
-								: 'Recorded block size'}
-						</p>
-					</div>
+				<div className="detail-hash">
+					<span>Block hash</span>
+					<HashValue value={block.header.hash} head={16} tail={14} />
 				</div>
 			</section>
 
-			<section className="stat-grid" aria-label="Block statistics">
-				<StatCard
-					label="Transactions"
-					value={formatNumber(block.transactions.length)}
-					hint={
-						block.metadata
-							? `metadata txCount ${formatNumber(block.metadata.txCount)}`
-							: undefined
+			<nav
+				className="chain-nav chain-nav-panel"
+				aria-label="Previous and next block"
+			>
+				<Link
+					className={`chain-node${prevDisabled ? ' is-disabled' : ''}`}
+					to={`/block/${currentHeight - 1}`}
+					aria-disabled={prevDisabled}
+					onClick={(event) =>
+						prevDisabled ? event.preventDefault() : undefined
 					}
-					accent
-				/>
-				<StatCard label="Size" value={formatSize(block.size)} />
-				<StatCard
-					label="Difficulty"
-					value={formatNumber(block.header.difficulty)}
-					hint={block.header.hashingAlgorithm}
-				/>
-				<StatCard
-					label="Block reward"
-					value={formatNxc(block.blockReward, 4)}
-					hint={`total ${formatNxc(block.totalReward, 4)}`}
-				/>
-				<StatCard
-					label="Tx fees"
-					value={formatNumber(block.totalTransactionFees)}
-					hint="sum of transaction fees"
-				/>
-			</section>
+				>
+					<span className="chain-node-label">← Previous</span>
+					<span className="chain-node-value">
+						#{formatNumber(currentHeight - 1)}
+					</span>
+				</Link>
+				<span className="chain-node is-current" aria-current="page">
+					<span className="chain-node-label">Current block</span>
+					<span className="chain-node-value">
+						#{formatNumber(currentHeight)}
+					</span>
+				</span>
+				<Link
+					className={`chain-node${nextDisabled ? ' is-disabled' : ''}`}
+					to={`/block/${currentHeight + 1}`}
+					aria-disabled={nextDisabled}
+					onClick={(event) =>
+						nextDisabled ? event.preventDefault() : undefined
+					}
+				>
+					<span className="chain-node-label">Next →</span>
+					<span className="chain-node-value">
+						#{formatNumber(currentHeight + 1)}
+					</span>
+				</Link>
+			</nav>
 
-			{strip.length > 0 ? (
-				<section className="card" aria-label="Neighbouring blocks">
-					<div className="card-head">
-						<h2>Around this block</h2>
+			<section className="panel" aria-labelledby="block-overview-title">
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Block data</p>
+						<h2 id="block-overview-title">Overview</h2>
 					</div>
-					<div className="chain-strip">
-						{strip.map((candidate) => (
-							<Link
-								key={candidate.hash}
-								to={`/block/${candidate.height}`}
-								className={`strip-cell${
-									candidate.height === currentHeight ? ' is-current' : ''
-								}${candidate.height === tip ? ' is-tip' : ''}`}
-								title={`${formatNumber(candidate.txCount)} tx · ${timeAgo(candidate.timestamp)}`}
-								aria-current={
-									candidate.height === currentHeight ? 'page' : undefined
-								}
-							>
-								<span>#{formatNumber(candidate.height)}</span>
-								<span className="strip-txs">
-									{formatNumber(candidate.txCount)} tx
-								</span>
-							</Link>
-						))}
-					</div>
-				</section>
-			) : null}
-
-			<section className="card" aria-label="Block details">
-				<h2>Overview</h2>
-				<dl className="kv-grid mt-md">
-					<div className="kv kv-full">
-						<dt>Hash</dt>
-						<dd>
-							<HashValue value={block.header.hash} head={18} tail={16} />
-						</dd>
-					</div>
-					<div className="kv kv-full">
-						<dt>Previous block hash</dt>
-						<dd>
-							<HashValue
-								value={block.header.previousBlockHash}
-								link={
-									currentHeight > 0
-										? `/block/${currentHeight - 1}`
-										: `/block/${block.header.previousBlockHash}`
-								}
-								head={18}
-								tail={16}
-							/>
-						</dd>
-					</div>
-					<div className="kv">
-						<dt>Timestamp</dt>
-						<dd title={formatDateTime(block.header.timestamp)}>
-							{formatDateTime(block.header.timestamp)} (
-							{timeAgo(block.header.timestamp)})
-						</dd>
-					</div>
-					<div className="kv">
-						<dt>Miner ID</dt>
-						<dd className="mono">{block.minerId}</dd>
-					</div>
-					<div className="kv">
-						<dt>Chain ID</dt>
-						<dd>{block.chainId ?? chain.chainId ?? '—'}</dd>
-					</div>
-					<div className="kv">
-						<dt>Version</dt>
-						<dd>
-							{block.header.version} · {block.header.hashingAlgorithm}
-						</dd>
-					</div>
-					<div className="kv">
-						<dt>Nonce</dt>
-						<dd className="mono">{formatNumber(block.header.nonce)}</dd>
-					</div>
-					<div className="kv">
-						<dt>Avg block time</dt>
-						<dd>
-							{neighbors.data && neighbors.data.length >= 2
-								? formatDuration(
-										(neighbors.data[0].timestamp -
-											neighbors.data[neighbors.data.length - 1].timestamp) /
-											(neighbors.data.length - 1),
-									)
-								: '—'}
-						</dd>
-					</div>
-					<div className="kv kv-full">
-						<dt>Merkle root</dt>
-						<dd>
-							<HashValue value={block.merkleRoot} head={18} tail={16} />
-						</dd>
-					</div>
-					<div className="kv kv-full">
-						<dt>Coinbase → receiver</dt>
-						<dd>
-							<Link
-								className="link mono"
-								to={`/address/${block.coinbaseTransaction.receiver}`}
-							>
-								{block.coinbaseTransaction.receiver}
-							</Link>
-							<span className="muted">
-								{formatNxc(block.coinbaseTransaction.amount, 6)}
-								{coinbaseText ? ` · "${coinbaseText}"` : ''}
-							</span>
-						</dd>
-					</div>
-				</dl>
-			</section>
-
-			<section className="card" aria-label="Transactions">
-				<div className="card-head">
-					<h2>
-						Transactions{' '}
-						<span className="muted">
-							({formatNumber(block.transactions.length)})
-						</span>
-					</h2>
+					<span className="panel-meta">
+						{confirmations !== undefined
+							? `${formatNumber(confirmations)} confirmations`
+							: 'Waiting for chain tip'}
+					</span>
 				</div>
-				{block.transactions.length > 0 ? (
-					<>
-						<TxTable transactions={visibleTxs} />
-						{txHidden > 0 ? (
-							<div className="empty-actions">
-								<button
-									type="button"
-									className="btn"
-									onClick={() => setShownTxs((value) => value + TX_PAGE)}
+				<div className="panel-body">
+					<dl className="detail-grid">
+						<div className="detail-row detail-row-full">
+							<dt>Hash</dt>
+							<dd>
+								<HashValue value={block.header.hash} head={20} tail={18} />
+							</dd>
+						</div>
+						<div className="detail-row detail-row-full">
+							<dt>Parent hash</dt>
+							<dd>
+								<HashValue
+									value={block.header.previousBlockHash}
+									link={
+										currentHeight > 0
+											? `/block/${currentHeight - 1}`
+											: `/block/${block.header.previousBlockHash}`
+									}
+									head={20}
+									tail={18}
+								/>
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Height</dt>
+							<dd>#{formatNumber(currentHeight)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Status</dt>
+							<dd>
+								<span className={`badge badge-${block.status}`}>
+									{block.status}
+								</span>
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Timestamp</dt>
+							<dd>{formatDateTime(block.header.timestamp)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Average block time</dt>
+							<dd>
+								{averageBlockTime !== undefined
+									? formatDuration(averageBlockTime)
+									: '—'}
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Transactions</dt>
+							<dd>{formatNumber(block.transactions.length)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Size</dt>
+							<dd>{formatSize(block.size)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Difficulty</dt>
+							<dd>{formatNumber(block.header.difficulty)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Hashing algorithm</dt>
+							<dd>{block.header.hashingAlgorithm}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Block reward</dt>
+							<dd>{formatNxc(block.blockReward, 6)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Total reward</dt>
+							<dd>{formatNxc(block.totalReward, 6)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Transaction fees</dt>
+							<dd>{formatNxc(block.totalTransactionFees, 6)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Chain ID</dt>
+							<dd>{block.chainId ?? chain.chainId ?? '—'}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Version</dt>
+							<dd>{block.header.version}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Nonce</dt>
+							<dd className="mono">{formatNumber(block.header.nonce)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Miner</dt>
+							<dd className="mono">{block.minerId}</dd>
+						</div>
+						<div className="detail-row detail-row-full">
+							<dt>Merkle root</dt>
+							<dd>
+								<HashValue value={block.merkleRoot} head={20} tail={18} />
+							</dd>
+						</div>
+						<div className="detail-row detail-row-full">
+							<dt>Coinbase receiver</dt>
+							<dd>
+								<Link
+									className="link mono"
+									to={`/address/${block.coinbaseTransaction.receiver}`}
 								>
-									Show {formatNumber(Math.min(TX_PAGE, txHidden))} more
-								</button>
-							</div>
-						) : (
-							<p className="muted pad-sm">
-								Showing all {formatNumber(block.transactions.length)}{' '}
-								transactions.
-							</p>
-						)}
-					</>
-				) : (
-					<EmptyState
-						title="No transactions in this block"
-						hint="Only the coinbase reward was recorded."
-					/>
-				)}
+									{block.coinbaseTransaction.receiver}
+								</Link>
+								<span className="muted">
+									{formatNxc(block.coinbaseTransaction.amount, 6)}
+									{coinbaseText ? ` · "${coinbaseText}"` : ''}
+								</span>
+							</dd>
+						</div>
+					</dl>
+				</div>
+			</section>
+
+			<section
+				className="panel table-panel"
+				aria-labelledby="block-transactions-title"
+			>
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Included transactions</p>
+						<h2 id="block-transactions-title">
+							Transactions{' '}
+							<span className="heading-count">
+								{formatNumber(block.transactions.length)}
+							</span>
+						</h2>
+					</div>
+				</div>
+				<div className="panel-body table-panel-body">
+					{block.transactions.length > 0 ? (
+						<>
+							<TxTable transactions={visibleTxs} />
+							{txHidden > 0 ? (
+								<div className="panel-actions">
+									<button
+										type="button"
+										className="btn"
+										onClick={() => setShownTxs((value) => value + TX_PAGE)}
+									>
+										Show {formatNumber(Math.min(TX_PAGE, txHidden))} more
+									</button>
+								</div>
+							) : null}
+						</>
+					) : (
+						<EmptyState
+							title="No transactions in this block"
+							hint="Only the coinbase reward was recorded."
+						/>
+					)}
+				</div>
 			</section>
 
 			{block.metadata ? (
 				<details className="disclose">
-					<summary>Metadata</summary>
+					<summary>Block metadata</summary>
 					<div className="disclose-body">
-						<dl className="kv-grid">
-							<div className="kv">
-								<dt>txCount</dt>
+						<dl className="detail-grid">
+							<div className="detail-row">
+								<dt>Transaction count</dt>
 								<dd>{formatNumber(block.metadata.txCount)}</dd>
 							</div>
-							<div className="kv">
+							<div className="detail-row">
 								<dt>Gas price</dt>
 								<dd>{formatNumber(block.metadata.gasPrice)} nexu</dd>
 							</div>
-							<div className="kv">
+							<div className="detail-row">
 								<dt>Created at</dt>
 								<dd>{formatDateTime(block.metadata.created_at)}</dd>
 							</div>
-							<div className="kv">
+							<div className="detail-row">
 								<dt>Extra data</dt>
 								<dd>
 									{metaText ? (
@@ -523,18 +414,18 @@ export function BlockDetailPage() {
 			<details className="disclose">
 				<summary>Signature</summary>
 				<div className="disclose-body">
-					<dl className="kv-grid">
-						<div className="kv">
+					<dl className="detail-grid">
+						<div className="detail-row">
 							<dt>v</dt>
 							<dd className="mono">{block.sign.v}</dd>
 						</div>
-						<div className="kv kv-full">
+						<div className="detail-row detail-row-full">
 							<dt>r</dt>
 							<dd>
 								<HashValue value={block.sign.r} head={24} tail={20} />
 							</dd>
 						</div>
-						<div className="kv kv-full">
+						<div className="detail-row detail-row-full">
 							<dt>s</dt>
 							<dd>
 								<HashValue value={block.sign.s} head={24} tail={20} />

@@ -67,7 +67,7 @@ export function PageSkeleton({
 		<div className="page" role="status" aria-live="polite">
 			<span className="sr-only">{label}</span>
 			<SkeletonBlock />
-			<section className="card">
+			<section className="panel">
 				<span className="skeleton skeleton-title" aria-hidden="true" />
 				<div className="mt-md">
 					{lines ? <SkeletonLines /> : <SkeletonTable />}

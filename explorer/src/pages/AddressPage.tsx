@@ -7,7 +7,6 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { TxTable } from '../components/TxTable'
 import { CopyButton } from '../components/common/CopyButton'
 import { RawJson } from '../components/common/RawJson'
-import { StatCard } from '../components/common/StatCard'
 import { PageSkeleton, SkeletonTable } from '../components/common/Skeleton'
 import { EmptyState, ErrorState } from '../components/common/States'
 import { useAsync } from '../hooks/useAsync'
@@ -24,15 +23,6 @@ import {
 
 const PAGE_SIZE = 25
 
-/**
- * Halaman address: saldo, nonce, jumlah transaksi, riwayat.
- * Format divalidasi dulu di client — backend melempar error untuk
- * address yang tidak valid, jadi lebih baik ditolak sebelum request.
- *
- * Riwayat dipaging di sisi klien: endpoint mengembalikan SELURUH history
- * dalam satu respons, sehingga tanpa pagination alamat dengan ribuan
- * transaksi akan me-render semuanya sekaligus dan menghentikan browser.
- */
 export function AddressPage() {
 	const { address = '' } = useParams()
 	const valid = ADDRESS_PATTERN.test(address)
@@ -45,7 +35,6 @@ export function AddressPage() {
 		[address],
 		{ enabled: valid },
 	)
-
 	const history = useAsync(
 		async () => await rpc.getTransactionsByAddress(address),
 		[address],
@@ -138,70 +127,103 @@ export function AddressPage() {
 
 	const txs = history.data?.history ?? []
 	const txCount = history.data?.count ?? 0
-
 	const totalPages = Math.max(1, Math.ceil(txs.length / PAGE_SIZE))
 	const current = Math.min(page, totalPages)
 	const start = (current - 1) * PAGE_SIZE
 	const visible = txs.slice(start, start + PAGE_SIZE)
 
 	return (
-		<div className="page">
-			<Breadcrumbs items={[{ label: `Address ${address.slice(0, 12)}…` }]} />
+		<div className="page detail-page">
+			<Breadcrumbs
+				items={[{ label: `Address ${truncateMiddle(address, 12, 10)}` }]}
+			/>
 
-			<div className="page-head">
-				<div>
-					<h1>
-						Address{' '}
-						<span className="mono muted">
-							{truncateMiddle(address, 12, 10)}
-						</span>
-					</h1>
-					<p className="muted">Balance, nonce and transaction history.</p>
+			<section className="detail-header" aria-labelledby="address-title">
+				<div className="detail-heading">
+					<p className="detail-eyebrow">Blockchain</p>
+					<h1 id="address-title">Address</h1>
+					<p className="mono">{truncateMiddle(balance.address, 18, 14)}</p>
 				</div>
-			</div>
-
-			<div className="card address-hero">
-				<div className="address-hero-main">
-					<p className="section-title">Wallet address</p>
-					<p className="address-hero-value mono">{balance.address}</p>
+				<div className="detail-hash">
+					<span>Wallet address</span>
+					<div className="address-value-row">
+						<code>{balance.address}</code>
+						<CopyButton value={balance.address} label="Copy address" />
+					</div>
 				</div>
-				<CopyButton value={balance.address} label="Copy address" />
-			</div>
-
-			<section className="stat-grid" aria-label="Account statistics">
-				<StatCard
-					label="Balance"
-					value={formatNxc(balance.balance, 6)}
-					hint={`${formatNxcExact(balance.balance)} NXC`}
-					accent
-				/>
-				<StatCard label="Nonce" value={formatNumber(balance.nonce)} />
-				<StatCard
-					label="Transactions"
-					value={formatNumber(balance.transactionCount)}
-					hint={txCount > 0 ? `${formatNumber(txCount)} in history` : undefined}
-				/>
-				<StatCard
-					label="Last activity"
-					value={
-						balance.lastTransactionDate
-							? timeAgo(balance.lastTransactionDate)
-							: 'never'
-					}
-					hint={
-						balance.lastTransactionDate
-							? formatDateTime(balance.lastTransactionDate)
-							: undefined
-					}
-				/>
-				<StatCard label="Type" value="Wallet" hint="NxC prefix" />
 			</section>
 
-			<section className="card" aria-label="Transaction history">
-				<div className="card-head">
-					<h2>
-						History <span className="muted">({formatNumber(txCount)} tx)</span>
-					</h2>
+			<section className="panel" aria-labelledby="address-overview-title">
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Account data</p>
+						<h2 id="address-overview-title">Overview</h2>
+					</div>
+					<span className="panel-meta">
+						{balance.isContract ? 'Contract' : 'Wallet'}
+					</span>
+				</div>
+				<div className="panel-body">
+					<dl className="detail-grid">
+						<div className="detail-row detail-row-full">
+							<dt>Address</dt>
+							<dd>
+								<code>{balance.address}</code>
+								<CopyButton value={balance.address} label="Copy address" />
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Balance</dt>
+							<dd>{formatNxc(balance.balance, 6)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Balance (exact)</dt>
+							<dd className="mono">{formatNxcExact(balance.balance)} NXC</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Nonce</dt>
+							<dd>{formatNumber(balance.nonce)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Transactions</dt>
+							<dd>{formatNumber(balance.transactionCount)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Last activity</dt>
+							<dd>
+								{balance.lastTransactionDate
+									? timeAgo(balance.lastTransactionDate)
+									: 'No transactions'}
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Last transaction date</dt>
+							<dd>
+								{balance.lastTransactionDate
+									? formatDateTime(balance.lastTransactionDate)
+									: '—'}
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Account type</dt>
+							<dd>{balance.isContract ? 'Contract' : 'Wallet'}</dd>
+						</div>
+					</dl>
+				</div>
+			</section>
+
+			<section
+				className="panel table-panel"
+				aria-labelledby="address-history-title"
+			>
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Blockchain activity</p>
+						<h2 id="address-history-title">
+							Transaction History{' '}
+							<span className="heading-count">{formatNumber(txCount)}</span>
+						</h2>
+					</div>
 					{totalPages > 1 ? (
 						<div className="pager">
 							<button
@@ -226,22 +248,23 @@ export function AddressPage() {
 						</div>
 					) : null}
 				</div>
-
-				{history.loading && !history.data ? (
-					<div className="state-block" role="status" aria-live="polite">
-						<span className="sr-only">Loading history…</span>
-						<SkeletonTable rows={6} cols={5} />
-					</div>
-				) : history.error && !history.data ? (
-					<ErrorState error={history.error} onRetry={history.refresh} />
-				) : visible.length > 0 ? (
-					<TxTable transactions={visible as HistoryEntry[]} />
-				) : (
-					<EmptyState
-						title="No transactions yet"
-						hint="This address has no recorded transaction history on-chain."
-					/>
-				)}
+				<div className="panel-body table-panel-body">
+					{history.loading && !history.data ? (
+						<div className="state-block" role="status" aria-live="polite">
+							<span className="sr-only">Loading history…</span>
+							<SkeletonTable rows={6} cols={5} />
+						</div>
+					) : history.error && !history.data ? (
+						<ErrorState error={history.error} onRetry={history.refresh} />
+					) : visible.length > 0 ? (
+						<TxTable transactions={visible as HistoryEntry[]} />
+					) : (
+						<EmptyState
+							title="No transactions yet"
+							hint="This address has no recorded transaction history on-chain."
+						/>
+					)}
+				</div>
 			</section>
 
 			<RawJson data={balance} summary="Raw account JSON" />

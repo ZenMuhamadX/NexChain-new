@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { rpc } from '../api/methods'
 import type { TxInterface } from '../api/types'
 import { TxTable } from '../components/TxTable'
@@ -57,39 +57,55 @@ export function MempoolPage() {
 				</div>
 			</div>
 
-			<section className="card">
-				{visible.length > 0 ? (
-					<>
-						<TxTable transactions={visible} />
-						{hasMore ? (
-							<div className="empty-actions">
-								<button
-									type="button"
-									className="btn"
-									onClick={() => setShown((value) => value + PAGE_SIZE)}
-								>
-									Show{' '}
-									{formatNumber(Math.min(PAGE_SIZE, pending.length - shown))}{' '}
-									more
-								</button>
-							</div>
-						) : (
-							<p className="muted pad-sm">
-								Showing all {formatNumber(pending.length)} pending transactions.
-							</p>
-						)}
-					</>
-				) : (
-					<EmptyState
-						title="Mempool is empty"
-						hint="No transactions are waiting to be mined."
-						action={
-							<Link className="btn btn-primary" to="/blocks">
-								Browse blocks
-							</Link>
-						}
-					/>
-				)}
+			<section
+				className="panel table-panel"
+				aria-labelledby="mempool-records-title"
+			>
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Blockchain</p>
+						<h2 id="mempool-records-title">Pending Transaction Records</h2>
+					</div>
+					<span className="panel-meta">
+						{formatNumber(visible.length)} of {formatNumber(pending.length)}{' '}
+						shown
+					</span>
+				</div>
+				<div className="panel-body table-panel-body">
+					{visible.length > 0 ? (
+						<>
+							<TxTable transactions={visible} />
+							{hasMore ? (
+								<div className="empty-actions">
+									<button
+										type="button"
+										className="btn"
+										onClick={() => setShown((value) => value + PAGE_SIZE)}
+									>
+										Show{' '}
+										{formatNumber(Math.min(PAGE_SIZE, pending.length - shown))}{' '}
+										more
+									</button>
+								</div>
+							) : (
+								<p className="muted pad-sm">
+									Showing all {formatNumber(pending.length)} pending
+									transactions.
+								</p>
+							)}
+						</>
+					) : (
+						<EmptyState
+							title="Mempool is empty"
+							hint="No transactions are waiting to be mined."
+							action={
+								<Link className="btn btn-primary" to="/blocks">
+									Browse blocks
+								</Link>
+							}
+						/>
+					)}
+				</div>
 			</section>
 		</div>
 	)

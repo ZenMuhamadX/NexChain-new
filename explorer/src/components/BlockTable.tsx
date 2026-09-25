@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { blockSummary } from '../api/types'
+import { useTimeDisplay } from '../hooks/useTimeDisplay'
 import {
 	formatDateTime,
 	formatNxc,
@@ -25,6 +26,7 @@ export function BlockTable({
 	// --- deteksi blok baru: flash baris supaya mata pembaca tidak kehilangan tempat ---
 	const previousTop = useRef<string | undefined>(undefined)
 	const [freshTop, setFreshTop] = useState<string | undefined>(undefined)
+	const { mode: timeMode, toggle: toggleTimeMode } = useTimeDisplay()
 
 	useEffect(() => {
 		if (!highlightNew) return
@@ -52,7 +54,17 @@ export function BlockTable({
 					<tr>
 						<th scope="col">Height</th>
 						<th scope="col">Hash</th>
-						<th scope="col">Age</th>
+						<th scope="col" aria-sort="none">
+							<button
+								type="button"
+								className="table-time-toggle"
+								onClick={toggleTimeMode}
+								aria-label={`Show ${timeMode === 'age' ? 'date and time' : 'block age'}`}
+								title="Toggle age and date/time"
+							>
+								{timeMode === 'age' ? 'Age' : 'Date Time'}
+							</button>
+						</th>
 						<th scope="col" className="num">
 							Txs
 						</th>
@@ -84,8 +96,13 @@ export function BlockTable({
 									{truncateMiddle(block.hash)}
 								</Link>
 							</td>
-							<td data-label="Age" title={formatDateTime(block.timestamp)}>
-								{timeAgo(block.timestamp)}
+							<td
+								data-label={timeMode === 'age' ? 'Age' : 'Date Time'}
+								title={formatDateTime(block.timestamp)}
+							>
+								{timeMode === 'age'
+									? timeAgo(block.timestamp)
+									: formatDateTime(block.timestamp)}
 							</td>
 							<td data-label="Txs" className="num">
 								{formatNumber(block.txCount)}

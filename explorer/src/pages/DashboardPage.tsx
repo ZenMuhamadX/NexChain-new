@@ -1,9 +1,14 @@
 import { Link } from 'react-router-dom'
 import { rpc } from '../api/methods'
+import { BlockTable } from '../components/BlockTable'
+import { SearchBar } from '../components/SearchBar'
 import { TxTable } from '../components/TxTable'
 import { HashValue } from '../components/common/HashValue'
-import { StatCard } from '../components/common/StatCard'
-import { CardSkeleton, SkeletonLines } from '../components/common/Skeleton'
+import {
+	CardSkeleton,
+	SkeletonLines,
+	SkeletonTable,
+} from '../components/common/Skeleton'
 import {
 	EmptyState,
 	ErrorState,
@@ -21,21 +26,23 @@ import {
 	timeAgo,
 } from '../lib/format'
 
-const MEMPOOL_PREVIEW = 8
-const GRID_BLOCKS = 40
+const MEMPOOL_PREVIEW = 6
+const RECENT_BLOCKS = 40
 const TABLE_BLOCKS = 10
 
 export function DashboardPage() {
 	useDocumentTitle()
 	const chain = useChain()
 
-	// satu request untuk grid (40) dan tabel (10 terbaru)
-	const recent = useAsync(() => rpc.getRecentBlocks(GRID_BLOCKS), [], {
+	// Satu request untuk statistik dan tabel blok terbaru.
+	const recent = useAsync(() => rpc.getRecentBlocks(RECENT_BLOCKS), [], {
 		pollMs: 5000,
 	})
 	const mempool = useAsync(() => rpc.getMempool(), [], { pollMs: 8000 })
-	if (!chain.state && chain.loading)
-		return <LoadingState label="Connecting to node…" />
+
+	if (!chain.state && chain.loading) {
+		return <LoadingState label="Connecting to NexChain…" />
+	}
 	if (!chain.state && chain.error) {
 		return (
 			<ErrorState
@@ -58,170 +65,229 @@ export function DashboardPage() {
 	const blocks = recent.data ?? []
 	const windowed = blocks.slice(0, TABLE_BLOCKS)
 	const latest = windowed[0]
-
 	const avgBlockTime =
 		windowed.length >= 2
 			? (windowed[0].timestamp - windowed[windowed.length - 1].timestamp) /
 				(windowed.length - 1)
 			: undefined
-
 	const pending = mempool.data ?? []
 
 	return (
-		<div className="page">
-			<div className="page-head">
-				<div>
-					<h1>NexChain dashboard</h1>
-					<p className="muted">
-						Tip #{formatNumber(state.currentBlockHeight)} · Chain ID{' '}
-						{chain.chainId ?? '—'} · updates every few seconds
+		<div className="page page-dashboard">
+			<section className="explorer-hero" aria-labelledby="explorer-title">
+				<div className="hero-network" aria-hidden="true" />
+				<div className="hero-content">
+					<div className="hero-badge">
+						<span className="chain-dot" />
+						Live NexChain network
+					</div>
+					<h1 id="explorer-title">The NexChain Blockchain Explorer</h1>
+					<p>
+						Search the NexChain blockchain, follow recent blocks, and inspect
+						transactions and addresses in one place.
 					</p>
+					<SearchBar variant="hero" />
+					<div className="hero-hints" aria-label="Supported search types">
+						<span>Block height</span>
+						<span>Block hash</span>
+						<span>Transaction hash</span>
+						<span>Wallet address</span>
+					</div>
 				</div>
-			</div>
-
-			<section className="stat-grid" aria-label="Chain statistics">
-				<StatCard
-					label="Block height"
-					value={
-						<Link className="link" to={`/block/${state.currentBlockHeight}`}>
-							#{formatNumber(state.currentBlockHeight)}
-						</Link>
-					}
-					hint={latest ? timeAgo(latest.timestamp) : 'latest'}
-					accent
-				/>
-				<StatCard label="Chain ID" value={String(chain.chainId ?? '—')} />
-				<StatCard
-					label="Difficulty"
-					value={latest ? formatNumber(latest.difficulty) : '—'}
-					hint="SHA256 proof-of-work"
-				/>
-				<StatCard
-					label="Avg block time"
-					value={
-						avgBlockTime !== undefined ? formatDuration(avgBlockTime) : '—'
-					}
-					hint={`last ${windowed.length} blocks`}
-				/>
-				<StatCard
-					label="Mempool"
-					value={formatNumber(pending.length)}
-					hint={mempool.loading ? 'loading…' : 'pending transactions'}
-				/>
-				<StatCard
-					label="Block reward"
-					value={formatNxc(state.blockReward, 4)}
-					hint={`size ${formatSize(state.currentBlockSize)}`}
-				/>
 			</section>
 
-			{/* Grid 2 kolom ala Etherscan: Latest block (detail) | Mempool */}
-			<div className="dash-cols">
-				{latest ? (
-					<section className="card" aria-label="Latest block details">
-						<div className="card-head">
-							<h2>Latest block</h2>
-							<Link className="btn btn-ghost" to={`/block/${latest.height}`}>
-								View details →
+			<section
+				className="panel network-panel"
+				aria-labelledby="network-overview-title"
+			>
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Network</p>
+						<h2 id="network-overview-title">NexChain Network Overview</h2>
+					</div>
+					<span className="live-label">
+						<span className="chain-dot" aria-hidden="true" />
+						Live
+					</span>
+				</div>
+				<dl className="network-summary">
+					<div>
+						<dt>Current block</dt>
+						<dd>
+							<Link to={`/block/${state.currentBlockHeight}`}>
+								#{formatNumber(state.currentBlockHeight)}
 							</Link>
-						</div>
-						<dl className="kv-grid">
-							<div className="kv">
-								<dt>Hash</dt>
-								<dd>
-									<HashValue
-										value={latest.hash}
-										link={`/block/${latest.hash}`}
-										head={14}
-										tail={12}
-									/>
-								</dd>
-							</div>
-							<div className="kv">
-								<dt>Previous</dt>
-								<dd>
-									<HashValue
-										value={latest.previousBlockHash}
-										link={`/block/${latest.previousBlockHash}`}
-										head={14}
-										tail={12}
-									/>
-								</dd>
-							</div>
-							<div className="kv">
-								<dt>Timestamp</dt>
-								<dd title={formatDateTime(latest.timestamp)}>
-									{timeAgo(latest.timestamp)} ·{' '}
-									{formatDateTime(latest.timestamp)}
-								</dd>
-							</div>
-							<div className="kv">
-								<dt>Miner</dt>
-								<dd className="mono">{latest.minerId}</dd>
-							</div>
-							<div className="kv">
-								<dt>Transactions</dt>
-								<dd>{formatNumber(latest.txCount)}</dd>
-							</div>
-							<div className="kv">
-								<dt>Size</dt>
-								<dd>{formatSize(latest.size)}</dd>
-							</div>
-						</dl>
-					</section>
-				) : recent.error && !blocks.length ? (
-					<section className="card" aria-label="Loading latest block">
-						<div className="card-head">
-							<h2>Latest block</h2>
-						</div>
-						<ErrorState error={recent.error} onRetry={recent.refresh} />
-					</section>
-				) : (
-					<section className="card" aria-label="Loading latest block">
-						<div className="card-head">
-							<h2>Latest block</h2>
-						</div>
-						<CardSkeleton label="Loading latest block details">
-							<SkeletonLines />
-						</CardSkeleton>
-					</section>
-				)}
+						</dd>
+						<span>{latest ? timeAgo(latest.timestamp) : 'latest'}</span>
+					</div>
+					<div>
+						<dt>Chain ID</dt>
+						<dd>{chain.chainId ?? '—'}</dd>
+						<span>Main network</span>
+					</div>
+					<div>
+						<dt>Avg. block time</dt>
+						<dd>
+							{avgBlockTime !== undefined ? formatDuration(avgBlockTime) : '—'}
+						</dd>
+						<span>Last {windowed.length || 10} blocks</span>
+					</div>
+					<div>
+						<dt>Difficulty</dt>
+						<dd>{latest ? formatNumber(latest.difficulty) : '—'}</dd>
+						<span>SHA256 proof-of-work</span>
+					</div>
+					<div>
+						<dt>Pending tx</dt>
+						<dd>
+							<Link to="/mempool">{formatNumber(pending.length)}</Link>
+						</dd>
+						<span>{mempool.loading ? 'loading…' : 'in mempool'}</span>
+					</div>
+					<div>
+						<dt>Block reward</dt>
+						<dd>{formatNxc(state.blockReward, 4)}</dd>
+						<span>Size {formatSize(state.currentBlockSize)}</span>
+					</div>
+				</dl>
+			</section>
 
-				<section className="card" aria-label="Mempool">
-					<div className="card-head">
-						<h2>
-							Mempool{' '}
-							<span className="muted">
-								({formatNumber(pending.length)} pending)
-							</span>
-						</h2>
-						<Link className="btn btn-ghost" to="/mempool">
-							View all →
+			<section
+				className="panel table-panel"
+				aria-labelledby="latest-blocks-title"
+			>
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Blockchain</p>
+						<h2 id="latest-blocks-title">Latest Blocks</h2>
+					</div>
+					<Link className="panel-link" to="/blocks">
+						View all blocks <span aria-hidden="true">→</span>
+					</Link>
+				</div>
+				<div className="panel-body table-panel-body">
+					{recent.loading && !recent.data ? (
+						<div className="state-block" role="status" aria-live="polite">
+							<span className="sr-only">Loading latest blocks…</span>
+							<SkeletonTable rows={6} cols={6} />
+						</div>
+					) : recent.error && !recent.data ? (
+						<ErrorState error={recent.error} onRetry={recent.refresh} />
+					) : recent.data && windowed.length === 0 ? (
+						<EmptyState
+							title="No blocks available"
+							hint="The node has not returned any recent blocks yet."
+						/>
+					) : (
+						<BlockTable blocks={windowed} highlightNew />
+					)}
+				</div>
+			</section>
+
+			<div className="dashboard-lower">
+				<section className="panel" aria-labelledby="latest-block-title">
+					<div className="panel-head">
+						<div>
+							<p className="panel-eyebrow">Chain head</p>
+							<h2 id="latest-block-title">Latest Block</h2>
+						</div>
+						{latest ? (
+							<Link className="panel-link" to={`/block/${latest.height}`}>
+								Block details <span aria-hidden="true">→</span>
+							</Link>
+						) : null}
+					</div>
+					<div className="panel-body">
+						{latest ? (
+							<dl className="detail-grid detail-grid-compact">
+								<div className="detail-row detail-row-full">
+									<dt>Hash</dt>
+									<dd>
+										<HashValue
+											value={latest.hash}
+											link={`/block/${latest.hash}`}
+											head={13}
+											tail={11}
+										/>
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Height</dt>
+									<dd>
+										<Link to={`/block/${latest.height}`}>
+											#{formatNumber(latest.height)}
+										</Link>
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Transactions</dt>
+									<dd>{formatNumber(latest.txCount)}</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Timestamp</dt>
+									<dd title={formatDateTime(latest.timestamp)}>
+										{formatDateTime(latest.timestamp)}
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Size</dt>
+									<dd>{formatSize(latest.size)}</dd>
+								</div>
+								<div className="detail-row detail-row-full">
+									<dt>Miner</dt>
+									<dd className="mono">{latest.minerId}</dd>
+								</div>
+							</dl>
+						) : recent.error ? (
+							<ErrorState error={recent.error} onRetry={recent.refresh} />
+						) : recent.data && !latest ? (
+							<EmptyState
+								title="No latest block"
+								hint="The node has not returned a recent block yet."
+							/>
+						) : (
+							<CardSkeleton label="Loading latest block details">
+								<SkeletonLines />
+							</CardSkeleton>
+						)}
+					</div>
+				</section>
+
+				<section className="panel" aria-labelledby="pending-transactions-title">
+					<div className="panel-head">
+						<div>
+							<p className="panel-eyebrow">Mempool</p>
+							<h2 id="pending-transactions-title">
+								Pending Transactions{' '}
+								<span className="heading-count">
+									{formatNumber(pending.length)}
+								</span>
+							</h2>
+						</div>
+						<Link className="panel-link" to="/mempool">
+							View mempool <span aria-hidden="true">→</span>
 						</Link>
 					</div>
-					{mempool.error && !mempool.data ? (
-						<ErrorState error={mempool.error} onRetry={mempool.refresh} />
-					) : pending.length > 0 ? (
-						<>
-							<TxTable transactions={pending.slice(0, MEMPOOL_PREVIEW)} />
-							{pending.length > MEMPOOL_PREVIEW ? (
-								<p className="muted pad-sm">
-									Showing {MEMPOOL_PREVIEW} of {formatNumber(pending.length)}{' '}
-									pending transactions · <Link to="/mempool">see all</Link>
-								</p>
-							) : null}
-						</>
-					) : (
-						<EmptyState
-							title="Mempool is empty"
-							hint="No transactions are waiting to be mined."
-							action={
-								<Link className="btn" to="/mempool">
-									Open mempool
-								</Link>
-							}
-						/>
-					)}
+					<div className="panel-body table-panel-body">
+						{mempool.error && !mempool.data ? (
+							<ErrorState error={mempool.error} onRetry={mempool.refresh} />
+						) : pending.length > 0 ? (
+							<TxTable
+								transactions={pending.slice(0, MEMPOOL_PREVIEW)}
+								compact
+							/>
+						) : (
+							<EmptyState
+								title="Mempool is empty"
+								hint="No transactions are waiting to be mined."
+								action={
+									<Link className="btn" to="/mempool">
+										Open mempool
+									</Link>
+								}
+							/>
+						)}
+					</div>
 				</section>
 			</div>
 		</div>

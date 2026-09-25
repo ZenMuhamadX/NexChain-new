@@ -68,7 +68,7 @@ export function SearchResultsPage() {
 				</div>
 			</div>
 
-			<section className="card">
+			<section className="panel">
 				<EmptyState
 					title="Try one of these instead"
 					hint="Search accepts a block height, a 64-character block or transaction hash, or an address starting with NxC / NxS."

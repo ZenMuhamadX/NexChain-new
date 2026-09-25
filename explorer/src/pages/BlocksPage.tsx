@@ -98,43 +98,60 @@ export function BlocksPage() {
 				</div>
 			</div>
 
-			<section className="card">
-				{!inRange ? (
-					<EmptyState
-						title="No older blocks"
-						hint="This page is past the genesis block."
-						action={
-							<button
-								type="button"
-								className="btn btn-primary"
-								onClick={() => setPage(1)}
-							>
-								Go to latest
-							</button>
-						}
-					/>
-				) : blocks.loading && !blocks.data ? (
-					<div className="state-block" role="status" aria-live="polite">
-						<span className="sr-only">Loading blocks…</span>
-						<SkeletonTable rows={8} cols={6} />
+			<section
+				className="panel table-panel"
+				aria-labelledby="block-records-title"
+			>
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Blockchain</p>
+						<h2 id="block-records-title">Block Records</h2>
 					</div>
-				) : blocks.error && !blocks.data ? (
-					<ErrorState error={blocks.error} onRetry={blocks.refresh} />
-				) : isEmptyPage ? (
-					<EmptyState
-						title="No blocks on this page"
-						hint="The chain may have restarted, or this page is beyond the tip."
-						action={
-							<Link className="btn btn-primary" to="/blocks">
-								Go to latest
-							</Link>
-						}
-					/>
-				) : (
-					<>
-						<BlockTable blocks={blocks.data ?? []} highlightNew={page === 1} />
-					</>
-				)}
+					<span className="panel-meta">
+						{formatNumber(blocks.data?.length ?? 0)} blocks
+					</span>
+				</div>
+				<div className="panel-body table-panel-body">
+					{!inRange ? (
+						<EmptyState
+							title="No older blocks"
+							hint="This page is past the genesis block."
+							action={
+								<button
+									type="button"
+									className="btn btn-primary"
+									onClick={() => setPage(1)}
+								>
+									Go to latest
+								</button>
+							}
+						/>
+					) : blocks.loading && !blocks.data ? (
+						<div className="state-block" role="status" aria-live="polite">
+							<span className="sr-only">Loading blocks…</span>
+							<SkeletonTable rows={8} cols={6} />
+						</div>
+					) : blocks.error && !blocks.data ? (
+						<ErrorState error={blocks.error} onRetry={blocks.refresh} />
+					) : isEmptyPage ? (
+						<EmptyState
+							title="No blocks on this page"
+							hint="The chain may have restarted, or this page is beyond the tip."
+							action={
+								<Link className="btn btn-primary" to="/blocks">
+									Go to latest
+								</Link>
+							}
+						/>
+					) : (
+						<>
+							<BlockTable
+								blocks={blocks.data ?? []}
+								highlightNew={page === 1}
+							/>
+						</>
+					)}
+				</div>
 			</section>
 		</div>
 	)

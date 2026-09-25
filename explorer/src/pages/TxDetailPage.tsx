@@ -1,12 +1,11 @@
 import { Link, useParams } from 'react-router-dom'
 import { rpc } from '../api/methods'
-import { isNotFound } from '../api/rpcClient'
 import { tryHexText } from '../api/decoder'
+import { isNotFound } from '../api/rpcClient'
 import type { HistoryEntry } from '../api/types'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { HashValue } from '../components/common/HashValue'
 import { RawJson } from '../components/common/RawJson'
-import { StatCard } from '../components/common/StatCard'
 import { PageSkeleton } from '../components/common/Skeleton'
 import { EmptyState, ErrorState } from '../components/common/States'
 import { Unit } from '../components/common/Unit'
@@ -22,11 +21,9 @@ import {
 	truncateMiddle,
 } from '../lib/format'
 
-/** Detail transaksi berdasarkan tx hash. */
 export function TxDetailPage() {
 	const { hash = '' } = useParams()
 	const chain = useChain()
-
 	const {
 		data: tx,
 		error,
@@ -62,8 +59,8 @@ export function TxDetailPage() {
 						</>
 					}
 					action={
-						<Link className="btn btn-primary" to="/">
-							Back to dashboard
+						<Link className="btn btn-primary" to="/mempool">
+							View pending transactions
 						</Link>
 					}
 				/>
@@ -101,9 +98,10 @@ export function TxDetailPage() {
 		meta && tip !== undefined
 			? Math.max(tip - meta.blockHeight + 1, 1)
 			: undefined
+	const txHash = tx.txHash ?? hash
 
 	return (
-		<div className="page">
+		<div className="page detail-page">
 			<Breadcrumbs
 				items={[
 					...(meta ? [{ label: 'Blocks', to: '/blocks' }] : []),
@@ -115,162 +113,187 @@ export function TxDetailPage() {
 								},
 							]
 						: []),
-					{ label: `Tx ${truncateMiddle(tx.txHash ?? hash, 8, 6)}` },
+					{ label: `Tx ${truncateMiddle(txHash, 8, 6)}` },
 				]}
 			/>
 
-			<div className="page-head">
-				<div>
-					<h1>
-						Transaction{' '}
+			<section className="detail-header" aria-labelledby="tx-title">
+				<div className="detail-heading">
+					<p className="detail-eyebrow">Transaction</p>
+					<h1 id="tx-title">
+						{tx.isPending ? 'Pending Transaction' : 'Transaction'}
 						<span className={`badge badge-${tx.status}`}>{tx.status}</span>
 					</h1>
-					<p className="muted">
+					<p>
 						{formatDateTime(tx.timestamp)} · {timeAgo(tx.timestamp)}
+						{confirmations !== undefined
+							? ` · ${formatNumber(confirmations)} confirmations`
+							: ''}
 					</p>
 				</div>
-			</div>
-
-			<section className="stat-grid" aria-label="Transaction statistics">
-				<StatCard
-					label="Amount"
-					value={formatNxc(tx.amount, 6)}
-					hint={`${formatNxcExact(tx.amount)} NXC`}
-					accent
-				/>
-				<StatCard
-					label="Fee"
-					value={<Unit>{formatNumber(tx.fee)}</Unit>}
-					hint="network fee paid"
-				/>
-				<StatCard
-					label="Block"
-					value={
-						meta ? (
-							<Link className="link" to={`/block/${meta.blockHeight}`}>
-								#{formatNumber(meta.blockHeight)}
-							</Link>
-						) : (
-							'—'
-						)
-					}
-					hint={
-						meta
-							? confirmations !== undefined
-								? `${formatNumber(confirmations)} confirmations`
-								: undefined
-							: 'metadata not recorded'
-					}
-				/>
-				<StatCard
-					label="Validity"
-					value={tx.isValid ? 'valid' : 'invalid'}
-					hint={tx.isPending ? 'still pending' : 'settled'}
-				/>
-				<StatCard label="Format" value={tx.format} hint="wallet ↔ wallet" />
-				<StatCard
-					label="Confirmations"
-					value={
-						confirmations !== undefined ? formatNumber(confirmations) : '—'
-					}
-					hint={tip !== undefined ? `tip #${formatNumber(tip)}` : undefined}
-				/>
+				<div className="detail-hash">
+					<span>Transaction hash</span>
+					<HashValue value={txHash} head={16} tail={14} />
+				</div>
 			</section>
 
-			<section className="card" aria-label="Transfer">
-				<h2>Transfer</h2>
-				<dl className="kv-grid mt-md">
-					<div className="kv kv-full">
-						<dt>TxHash</dt>
-						<dd>
-							<HashValue value={tx.txHash ?? hash} head={20} tail={18} />
-						</dd>
+			<section className="panel" aria-labelledby="tx-overview-title">
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Transaction data</p>
+						<h2 id="tx-overview-title">Overview</h2>
 					</div>
-					<div className="kv kv-full">
-						<dt>From</dt>
-						<dd>
-							<Link className="link mono" to={`/address/${tx.sender}`}>
-								{tx.sender}
-							</Link>
-						</dd>
-					</div>
-					<div className="kv kv-full">
-						<dt>To</dt>
-						<dd>
-							<Link className="link mono" to={`/address/${tx.receiver}`}>
-								{tx.receiver}
-							</Link>
-						</dd>
-					</div>
-					<div className="kv">
-						<dt>Timestamp</dt>
-						<dd title={formatDateTime(tx.timestamp)}>
-							{formatDateTime(tx.timestamp)}
-						</dd>
-					</div>
-					<div className="kv">
-						<dt>Status</dt>
-						<dd>
-							<span className={`badge badge-${tx.status}`}>{tx.status}</span>
-							{tx.isValid ? null : (
-								<span className="badge badge-rejected">invalid</span>
-							)}
-						</dd>
-					</div>
-					{meta ? (
-						<div className="kv kv-full">
-							<dt>Source block</dt>
+					<span className="panel-meta">Valid: {tx.isValid ? 'Yes' : 'No'}</span>
+				</div>
+				<div className="panel-body">
+					<dl className="detail-grid">
+						<div className="detail-row detail-row-full">
+							<dt>Transaction hash</dt>
 							<dd>
-								<Link className="link" to={`/block/${meta.blockHeight}`}>
-									#{formatNumber(meta.blockHeight)}
-								</Link>
-								<HashValue
-									value={meta.blockHash}
-									link={`/block/${meta.blockHash}`}
-									head={14}
-									tail={12}
-								/>
-								<span
-									className="muted"
-									title={formatDateTime(meta.blockTimestamp)}
-								>
-									mined {timeAgo(meta.blockTimestamp)}
-								</span>
+								<HashValue value={txHash} head={20} tail={18} />
 							</dd>
 						</div>
-					) : null}
-				</dl>
+						<div className="detail-row">
+							<dt>Status</dt>
+							<dd>
+								<span className={`badge badge-${tx.status}`}>{tx.status}</span>
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Block</dt>
+							<dd>
+								{meta ? (
+									<Link to={`/block/${meta.blockHeight}`}>
+										#{formatNumber(meta.blockHeight)}
+									</Link>
+								) : (
+									'Pending'
+								)}
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Timestamp</dt>
+							<dd>{formatDateTime(tx.timestamp)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Confirmations</dt>
+							<dd>
+								{confirmations !== undefined
+									? formatNumber(confirmations)
+									: '—'}
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Amount</dt>
+							<dd>{formatNxc(tx.amount, 6)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Amount (exact)</dt>
+							<dd className="mono">{formatNxcExact(tx.amount)} NXC</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Transaction fee</dt>
+							<dd>
+								<Unit>{formatNumber(tx.fee)}</Unit>
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Nonce</dt>
+							<dd>{formatNumber(tx.nonce)}</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Format</dt>
+							<dd>{tx.format}</dd>
+						</div>
+						{meta ? (
+							<div className="detail-row detail-row-full">
+								<dt>Source block</dt>
+								<dd>
+									<Link to={`/block/${meta.blockHeight}`}>
+										#{formatNumber(meta.blockHeight)}
+									</Link>
+									<HashValue
+										value={meta.blockHash}
+										link={`/block/${meta.blockHash}`}
+										head={14}
+										tail={12}
+									/>
+									<span className="muted">
+										mined {timeAgo(meta.blockTimestamp)}
+									</span>
+								</dd>
+							</div>
+						) : null}
+					</dl>
+				</div>
+			</section>
+
+			<section className="panel" aria-labelledby="tx-transfer-title">
+				<div className="panel-head">
+					<div>
+						<p className="panel-eyebrow">Value transfer</p>
+						<h2 id="tx-transfer-title">From / To</h2>
+					</div>
+					<span className="panel-meta">{formatNxc(tx.amount, 6)}</span>
+				</div>
+				<div className="panel-body">
+					<div className="transfer-flow">
+						<div className="transfer-party">
+							<span>From</span>
+							<Link className="mono" to={`/address/${tx.sender}`}>
+								{tx.sender}
+							</Link>
+						</div>
+						<div className="transfer-arrow" aria-hidden="true">
+							→
+						</div>
+						<div className="transfer-party">
+							<span>To</span>
+							<Link className="mono" to={`/address/${tx.receiver}`}>
+								{tx.receiver}
+							</Link>
+						</div>
+					</div>
+				</div>
 			</section>
 
 			{tx.extraMessage ? (
-				<section className="card" aria-label="Message">
-					<h2>Message</h2>
-					<p className="tx-message mt-md">{tx.extraMessage}</p>
+				<section className="panel" aria-labelledby="tx-message-title">
+					<div className="panel-head">
+						<h2 id="tx-message-title">Message</h2>
+					</div>
+					<div className="panel-body">
+						<p className="tx-message">{tx.extraMessage}</p>
+					</div>
 				</section>
 			) : null}
 
 			{tx.hexInput ? (
-				<section className="card" aria-label="Raw input">
-					<h2>Raw input</h2>
-					<RawInput hexInput={tx.hexInput} />
+				<section className="panel" aria-labelledby="tx-input-title">
+					<div className="panel-head">
+						<h2 id="tx-input-title">Raw input</h2>
+					</div>
+					<div className="panel-body">
+						<RawInput hexInput={tx.hexInput} />
+					</div>
 				</section>
 			) : null}
 
 			<details className="disclose">
 				<summary>Signature</summary>
 				<div className="disclose-body">
-					<dl className="kv-grid">
-						<div className="kv">
+					<dl className="detail-grid">
+						<div className="detail-row">
 							<dt>v</dt>
 							<dd className="mono">{tx.sign.v}</dd>
 						</div>
-						<div className="kv kv-full">
+						<div className="detail-row detail-row-full">
 							<dt>r</dt>
 							<dd>
 								<HashValue value={tx.sign.r} head={24} tail={20} />
 							</dd>
 						</div>
-						<div className="kv kv-full">
+						<div className="detail-row detail-row-full">
 							<dt>s</dt>
 							<dd>
 								<HashValue value={tx.sign.s} head={24} tail={20} />
@@ -287,5 +310,5 @@ export function TxDetailPage() {
 
 function RawInput({ hexInput }: { hexInput: string }) {
 	const text = tryHexText(hexInput)
-	return <p className="tx-message mono mt-md">{text ?? hexInput}</p>
+	return <p className="tx-message mono">{text ?? hexInput}</p>
 }

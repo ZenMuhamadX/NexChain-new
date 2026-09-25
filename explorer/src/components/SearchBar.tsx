@@ -46,7 +46,11 @@ function writeRecent(list: string[]) {
  * - 5 pencarian terakhir disimpan dan muncul saat input difokuskan.
  * - shortcut "/" memfokuskan search dari mana saja.
  */
-export function SearchBar() {
+export function SearchBar({
+	variant = 'compact',
+}: {
+	variant?: 'hero' | 'compact'
+}) {
 	const [query, setQuery] = useState('')
 	const [recent, setRecent] = useState<string[]>(() => readRecent())
 	const [focused, setFocused] = useState(false)
@@ -111,12 +115,16 @@ export function SearchBar() {
 	const showRecent = focused && trimmed === '' && recent.length > 0
 
 	return (
-		<form className="search" onSubmit={submit} role="search">
+		<form
+			className={`search search-${variant}`}
+			onSubmit={submit}
+			role="search"
+		>
 			<input
 				ref={inputRef}
 				className="search-input"
 				type="search"
-				placeholder="Block height, block/tx hash, or address — press / to focus"
+				placeholder="Search by block / transaction / address"
 				value={query}
 				onChange={(event) => setQuery(event.target.value)}
 				onFocus={() => setFocused(true)}
@@ -125,6 +133,20 @@ export function SearchBar() {
 				aria-describedby={kindLabel ? 'search-kind' : undefined}
 				spellCheck={false}
 			/>
+			{trimmed ? (
+				<button
+					type="button"
+					className="search-clear"
+					aria-label="Clear search"
+					title="Clear search"
+					onClick={() => {
+						setQuery('')
+						inputRef.current?.focus()
+					}}
+				>
+					<span aria-hidden="true">×</span>
+				</button>
+			) : null}
 			{kindLabel ? (
 				<span className="chip chip-accent" id="search-kind">
 					{kindLabel}
