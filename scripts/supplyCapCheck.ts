@@ -29,6 +29,8 @@ import {
 	NXC_DECIMALS,
 } from 'nexchain/nexucoin/constants'
 import { assertNexuCapped } from 'nexchain/nexucoin/isNexuCapped'
+import { txInterfaceValidator } from 'interface/validation/joi/txInterface'
+import { nexAccountValidator } from 'interface/validation/joi/nexAccount'
 
 let pass = 0
 let fail = 0
@@ -51,6 +53,9 @@ const caught = (fn: () => unknown): Error | null => {
 		return error instanceof Error ? error : new Error(String(error))
 	}
 }
+
+/** Alamat dummy untuk seluruh tes struktur — TIDAK PERNAH disimpan. */
+const ADDR = `NxC${'ab'.repeat(20)}`
 
 /** Sama seperti `caught`, tapi untuk pemanggilan asinkron. */
 const caughtAsync = async (
@@ -119,9 +124,118 @@ ok(
 	caught(() => assertNexuCapped(-1, 'gate')) !== null,
 )
 
+console.log('STAGE 4 — skrip Joi: .unsafe dibuang, .max(MAX_SUPPLY_NEXU) dipasang:')
+
+/**
+ * Objek transaksi minimum yang memenuhi seluruh field WAJIB
+ * `txInterfaceValidator`. Struktural saja — Joi tidak memverifikasi
+ * kriptografi, jadi nilai r/s/hexInput boleh dummy.
+ */
+const structurallyValidTx = (): Record<string, unknown> => ({
+	amount: 1,
+	format: 'nexu',
+	sender: ADDR,
+	receiver: `NxC${'cd'.repeat(20)}`,
+	sign: { r: 'a'.repeat(64), s: 'b'.repeat(64), v: 0 },
+	timestamp: 1_790_149_112_539,
+	txHash: `Tx${'11'.repeat(32)}`,
+	nonce: 0,
+	status: 'pending',
+	isValid: true,
+	isPending: true,
+	hexInput: 'abcd',
+	fee: 5_000,
+})
+
+/** Bentuk minimal yang cukup untuk memanggil `schema.validate(...)`. */
+type JoiLike = {
+	validate: (value: unknown) => {
+		error?: { message: string } | undefined
+	}
+}
+
+/** Validasi struktur lalu kembalikan pesan error pertama (null = lolos). */
+const joiError = (validator: JoiLike, value: unknown): string | null =>
+	validator.validate(value).error?.message ?? null
+
+/** Tes bahwa suatu nilai DITOLAK skrip Joi. */
+const joiOk = (label: string, validator: JoiLike, value: unknown): void => {
+	const message = joiError(validator, value)
+	ok(`${label} DITOLAK`, message !== null, message ?? '(lolos)')
+}
+
+/** Tes bahwa suatu nilai DITERIMA — penanda bahwa `.unsafe` dicabut aman. */
+const joiPass = (label: string, validator: JoiLike, value: unknown): void => {
+	const message = joiError(validator, value)
+	ok(`${label} diterima`, message === null, message ?? '')
+}
+
+// Arah "menerima" — memastikan pencabutan `.unsafe(true)` TIDAK membuat
+// nilai normal (desimal pecahan, angka besar yang masih aman) ikut tertolak.
+joiPass('txValidator: amount = 1 nexu', txInterfaceValidator, structurallyValidTx())
+joiPass(
+	'txValidator: amount = 1 NXC (1e8, masih batas aman)',
+	txInterfaceValidator,
+	{ ...structurallyValidTx(), amount: 100_000_000 },
+)
+joiPass(
+	'txValidator: amount = plafon persis',
+	txInterfaceValidator,
+	{ ...structurallyValidTx(), amount: MAX_SUPPLY_NEXU },
+)
+
+// Arah "menolak" — inilah yang dulu lolos berkat `.unsafe(true)`.
+joiOk(
+	'txValidator: amount = plafon + 1',
+	txInterfaceValidator,
+	{ ...structurallyValidTx(), amount: MAX_SUPPLY_NEXU + 1 },
+)
+joiOk(
+	'txValidator: amount = 1e20 (unsafe integer)',
+	txInterfaceValidator,
+	{ ...structurallyValidTx(), amount: 1e20 },
+)
+joiOk(
+	'txValidator: amount = Infinity',
+	txInterfaceValidator,
+	{ ...structurallyValidTx(), amount: Infinity },
+)
+joiOk(
+	'txValidator: fee = plafon + 1',
+	txInterfaceValidator,
+	{ ...structurallyValidTx(), fee: MAX_SUPPLY_NEXU + 1 },
+)
+joiOk('txValidator: fee negatif', txInterfaceValidator, {
+	...structurallyValidTx(),
+	fee: -1,
+})
+joiOk('txValidator: amount < 1 nexu', txInterfaceValidator, {
+	...structurallyValidTx(),
+	amount: 0.5,
+})
+
+const structurallyValidAccount = (): Record<string, unknown> => ({
+	address: ADDR,
+	balance: 0,
+	timesTransaction: 0,
+	lastTransactionDate: null,
+	nonce: 0,
+	isContract: false,
+})
+joiPass('accountValidator: balance = 0', nexAccountValidator, structurallyValidAccount())
+joiOk(
+	'accountValidator: balance = plafon + 1',
+	nexAccountValidator,
+	{ ...structurallyValidAccount(), balance: MAX_SUPPLY_NEXU + 1 },
+)
+joiOk(
+	'accountValidator: balance = 1e20 (unsafe integer)',
+	nexAccountValidator,
+	{ ...structurallyValidAccount(), balance: 1e20 },
+)
+
 console.log('STAGE 3 — putAccount (choke point penulisan saldo):')
 
-const ADDR = `NxC${'ab'.repeat(20)}`
 const balanceWith = (balance: number): structBalance => ({
 	address: ADDR,
 	balance,
