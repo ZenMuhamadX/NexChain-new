@@ -116,6 +116,14 @@ export const setBlockState = async (block: Block) => {
 	// Dilempar, bukan dicatat: `saveBlock` mengubah throw menjadi `false`,
 	// `saveBlockToChain` mengangkatnya jadi error, dan `commitBlock`
 	// membatalkan seluruh blok. Tidak ada state yang tertulis.
+	//
+	// `blockReward` diperiksa PALING AWAL — bahkan sebelum
+	// `projectTotalIssued` membaca DB. Nilai ini milik INPUT, jadi
+	// menolaknya tidak boleh membutuhkan I/O: selain tidak perlu membuka
+	// kunci penyimpanan, ini membuat titik penegakan ketiga ini bisa
+	// diuji langsung oleh `check:cap` tanpa menyentuh DB.
+	assertNexuCapped(block.block.blockReward, `setBlockState.blockReward@${block.block.height}`)
+
 	const totalIssued = await projectTotalIssued(block)
 	if (totalIssued > MAX_SUPPLY_NEXU) {
 		throw new Error(
@@ -128,7 +136,6 @@ export const setBlockState = async (block: Block) => {
 	// Kedua nilai harus bilangan bulat aman dan ≤ plafon — kalau tidak,
 	// aritmetika `number` di titik ini sudah mulai membulatkan diam-diam.
 	assertNexuCapped(totalIssued, `setBlockState.totalIssued@${block.block.height}`)
-	assertNexuCapped(block.block.blockReward, `setBlockState.blockReward@${block.block.height}`)
 
 	const blockState: blockState = {
 		currentBlockSize: block.block.size,

@@ -31,6 +31,8 @@ import {
 import { assertNexuCapped } from 'nexchain/nexucoin/isNexuCapped'
 import { txInterfaceValidator } from 'interface/validation/joi/txInterface'
 import { nexAccountValidator } from 'interface/validation/joi/nexAccount'
+import { setBlockState } from 'nexchain/storage/state/setState'
+import { Block } from 'nexchain/model/block/block'
 
 let pass = 0
 let fail = 0
@@ -233,6 +235,44 @@ joiOk(
 	nexAccountValidator,
 	{ ...structurallyValidAccount(), balance: 1e20 },
 )
+
+console.log('STAGE 5 — setBlockState (penegakan ketiga, sebelum I/O):')
+
+/**
+ * Stub yang sengaja HANYA punya `height` dan `blockReward` — tanpa
+ * `totalReward`, tanpa `header`.
+ *
+ * Gunanya untuk menguji URUTAN, bukan sekadar "melempar". Bila seseorang
+ * memindahkan guard `blockReward` ke bawah `projectTotalIssued`, fungsi
+ * akan melaju ke `issuanceOf(block)` yang membaca `block.block.totalReward`
+ * (tidak ada -> `undefined`) lalu melempar dengan konteks
+ * `setBlockState.totalIssued@...` — konteks yang BERBEDA. Karena itu tes
+ * di bawah memeriksa konteks `blockReward` dan bukan hanya fakta bahwa ada
+ * error, sehingga guard yang salah urutan tetap terdeteksi.
+ */
+const stubBlock = (blockReward: number): Block =>
+	({ block: { height: 1, blockReward } }) as unknown as Block
+
+/** Panggil `setBlockState` dengan `blockReward` rusak; guard harus lebih dulu. */
+const expectSetBlockStateReject = async (
+	label: string,
+	blockReward: number,
+): Promise<void> => {
+	const error = await caughtAsync(() => setBlockState(stubBlock(blockReward)))
+	const message = messageOf(error)
+	ok(
+		`${label} DITOLAK sebelum baca/tulis DB`,
+		message !== null &&
+			message.includes('setBlockState.blockReward@') &&
+			message.includes('rentang aman'),
+		message ?? '(tidak melempar)',
+	)
+}
+
+await expectSetBlockStateReject('setBlockState: blockReward = plafon + 1', MAX_SUPPLY_NEXU + 1)
+await expectSetBlockStateReject('setBlockState: blockReward = 1e20 (unsafe integer)', 1e20)
+await expectSetBlockStateReject('setBlockState: blockReward negatif', -1)
+await expectSetBlockStateReject('setBlockState: blockReward = NaN', Number.NaN)
 
 console.log('STAGE 3 — putAccount (choke point penulisan saldo):')
 
