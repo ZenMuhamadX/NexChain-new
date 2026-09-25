@@ -40,9 +40,10 @@ export const hasSendErrors = (errors: SendErrors): boolean =>
  *   - alamat    : `isValidAddress` (prefix NxC/NxS, panjang 43) —
  *                 validateAddresses + validateAddressLengths
  *   - pengirim ≠ penerima — validateTransactionSenderReceiver
- *   - jumlah    : > 0, konversi ke nexu harus bilangan bulat ≥ 1
- *                 (validateTransactionAmount + isNexu + Joi min 0.999 +
- *                  MIN_AMOUNT_NEXU)
+ *   - jumlah    : > 0, parse string eksak via `toNexu` (aritmetika string,
+ *                 bukan `Number()`), hasilnya bilangan bulat aman dan
+ *                 `isNexu` memverifikasi tidak melebihi plafon suplai
+ *                 50.000.000 NXC
  *   - fee       : angka ≥ 0, dan fee ≤ jumlah(nexu) — validateTransactionFees
  *
  * Pemeriksaan saldo, signature, dan nonce TIDAK di sini: `clientSideTxValidate`
@@ -63,22 +64,34 @@ export const validateSendForm = (
 		errors.receiver = 'Pengirim dan penerima tidak boleh sama.'
 	}
 
-	const amount = Number(form.amountNxc)
-	if (!Number.isFinite(amount) || amount <= 0) {
+	// Parse STRING langsung, tanpa `Number(form.amountNxc)` di depannya.
+	// `Number()` membulatkan input ke presisi IEEE-754 SEBELUM konversi
+	// satuan, sehingga nilai yang tidak representabel lolos sebagai angka
+	// non-nol yang tampak valid. `toNexu(string)` bekerja aritmetika
+	// string: eksak, dan melempar untuk desimal yang bukan kelipatan
+	// bulat 1 nexu (mis. "0.000000001").
+	let nexu = 0
+	let parseError: string | undefined
+	try {
+		nexu = toNexu(form.amountNxc)
+	} catch (error) {
+		parseError = error instanceof Error ? error.message : String(error)
+	}
+
+	if (parseError !== undefined) {
+		errors.amount = `Jumlah tidak valid — ${parseError}.`
+	} else if (nexu <= 0) {
 		errors.amount = 'Jumlah harus lebih dari 0.'
-	} else {
-		const nexu = toNexu(amount) // rumus identik dengan node/CLI
-		if (!isNexu(nexu)) {
-			errors.amount = 'Jumlah harus kelipatan 1 nexu (maksimal 18 desimal).'
-		} else if (nexu < 1) {
-			errors.amount = 'Jumlah minimal 1 nexu.'
-		}
+	} else if (!isNexu(nexu)) {
+		// isNexu sudah mencakup: bilangan bulat aman, ≥ 0, dan
+		// ≤ MAX_SUPPLY_NEXU (50.000.000 NXC).
+		errors.amount = 'Jumlah di luar rentang aman (maksimal 50.000.000 NXC).'
 	}
 
 	const fee = Number(form.feeNexu)
 	if (!Number.isFinite(fee) || fee < 0) {
 		errors.fee = 'Fee tidak valid (angka ≥ 0, satuan nexu).'
-	} else if (errors.amount === undefined && fee > toNexu(amount)) {
+	} else if (errors.amount === undefined && fee > nexu) {
 		errors.fee = 'Fee tidak boleh melebihi jumlah transaksi.'
 	}
 

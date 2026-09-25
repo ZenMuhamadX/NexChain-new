@@ -159,7 +159,10 @@ const sendTx = async (
 
 let minerLog = ''
 const startMiner = () => {
-	const proc = spawn('bun', ['mine.ts', sender], {
+	// `mine.ts` sudah tidak ada sejak commit a377d8a (terhapus bersamaan
+	// dengan pembuatan mineCLI.ts yang interaktif). Entry non-interaktif
+	// yang sama perannya ada di scripts/mineChild.ts.
+	const proc = spawn('bun', ['scripts/mineChild.ts', sender], {
 		cwd: process.cwd(),
 		stdio: ['ignore', 'pipe', 'pipe'],
 	})

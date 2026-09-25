@@ -32,6 +32,7 @@ import { encodeTx } from 'nexchain/hex/tx/encodeTx'
 import { decodeTx } from 'nexchain/hex/tx/decodeTx'
 import { comTxInterface } from 'interface/structComTx'
 import { encodeV } from 'sign/chainId'
+import { MAX_SUPPLY_NEXU } from 'nexchain/nexucoin/constants'
 
 let pass = 0
 let fail = 0
@@ -94,7 +95,7 @@ ok(
 	tx.txHash === createTxnHash(tx),
 )
 ok('format dinormalisasi ke nexu', tx.format === 'nexu')
-ok('amount dikonversi NXC -> nexu', tx.amount === 1e18)
+ok('amount dikonversi NXC -> nexu (1 NXC = 1e8 nexu)', tx.amount === 1e8)
 ok('hexInput terisi', typeof tx.hexInput === 'string' && tx.hexInput.length > 0)
 
 // ---- 4. signTransaction murni: tidak memutasi draft ----
@@ -198,20 +199,25 @@ ok(
 	'S1: fee negatif DITOLAK (guard fail-closed)',
 	validateTransactionFees({ ...validTx, fee: -1 }) === false,
 )
-// CATATAN PENTING (temuan empiris untuk Stage 2):
-// Nilai nexu basenya 1e18, dan `1e18 + 1` di JavaScript justru kembali `1e18`
-// (presisi float 53-bit). Test awal memakai `amount + 1` sehingga fee TIDAK
-// benar-benar melebihi amount dan lolos. Ini bukti langsung bahwa representasi
-// saldo berbasis `number` TIDAK aman untuk unit 1e18 —steadna masalah yang
-// akan ditangani di Stage 2 (BigInt / fixed-point). Test di bawah memakai
-// `amount * 2` yang selalu presisi.
+// CATATAN PENTING (temuan empiris, kini sudah ditangani di Stage 2):
+// Pada satuan LAMA (1e18), `1e18 + 1` di JavaScript justru kembali `1e18`
+// (presisi float 53-bit) — sehingga test awal dengan `amount + 1` lolos
+// padahal fee tidak benar-benar melebihi amount. Turun ke 8 desimal membuat
+// seluruh rentang suplai (0 … 5.000.000.000.000.000) jatuh di bawah
+// `Number.MAX_SAFE_INTEGER` = 9.007.199.254.740.991, jadi setiap bilangan
+// bulat direpresentasikan TEPAT.
 ok(
 	'S1: fee > amount DITOLAK',
 	validateTransactionFees({ ...validTx, fee: validTx.amount * 2 }) === false,
 )
 ok(
-	'S1: STAGE 2 note: 1e18 + 1 == 1e18 (bukti presisi float)',
-	1e18 + 1 === 1e18,
+	'S2: plafon suplai + 1 tetap eksak (kontras dengan bug 1e18 + 1 == 1e18)',
+	MAX_SUPPLY_NEXU + 1 === 5_000_000_000_000_001 &&
+		Number.isSafeInteger(MAX_SUPPLY_NEXU + 1),
+)
+ok(
+	'S2: MAX_SUPPLY_NEXU berada di bawah Number.MAX_SAFE_INTEGER',
+	MAX_SUPPLY_NEXU < Number.MAX_SAFE_INTEGER,
 )
 
 ok(

@@ -44,10 +44,16 @@ export const GENESIS_COINBASE_RECEIVER = `NxC${'0'.repeat(40)}`
 export const GENESIS_COINBASE_MESSAGE = 'Genesis Block Reward'
 export const GENESIS_MESSAGE = 'NexChain Devnet Genesis — Bitcoin-style PoW'
 
-/** Nonce & hash hasil solve (chain id 26). Jangan diubah tanpa re-solve. */
-export const GENESIS_NONCE = 48369
+/**
+ * Nonce & hash hasil solve (chain id 26). Jangan diubah tanpa re-solve.
+ *
+ * Di-re-solve saat rombak satuan 1e18 → 1e8: `prepareBlockForHashing`
+ * memuat `blockReward`, dan `toNexu(GENESIS_REWARD_NEX)` kini menghasilkan
+ * `50_000_000_000` nexu, bukan `500_000_000_000_000_000_000`.
+ */
+export const GENESIS_NONCE = 326395
 export const GENESIS_HASH =
-	'0000043b0bc286f26da2957e750d8a2303c492fac66ca56c6f9ba1a99a71be57'
+	'00000ba4319876896bf7dd4c0bf6ad685dfef6b64155e51cc3cd9131216e0a06'
 
 /**
  * Susun blok genesis sesuai konstanta. Murni & deterministik — tidak

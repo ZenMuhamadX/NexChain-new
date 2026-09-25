@@ -1,5 +1,5 @@
 ﻿import { JSONRPCServer } from 'json-rpc-2.0'
-import { toNxc } from 'nexchain/nexucoin/toNxc'
+import { formatNxcWithUnit } from 'nexchain/nexucoin/formatNxc'
 import { getBlockByHash } from 'nexchain/block/query/onChain/block/getBlockByHash'
 import { getBlockByHeight } from 'nexchain/block/query/onChain/block/getBlockByHeight'
 import { getBlockState } from 'nexchain/storage/state/getState'
@@ -167,8 +167,12 @@ rpc.addMethod('nex_getAccount', async (address: string) => {
 
 rpc.addMethod('nex_getBalance', async (address: string) => {
 	const account = await getAccount(address)
-	// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-	return stringToHex(`${toNxc(account?.balance!).toFixed(18)} NXC`)
+	// Presisi penuh, tanpa artefak floating point:
+	// `toNxc(balance).toFixed(18)` sebelumnya membagi float lalu membulatkan
+	// ke 18 digit — menghasilkan ekor seperti "100.00049999999901" untuk
+	// saldo yang sebenarnya bulat. `formatNxcWithUnit` memotong string di
+	// posisi titik desimal yang tepat.
+	return stringToHex(formatNxcWithUnit(account?.balance!))
 })
 
 // Nonce akun (angka polos, agar mudah dipakai wallet client)
