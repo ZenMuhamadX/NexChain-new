@@ -13,10 +13,6 @@ import { createJob, getJob, deleteJob, cleanupExpiredJobs } from './jobStore'
 import { chains } from 'nexchain/block/initBlock'
 import { getLastBlockTimestamp } from 'nexchain/blockchain/blockchain'
 import { isValidAddress } from 'nexchain/transaction/utils/isValidAddress'
-import { getMyWalletAddress } from 'account/myWalletAddress'
-import { loadWallet } from 'account/utils/loadWallet'
-import { generateKeysFromMnemonic } from 'key/genKeyFromMnemonic'
-import { createSignature } from 'sign/createSign'
 import { mineLog } from 'logging/mineLog'
 import { logToConsole } from 'logging/logging'
 import { loggingErr } from 'logging/errorLog'
@@ -35,12 +31,18 @@ import { isTxExecuted } from 'nexchain/transaction/isTxExecuted'
  *       {jobId, payload, difficulty, height, ...} untuk di-hash miner.
  *   nex_submitWork({jobId, nonce, hash})
  *     → node verifikasi ULANG sha256(payload+nonce), difficulty, dan
- *       kesegaran tip; bila lolos, finalisasi (nonce/hash/sign/size) dan
+ *       kesegaran tip; bila lolos, finalisasi (nonce/hash/size — blok
+ *       produksi TIDAK ditandatangani siapa pun, standar PoW Bitcoin) dan
  *       commitBlock — hadiah terkredit lewat processTransact (coinbase).
  *
  * Node tidak pernah menghitung PoW sendiri; loop-nya ada di klien
  * (`client/miner/runMiner.ts`), sehingga LevelDB & event loop node bebas
  * dan RPC tetap melayani selama mining berlangsung.
+ *
+ * Node TIDAK memiliki wallet: `minerAddress` (penerima hadiah) WAJIB
+ * dikirim miner pada `nex_getWork`. Hanya transaksi yang ditandatangani
+ * (oleh pengirimnya) — lihat `nexchain/miner/verify/verifyIntegrity.ts`
+ * untuk model verifikasi rantai (PoW + hash chain + merkle + struktur).
  *
  * KEDUA arah — `nex_getWork` (snapshot tip + mempool) dan `nex_submitWork`
  * (commit + bersihkan mempool) — dijalankan lewat satu antrean serial
@@ -162,32 +164,27 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 			}
 		}
 
-		// Alamat penerima hadiah: dari miner; bila tidak dikirim, pakai
-		// wallet node (kegunaan lokal tanpa argumen).
+		// Alamat penerima hadiah WAJIB dari miner — node tidak punya wallet
+		// (mining sepenuhnya eksternal & keyless, lihat komentar modul).
 		const provided = parseMinerAddress(rawParams)
-		let minerAddress: string
-		if (provided) {
-			if (!isValidAddress(provided)) {
-				return {
-					status: false,
-					error: `Invalid miner address: ${formatStr(provided)}`,
-				}
-			}
-			minerAddress = provided
-		} else {
-			minerAddress = getMyWalletAddress()
-			if (!minerAddress) {
-				return {
-					status: false,
-					error:
-						'minerAddress not provided and node wallet not found — kirim {minerAddress}',
-				}
+		if (!provided) {
+			return {
+				status: false,
+				error:
+					'minerAddress required — kirim {minerAddress} (alamat penerima hadiah)',
 			}
 		}
+		if (!isValidAddress(provided)) {
+			return {
+				status: false,
+				error: `Invalid miner address: ${formatStr(provided)}`,
+			}
+		}
+		const minerAddress = provided
 
 		// Jangan membangun di atas rantai yang rusak: integrity check kini
-		// benar-benar memeriksa hasil (verifyStruct await, PoW, signature...)
-		// — lihat verify/verifyIntegrity.
+		// benar-benar memeriksa hasil (verifyStruct await, PoW, hash chain,
+		// merkle, genesis hash) — lihat verify/verifyIntegrity.
 		if (!(await isChainsValid())) {
 			return {
 				status: false,
@@ -329,21 +326,13 @@ const executeSubmit = async (rawParams?: unknown): Promise<SubmitResult> => {
 			}
 		}
 
-		// Finalisasi: isi field yang tidak ikut preimage PoW.
+		// Finalisasi: isi field yang tidak ikut preimage PoW. Blok produksi
+		// TIDAK ditandatangani siapa pun (setara `sign` dihapus dari struktur
+		// blok) — keamanan dari PoW + hash chain + merkle (verifyIntegrity).
 		const block = job.block
 		block.block.header.nonce = nonce
 		block.block.header.hash = hash
-
-		const wallet = loadWallet()
-		if (!wallet) {
-			return {
-				status: false,
-				error: 'Node wallet not found — cannot sign block',
-			}
-		}
-		const { privateKey } = generateKeysFromMnemonic(wallet.phrase)
-		block.block.sign = createSignature(hash, privateKey)
-		// size dihitung terakhir (mencakup sign) — size tidak ikut preimage.
+		// size dihitung terakhir — tidak ikut preimage.
 		block.block.size = calculateSize(block.block).KB
 
 		const committed = await chains.commitBlock(block)

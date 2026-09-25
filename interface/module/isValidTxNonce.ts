@@ -1,8 +1,8 @@
 ﻿import { TxInterface } from 'interface/structTx'
-import { validateField } from './validateField'
 import { getAccount } from 'account/balance/getAccount'
 import { loadMempool } from 'nexchain/storage/mempool/loadMempool'
 import { isValidAddress } from 'nexchain/transaction/utils/isValidAddress'
+import { validateRule } from './validateField'
 
 /**
  * Validasi nonce transaksi terhadap akun dan tx yang masih pending.
@@ -19,12 +19,14 @@ import { isValidAddress } from 'nexchain/transaction/utils/isValidAddress'
 export const validateTransactionNonce = async (
 	transaction: TxInterface,
 ): Promise<boolean> => {
-	if (!Number.isInteger(transaction.nonce) || transaction.nonce < 0) {
-		return validateField(
-			true,
+	if (
+		!validateRule(
+			Number.isInteger(transaction.nonce) && transaction.nonce >= 0,
 			'transactionValidator',
 			'Invalid transaction nonce',
 		)
+	) {
+		return false
 	}
 
 	// Pengirim non-standar (mis. "COINBASE") tidak punya akun → skip nonce
@@ -42,13 +44,9 @@ export const validateTransactionNonce = async (
 
 	const expectedNonce = accountNonce + pendingCount
 
-	if (transaction.nonce !== expectedNonce) {
-		return validateField(
-			true,
-			'transactionValidator',
-			`Invalid nonce: expected ${expectedNonce}, got ${transaction.nonce}`,
-		)
-	}
-
-	return true
+	return validateRule(
+		transaction.nonce === expectedNonce,
+		'transactionValidator',
+		`Invalid nonce: expected ${expectedNonce}, got ${transaction.nonce}`,
+	)
 }

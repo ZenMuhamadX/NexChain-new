@@ -1,28 +1,78 @@
-/** 1 NXC = 10^18 Nexu — satuan bawaan seluruh state on-chain. */
-const NEXU = 10 ** 18
+/**
+ * Jumlah desimal satuan — 1 NXC = 10^8 Nexu.
+ *
+ * Dirombak dari 10^18 ke 10^8 (gaya satoshi, 8 desimal) supaya seluruh
+ * nilai on-chain berada di bawah `Number.MAX_SAFE_INTEGER` dan aritmetika
+ * `number` kembali eksak. Contoh bug satuan lama: saldo terbaca
+ * `100.00049999999901 NXC`.
+ *
+ * Paket ini dibangun berdiri sendiri dan TIDAK mengimpor `nexchain/...`
+ * (lihat vite.config.ts — backend tidak pernah ikut bundle), jadi logika
+ * konversi diduplikasi di sini. PASTIKAN tetap sinkron dengan
+ * `nexchain/nexucoin/formatNxc.ts`.
+ */
+const DECIMALS = 8
+
+/**
+ * nexu → string desimal **tanpa satu pun operasi floating point**.
+ *
+ * Memotong string pada posisi titik desimal yang tepat. Pembagian float
+ * (`nexu / NEXU`) untuk nilai besar menghasilkan digit tambahan yang tidak
+ * pernah ada di state.
+ *
+ * @returns String kanonik tanpa satuan, mis. `"0.00025"`, `"500"`, `"-1"`.
+ *          Kosong bila `nexu` bukan bilangan bulat aman.
+ */
+const exactNxc = (nexu: number): string => {
+	if (!Number.isSafeInteger(nexu)) return ''
+	const negative = nexu < 0
+	// String() pada bilangan bulat aman tidak pernah memakai notasi
+	// eksponensial (baru terjadi di ≥ 1e21).
+	const digits = String(Math.abs(nexu)).padStart(DECIMALS + 1, '0')
+	const whole = digits.slice(0, -DECIMALS)
+	const fraction = digits.slice(-DECIMALS).replace(/0+$/, '')
+	const body = fraction.length > 0 ? `${whole}.${fraction}` : whole
+	return negative ? `-${body}` : body
+}
+
+/** Pemisah ribuan gaya en-US: `1234567` → `1,234,567`. */
+const groupThousands = (value: string): string =>
+	value.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
+/** Format ringkas dari string eksak — tetap tanpa float. */
+const compactNxc = (exact: string, maxDecimals: number): string => {
+	const negative = exact.startsWith('-')
+	const body = negative ? exact.slice(1) : exact
+	const [whole, fraction = ''] = body.split('.')
+	const shortened = fraction.slice(0, maxDecimals).replace(/0+$/, '')
+	const grouped = groupThousands(whole)
+	const output =
+		shortened.length > 0 ? `${grouped}.${shortened}` : grouped
+	return negative ? `-${output}` : output
+}
 
 /** Format saldo/amount Nexu → NXC yang enak dibaca. */
 export const formatNxc = (nexu: number, maxDecimals = 6): string => {
-	if (!Number.isFinite(nexu)) return '—'
-	const value = nexu / NEXU
-	if (value === 0) return '0 NXC'
-	if (Math.abs(value) < 1e-6) {
-		// Nilai kecil (mis. fee/gas 5000 nexu) tetap ditulis desimal NXC
-		// "0.000000000000005 NXC", bukan notasi ilmiah "5.000e-15 NXC",
-		// supaya semua tampilan explorer seragam memakai satuan NXC.
-		const exact = value.toFixed(18).replace(/0+$/, '').replace(/\.$/, '')
-		if (exact === '0' || exact === '-0') return `${value.toExponential(3)} NXC`
+	const exact = exactNxc(nexu)
+	// Non-integer / unsafe / NaN → tampilkan tanda pecah, jangan diam-diam
+	// merender nilai yang salah.
+	if (exact === '') return '—'
+	if (exact === '0') return '0 NXC'
+
+	const compact = compactNxc(exact, maxDecimals)
+	// Nilai terlalu kecil untuk presisi tampilan ini (mis. fee 25.000 nexu
+	// dengan maxDecimals=6 → "0") → tampilkan desimal penuh, jangan
+	// melempar ke notasi ilmiah atau "0 NXC".
+	if (compact.replace('-', '').replace(/[.,]/g, '') === '') {
 		return `${exact} NXC`
 	}
-	return `${new Intl.NumberFormat('en-US', {
-		maximumFractionDigits: maxDecimals,
-	}).format(value)} NXC`
+	return `${compact} NXC`
 }
 
-/** Presisi penuh (18 desimal) — untuk copy/tooltip. */
+/** Presisi penuh (8 desimal) — untuk copy/tooltip. */
 export const formatNxcExact = (nexu: number): string => {
-	if (!Number.isFinite(nexu)) return '—'
-	return (nexu / NEXU).toFixed(18)
+	const exact = exactNxc(nexu)
+	return exact === '' ? '—' : exact
 }
 
 /** Potong tengah: 000007cc…de65ad */

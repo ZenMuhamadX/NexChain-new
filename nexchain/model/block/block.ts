@@ -30,7 +30,6 @@ export class Block {
 			totalReward: blockData.totalReward,
 			status: blockData.status,
 			totalTransactionFees: blockData.totalTransactionFees!,
-			sign: blockData.sign,
 			coinbaseTransaction: blockData.coinbaseTransaction,
 			metadata: blockData.metadata!,
 			transactions: blockData.transactions,

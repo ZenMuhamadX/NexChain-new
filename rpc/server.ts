@@ -5,8 +5,22 @@ import 'dotenv/config'
 // import { openDb } from 'nexchain/db/openDb'
 import { app } from './app/app'
 import { getBlockByHeight } from 'nexchain/block/query/onChain/block/getBlockByHeight'
-import { createGenesisBlock } from 'nexchain/block/createGenesisBlock'
+import { getGenesisBlock, GENESIS_HASH } from 'nexchain/block/genesis'
+import { CHAIN_ID } from 'sign/chainId'
+import { Block } from 'nexchain/model/block/block'
+import { putAccount } from 'account/balance/putAccount'
+import { saveBlock } from 'nexchain/storage/block/saveBlock'
 import { logToConsole } from 'logging/logging'
+import { assertUnitConstants } from 'nexchain/nexucoin/constants'
+
+// Verifikasi konstanta satuan SEBELUM menyentuh apa pun.
+//
+// Gagal = `NEXU_PER_NXC` / `MAX_SUPPLY_NXC` sudah diubah jadi nilai yang
+// tidak aman untuk `number` (plafon di atas 90.071.992 NXC, atau desimal
+// tidak konsisten). Kondisi itu akan membuat aritmetika saldo membulatkan
+// nilai SECARA DIAM-DIAM — tidak ada error di titik lain yang menangkapnya.
+// Lebih baik node menolak boot daripada menambang di atas state yang salah.
+assertUnitConstants()
 
 // Port bisa dioverride lewat env (NEX_RPC_PORT / PORT) — dulu hardcode 8000.
 const PORT = Number(process.env.NEX_RPC_PORT ?? process.env.PORT ?? 8000)
@@ -20,19 +34,58 @@ const HOST = process.env.RPC_BIND_HOST as string || '0.0.0.0'
 // Jalankan server
 app.listen(PORT, HOST, async () => {
 	// await openDb()
-	// Auto-genesis: rantai kosong → buat genesis sekali saat boot, supaya node
-	// langsung siap membagi job mining (nex_getWork) tanpa langkah manual
-	// terpisah. Rantai ada → no-op.
-	const genesis = await getBlockByHeight(0, 'json').catch(() => undefined)
+	// Auto-genesis (standar Bitcoin — hardcoded di kode):
+	//   - rantai kosong → tulis blok genesis KONSTANTA (coinbase ke burned
+	//     address; TANPA wallet node, TANPA langkah manual);
+	//   - rantai ada → verifikasi hash genesis == konstanta kode. Beda
+	//     berarti data bukan milik jaringan ini (anti-fork / tamper) →
+	//     node menolak start supaya mining tidak di atas rantai yang salah.
+	const genesis = (await getBlockByHeight(0, 'json').catch(() =>
+		undefined,
+	)) as Block | undefined
+
 	if (!genesis) {
-		const created = await createGenesisBlock().catch((error: unknown) => {
+		try {
+			const block = getGenesisBlock()
+			const receiver = block.block.coinbaseTransaction.receiver
+			await putAccount(receiver, {
+				address: receiver,
+				balance: block.block.coinbaseTransaction.amount,
+				transactionCount: 1,
+				isContract: false,
+				lastTransactionDate: block.block.metadata!.created_at,
+				nonce: 0,
+			})
+			// saveBlock MENANGKAP error lalu membalikkan `false` — tanpa cek
+			// ini, gagal menulis genesis (termasuk penolakan plafon suplai di
+			// `setBlockState`) tetap dianggap sukses dan node mulai di atas
+			// rantai yang tidak ada.
+			if (!(await saveBlock(block))) {
+				throw new Error('saveBlock gagal menulis blok genesis')
+			}
+			logToConsole('Genesis block created on startup (hardcoded).')
+		} catch (error) {
 			console.error(
 				'Genesis creation failed:',
 				error instanceof Error ? error.message : error,
 			)
-			return undefined
-		})
-		if (created) logToConsole('Genesis block created on startup.')
+			process.exit(1)
+		}
+	} else if (
+		genesis.block.header.hash !== GENESIS_HASH ||
+		genesis.block.chainId !== CHAIN_ID
+	) {
+		console.error(
+			`Genesis mismatch: data hash ${genesis.block.header.hash} chainId ${genesis.block.chainId} != ` +
+				`konstanta ${GENESIS_HASH} / ${CHAIN_ID} — data bukan milik jaringan ini. ` +
+				'Reset base/ atau periksa NEX_CHAIN_ID.',
+		)
+		process.exit(1)
+	} else {
+		logToConsole(
+			`Genesis verified (hash cocok konstanta ${GENESIS_HASH.slice(0, 16)}…).`,
+		)
 	}
+
 	console.log(`RPC server running on http://${HOST}:${PORT}/rpc`)
 })

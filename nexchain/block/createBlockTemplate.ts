@@ -14,10 +14,14 @@ import { CHAIN_ID } from 'sign/chainId'
 
 /**
  * Susun **template blok** berikutnya: field konten lengkap (tinggi, hadiah,
- * coinbase, merkle root, difficulty retarget) tetapi TANPA PoW, TANPA
- * signature, dan TANPA size — ketiganya diisi node saat `nex_submitWork`
- * diterima (lihat `nexchain/miner/work.ts`), karena hanya solusi PoW yang
- * belum diketahui saat template dibuat.
+ * coinbase, merkle root, difficulty retarget) tetapi TANPA PoW dan TANPA
+ * size — keduanya diisi node saat `nex_submitWork` diterima (lihat
+ * `nexchain/miner/work.ts`), karena hanya solusi PoW yang belum diketahui
+ * saat template dibuat.
+ *
+ * Blok produksi TIDAK ditandatangani siapa pun (standar PoW Bitcoin):
+ * keamanan dari PoW + hash chain + merkle + validasi penuh. Satu-satunya
+ * tanda tangan di rantai adalah per-transaksi, oleh pengirimnya.
  *
  * Pemisahan inilah yang membuat node tidak pernah menjalankan loop PoW:
  * template dikirim ke miner eksternal sebagai `payload`
@@ -85,13 +89,6 @@ export const createBlockTemplate = async (
 		// minerId = alamat wallet penerima hadiah (== coinbase receiver),
 		// mengganti hash(IPv4+timestamp) lama yang tidak bisa diverifikasi.
 		minerId: walletMiner,
-		sign: {
-			// Placeholder — signature node diisi saat finalisasi submit;
-			// field ini tidak ikut preimage PoW.
-			r: '',
-			s: '',
-			v: 0,
-		},
 		status: 'confirmed',
 		blockReward,
 		totalReward,

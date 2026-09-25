@@ -3,19 +3,25 @@ import { structBalance } from 'interface/structBalance'
 import { generateTimestampz } from 'nexchain/lib/generateTimestampz'
 import { rocksState } from 'nexchain/db/state'
 import { stringToHex } from 'nexchain/hex/stringToHex'
+import { assertNexuCapped } from 'nexchain/nexucoin/isNexuCapped'
 
 /**
  * Creates and saves a new wallet with an initial balance to the database.
  * @param address - The address of the wallet to create.
  */
 export const putNewAccount = async (address: string): Promise<void> => {
-	try {
-		if (!address) {
-			logInvalidAddressError()
-			return
-		}
+	if (!address) {
+		logInvalidAddressError()
+		return
+	}
 
-		const initBalance = createInitialBalance(address)
+	// GUARD FAIL-CLOSED di LUAR try/catch — lihat catatan di `putAccount`:
+	// `handleUnexpectedError` menelan error, sehingga guard di dalam try
+	// tidak akan menghentikan penulisan nilai yang tidak aman.
+	const initBalance = createInitialBalance(address)
+	assertNexuCapped(initBalance.balance, `putNewAccount(${address}).balance`)
+
+	try {
 		await saveWalletToDB(address, initBalance)
 	} catch (error) {
 		handleUnexpectedError(error)

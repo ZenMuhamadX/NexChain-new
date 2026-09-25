@@ -21,11 +21,18 @@ import { recoverSignerAddress } from 'sign/verifySIgnature'
 import { validateTransactionSignature } from 'interface/module/isValidTxSign'
 import { validateTransactionFees } from 'interface/module/isValidTxFee'
 import { validateTransactionSenderReceiver } from 'interface/module/isValidTxSenderReciever'
+import { validateTransactionAmount } from 'interface/module/isValidTxAmount'
+import { validateAddresses } from 'interface/module/isValidAddress'
+import { validateAddressLengths } from 'interface/module/isValidAddressLength'
+import { validateRule } from 'interface/module/validateField'
+import { normalizeParams } from 'rpc/normalizeParams'
 import { createTxnHash } from 'nexchain/transaction/createTxHash'
 import { setRpcUrl, getRpcUrl } from 'client/rpc-client/lib/rpcClient'
 import { encodeTx } from 'nexchain/hex/tx/encodeTx'
 import { decodeTx } from 'nexchain/hex/tx/decodeTx'
 import { comTxInterface } from 'interface/structComTx'
+import { encodeV } from 'sign/chainId'
+import { MAX_SUPPLY_NEXU } from 'nexchain/nexucoin/constants'
 
 let pass = 0
 let fail = 0
@@ -77,7 +84,10 @@ ok(
 	'recover signer == sender',
 	recoverSignerAddress(tx.txHash!, tx.sign) === SNAPSHOT_ADDRESS,
 )
-ok('v membawa CHAIN_ID 26 (EIP-155)', tx.sign.v === 87 || tx.sign.v === 88)
+ok(
+	'v membawa CHAIN_ID saat ini (EIP-155)',
+	tx.sign.v === encodeV(0) || tx.sign.v === encodeV(1),
+)
 
 // ---- 3. setara dengan logika inline lama (hash/r/s/hexInput identik) ----
 ok(
@@ -85,7 +95,7 @@ ok(
 	tx.txHash === createTxnHash(tx),
 )
 ok('format dinormalisasi ke nexu', tx.format === 'nexu')
-ok('amount dikonversi NXC -> nexu', tx.amount === 1e18)
+ok('amount dikonversi NXC -> nexu (1 NXC = 1e8 nexu)', tx.amount === 1e8)
 ok('hexInput terisi', typeof tx.hexInput === 'string' && tx.hexInput.length > 0)
 
 // ---- 4. signTransaction murni: tidak memutasi draft ----
@@ -145,6 +155,117 @@ ok(
 	!small.status &&
 		small.error === 'Transaction amount must be at least 1 nexu.',
 )
+
+// ============================================================================
+// STAGE 1 — REGRESI SEMANTIK VALIDATOR
+//
+// Bug lama: helper `validateField(writeError, ...)` menerima "kondisi error",
+// tapi semua pemanggil meneruskan "kondisi benar". Akibatnya:
+//   - amount positif  -> DITOLAK  (padahal harusnya valid)
+//   - address valid   -> DITOLAK
+//   - sender != recv  -> DITOLAK
+// Test lama hanya menguji kasus NEGATIF, sehingga bug ini lolos 27/0 OK.
+// Blok di bawah menguji kasus POSITIF + kasus negatif yang menyesatkan.
+// ============================================================================
+
+console.log('\nSTAGE 1 — semantik validator:')
+
+// Helper: transaksi baseline yang SAHARUS valid.
+const validTx = tx
+
+ok(
+	'S1: validateRule(true) -> true (jalur valid)',
+	validateRule(true, 'test', 'should not log') === true,
+)
+ok(
+	'S1: validateRule(false) -> false (jalur error)',
+	validateRule(false, 'test', 'expected rejection') === false,
+)
+
+ok(
+	'S1: amount > 0 pada transaksi valid DITERIMA',
+	validateTransactionAmount(validTx),
+)
+ok(
+	'S1: amount < 1 nexu DITOLAK',
+	validateTransactionAmount({ ...validTx, amount: 0 }) === false,
+)
+
+ok(
+	'S1: fee >= 0 pada transaksi valid DITERIMA',
+	validateTransactionFees(validTx),
+)
+ok(
+	'S1: fee negatif DITOLAK (guard fail-closed)',
+	validateTransactionFees({ ...validTx, fee: -1 }) === false,
+)
+// CATATAN PENTING (temuan empiris, kini sudah ditangani di Stage 2):
+// Pada satuan LAMA (1e18), `1e18 + 1` di JavaScript justru kembali `1e18`
+// (presisi float 53-bit) — sehingga test awal dengan `amount + 1` lolos
+// padahal fee tidak benar-benar melebihi amount. Turun ke 8 desimal membuat
+// seluruh rentang suplai (0 … 5.000.000.000.000.000) jatuh di bawah
+// `Number.MAX_SAFE_INTEGER` = 9.007.199.254.740.991, jadi setiap bilangan
+// bulat direpresentasikan TEPAT.
+ok(
+	'S1: fee > amount DITOLAK',
+	validateTransactionFees({ ...validTx, fee: validTx.amount * 2 }) === false,
+)
+ok(
+	'S2: plafon suplai + 1 tetap eksak (kontras dengan bug 1e18 + 1 == 1e18)',
+	MAX_SUPPLY_NEXU + 1 === 5_000_000_000_000_001 &&
+		Number.isSafeInteger(MAX_SUPPLY_NEXU + 1),
+)
+ok(
+	'S2: MAX_SUPPLY_NEXU berada di bawah Number.MAX_SAFE_INTEGER',
+	MAX_SUPPLY_NEXU < Number.MAX_SAFE_INTEGER,
+)
+
+ok(
+	'S1: sender != receiver pada transaksi valid DITERIMA',
+	validateTransactionSenderReceiver(validTx),
+)
+ok(
+	'S1: sender == receiver DITOLAK',
+	validateTransactionSenderReceiver({ ...validTx, receiver: validTx.sender }) ===
+		false,
+)
+
+ok(
+	'S1: alamat valid (43 char) DITERIMA',
+	validateAddresses(validTx) && validateAddressLengths(validTx),
+)
+ok(
+	'S1: alamat prefix salah DITOLAK',
+	validateAddresses({ ...validTx, sender: 'NxX' + '0'.repeat(40) }) === false,
+)
+ok(
+	'S1: receiver address tidak valid DITOLAK',
+	validateAddresses({ ...validTx, receiver: 'not-an-address' }) === false,
+)
+ok(
+	'S1: panjang alamat salah DITOLAK',
+	validateAddressLengths({ ...validTx, receiver: validTx.receiver.slice(0, 42) }) ===
+		false,
+)
+
+// ============================================================================
+// STAGE 1 / P1 — normalisasi params JSON-RPC (murni, tanpa server)
+// ============================================================================
+
+console.log('STAGE 1 / P1 — normalisasi params JSON-RPC:')
+
+ok('P1: array 1 elemen di-unwrap jadi scalar', normalizeParams(['a']) === 'a')
+ok('P1: array kosong jadi undefined', normalizeParams([]) === undefined)
+ok('P1: null jadi undefined', normalizeParams(null) === undefined)
+ok('P1: scalar diteruskan utuh', normalizeParams('a') === 'a')
+ok('P1: angka diteruskan utuh', normalizeParams(7) === 7)
+ok('P1: object diteruskan utuh (untuk nex_getWork dlsb)', normalizeParams({ a: 1 }) instanceof Object)
+const twoArgs = normalizeParams(['a', 'b'])
+ok(
+	'P1: array >1 elemen diteruskan utuh',
+	Array.isArray(twoArgs) && twoArgs.length === 2,
+)
+ok('P1: undefined diteruskan undefined', normalizeParams(undefined) === undefined)
 
 // ============ Phase E: URL RPC tidak lagi hardcoded ============
 const defaultUrl = getRpcUrl()

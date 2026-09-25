@@ -411,30 +411,6 @@ export function BlockDetailPage() {
 				</details>
 			) : null}
 
-			<details className="disclose">
-				<summary>Signature</summary>
-				<div className="disclose-body">
-					<dl className="detail-grid">
-						<div className="detail-row">
-							<dt>v</dt>
-							<dd className="mono">{block.sign.v}</dd>
-						</div>
-						<div className="detail-row detail-row-full">
-							<dt>r</dt>
-							<dd>
-								<HashValue value={block.sign.r} head={24} tail={20} />
-							</dd>
-						</div>
-						<div className="detail-row detail-row-full">
-							<dt>s</dt>
-							<dd>
-								<HashValue value={block.sign.s} head={24} tail={20} />
-							</dd>
-						</div>
-					</dl>
-				</div>
-			</details>
-
 			<RawJson data={data} summary="Raw block JSON" />
 		</div>
 	)
