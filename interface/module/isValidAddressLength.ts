@@ -1,15 +1,21 @@
+import { validateRule } from './validateField'
 import { TxInterface } from 'interface/structTx'
-import { validateField } from './validateField'
 
+/**
+ * Aturan: panjang kedua alamat harus tepat 43 karakter.
+ *
+ * STAGE 1 FIX: sebelumnya argumen helper dibalik sehingga panjang yang BENAR
+ * justru ditolak.
+ */
 export const validateAddressLengths = (transaction: TxInterface): boolean => {
 	return (
-		validateField(
-			transaction.sender.length !== 43,
+		validateRule(
+			transaction.sender.length === 43,
 			'transactionValidator',
 			'Invalid transaction sender length',
 		) &&
-		validateField(
-			transaction.receiver.length !== 43,
+		validateRule(
+			transaction.receiver.length === 43,
 			'transactionValidator',
 			'Invalid receiver address length',
 		)

@@ -1,16 +1,22 @@
+import { validateRule } from './validateField'
 import { TxInterface } from 'interface/structTx'
-import { validateField } from './validateField'
 import { isValidAddress } from 'nexchain/transaction/utils/isValidAddress'
 
+/**
+ * Aturan: kedua alamat harus lolos `isValidAddress`.
+ *
+ * STAGE 1 FIX: sebelumnya argumen helper dibalik sehingga alamat yang VALID
+ * justru ditolak dan hanya alamat invalid yang bisa lolos.
+ */
 export const validateAddresses = (transaction: TxInterface): boolean => {
 	return (
-		validateField(
-			!isValidAddress(transaction.sender),
+		validateRule(
+			isValidAddress(transaction.sender),
 			'transactionValidator',
 			'Invalid transaction sender address',
 		) &&
-		validateField(
-			!isValidAddress(transaction.receiver),
+		validateRule(
+			isValidAddress(transaction.receiver),
 			'transactionValidator',
 			'Invalid transaction receiver address',
 		)

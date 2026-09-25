@@ -5,6 +5,7 @@ import { limiter } from 'rpc/middleware/limiter'
 import { rpc } from 'rpc/method'
 import { logRequest } from 'rpc/middleware/logging'
 import { getBlockState } from 'nexchain/storage/state/getState'
+import { normalizeJsonRpcRequest } from 'rpc/normalizeParams'
 
 const app = express()
 
@@ -76,13 +77,18 @@ app.post('/rpc', async (req, res): Promise<any> => {
 			})
 		}
 
-		// Proses JSON-RPC request
-		const jsonRPCResponse = await rpc.receive(jsonRPCRequest)
+		// Proses JSON-RPC request (params dinormalisasi lebih dulu supaya
+		// format array/named-object JSON-RPC standar ikut diterima).
+		const jsonRPCResponse = await rpc.receive(
+			normalizeJsonRpcRequest(jsonRPCRequest),
+		)
 		if (jsonRPCResponse) {
 			res.status(200).json(jsonRPCResponse)
 		} else {
-			// Jika JSON-RPC notification, respons tanpa konten (204)
-			res.status(400).json('Invalid JSON-RPC request method')
+			// JSON-RPC notification (tanpa `id`): HARUS 204 No Content.
+			// STAGE 1 FIX: sebelumnya 400, yang melanggar spesifikasi dan
+			// membuat client compliant menganggap request gagal.
+			res.status(204).end()
 		}
 	} catch (error) {
 		console.error('Error handling RPC request:', error)
