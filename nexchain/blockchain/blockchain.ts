@@ -11,6 +11,8 @@ import { processTransact } from '../transaction/processTransact'
 import { logToConsole } from 'logging/logging'
 import { loggingDebug } from 'logging/debug'
 import { getCurrentBlock } from '../block/query/onChain/block/getCurrentBlock'
+import { projectTotalIssued } from '../storage/state/setState'
+import { MAX_SUPPLY_NEXU, NEXU_PER_NXC } from 'nexchain/nexucoin/constants'
 
 export class BlockChains {
 	constructor() {
@@ -25,10 +27,13 @@ export class BlockChains {
 	 *
 	 * Urutan:
 	 *   1. verifikasi merkle root (blok gagal simpan bila tidak cocok);
-	 *   2. simpan blok ke DB (hash/height/state) — nilai return `saveBlock`
+	 *   2. verifikasi PLAFON SUPLAI — `totalIssued` proyektif belum melewati
+	 *      50 juta NXC. Dilakukan di sini (sebelum menulis apa pun) supaya
+	 *      penolakan bersih, bukan setengah-blok di DB;
+	 *   3. simpan blok ke DB (hash/height/state) — nilai return `saveBlock`
 	 *      kini DIPERIKSA (dulu diabaikan: blok bisa gagal tersimpan tapi
 	 *      hadiah & transaksi tetap diproses);
-	 *   3. proses SELURUH transaksi blok lewat `processTransact` — termasuk
+	 *   4. proses SELURUH transaksi blok lewat `processTransact` — termasuk
 	 *      transaksi coinbase, sehingga hadiah blok terkredit melalui
 	 *      pipeline transaksi yang sama (pengganti `giveReward`/`putAccount`
 	 *      langsung) dan ikut terindex di riwayat alamat.
@@ -41,6 +46,21 @@ export class BlockChains {
 		try {
 			if (!verifyMerkleRoot(block.block.transactions, block.block.merkleRoot)) {
 				throw new Error('Merkle root verification failed.')
+			}
+
+			// ---- PLAFON SUPLAI (gagal-dulu, sebelum menulis apa pun) ------
+			// Diverifikasi di sini, bukan hanya di `setBlockState`, supaya
+			// penolakan terjadi SEBELUM `writeBlockHash`/`writeBlockHeight`
+			// menyentuh DB. Kalau baru terdeteksi saat menulis, blok sudah
+			// setengah tersimpan dan `processTransact` bisa berjalan di atas
+			// state yang tidak konsisten.
+			const projectedIssued = await projectTotalIssued(block)
+			if (projectedIssued > MAX_SUPPLY_NEXU) {
+				throw new Error(
+					`Plafon suplai terlampaui: totalIssued ${projectedIssued} > ` +
+						`${MAX_SUPPLY_NEXU} (${MAX_SUPPLY_NEXU / NEXU_PER_NXC} NXC) ` +
+						`di blok height=${block.block.height} — blok ditolak.`,
+				)
 			}
 
 			await this.saveBlockToChain(block)

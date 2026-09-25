@@ -24,6 +24,8 @@ import {
 	assertNexuCapped,
 	isNexuCapped,
 } from 'nexchain/nexucoin/isNexuCapped'
+import { cutBlockReward } from 'nexchain/block/cutReward'
+import { toNexu } from 'nexchain/nexucoin/toNexu'
 
 let okCount = 0
 let failCount = 0
@@ -243,6 +245,86 @@ ok(
 ok(
 	'assertNexuCapped melempar untuk negatif',
 	caught(() => assertNexuCapped(-1, 'test')) !== null,
+)
+
+console.log('STAGE 3 — jadwal reward vs plafon suplai (simulasi):')
+
+// Konstanta gasPrice yang sama dengan `createBlockTemplate` — sengaja
+// ditulis eksak lewat toNexu agar tes ini ikut memverifikasi pemetaan.
+const GAS_PRICE_NEXU = toNexu(0.00025)
+ok('gasPrice = 25_000 nexu (0.00025 NXC)', GAS_PRICE_NEXU === 25_000)
+
+// Pemetaan jadwal reward ke satuan 8 desimal.
+ok(
+	'cutBlockReward(1) = 5_000_000_000 (50 NXC)',
+	cutBlockReward(1) === 5_000_000_000,
+)
+ok('cutBlockReward(19) belum berkurang', cutBlockReward(19) === 5_000_000_000)
+ok(
+	'cutBlockReward(20) = 4_999_900_002 (reduksi pertama)',
+	cutBlockReward(20) === 4_999_900_002,
+)
+ok(
+	'semua reward bilangan bulat aman & positif pada 10 ribu blok pertama',
+	Array.from({ length: 10_000 }, (_, i) => cutBlockReward(i + 1)).every(
+		(r) => Number.isSafeInteger(r) && r > 0,
+	),
+)
+
+/**
+ * Simulasi akumulasi `totalIssued` — bukti bahwa jadwal reward TIDAK bisa
+ * meledak melampaui plafon.
+ *
+ * Kenapa ini layak diuji: plafon adalah hard invariant yang dijaga per
+ * blok, jadi yang perlu dipastikan adalah jadwal reward itu sendiri
+ * menghasilkan akumulasi yang tetap berada di bawahnya. `cutBlockReward`
+ * berhenti turun di 0.001 NXC (bukan 0), sehingga rantai tetap mencetak
+ * 0.00125 NXC/blok selamanya — akumulasinya tidak pernah benar-benar
+ * berhenti, hanya melambat.
+ *
+ * Setiap penjumlahan memakai dua bilangan bulat < 2^53 dengan hasil juga
+ * < 2^53, sehingga penjumlahan float DIJAMIN eksak (tidak ada penumpukan
+ * pembulatan).
+ */
+const SIM_BLOCKS = 2_000_000
+let simulatedIssued = 0
+let safeIntegerAll = true
+for (let height = 1; height <= SIM_BLOCKS; height++) {
+	simulatedIssued += cutBlockReward(height) + GAS_PRICE_NEXU
+	if (!Number.isSafeInteger(simulatedIssued)) safeIntegerAll = false
+}
+
+const fmtNxc = (value: number): string =>
+	(value / NEXU_PER_NXC).toLocaleString('en-US', {
+		maximumFractionDigits: 4,
+	})
+
+console.log(
+	`    S ${SIM_BLOCKS.toLocaleString('en-US')} blok = ` +
+		`${simulatedIssued.toLocaleString('en-US')} nexu (${fmtNxc(simulatedIssued)} NXC)`,
+)
+ok('setiap langkah akumulasi tetap bilangan bulat aman', safeIntegerAll)
+ok(
+	`S ${SIM_BLOCKS.toLocaleString('en-US')} blok masih di bawah plafon 50.000.000 NXC`,
+	simulatedIssued <= MAX_SUPPLY_NEXU,
+)
+
+// Setelah mencapai lantai, reward berhenti di 0.001 NXC + gasPrice
+// 0.00025 NXC = 0.00125 NXC per blok dan TIDAK pernah turun ke 0.
+// Berapa blok lagi sampai plafon?
+const floorRateNexu = toNexu(0.001) + GAS_PRICE_NEXU
+const blocksToCap = (MAX_SUPPLY_NEXU - simulatedIssued) / floorRateNexu
+console.log(
+	`    sisa plafon ${(MAX_SUPPLY_NEXU - simulatedIssued).toLocaleString('en-US')} nexu ` +
+		`-> ${Math.floor(blocksToCap).toLocaleString('en-US')} blok lagi pada laju lantai`,
+)
+ok(
+	'butuh > 10 miliar blok lagi untuk menyentuh plafon (±10 ribu tahun @30s/blok)',
+	blocksToCap > 10_000_000_000,
+)
+ok(
+	'plafon lebih dulu dari batas aman `number` (5e15 < 9,007e15)',
+	MAX_SUPPLY_NEXU < Number.MAX_SAFE_INTEGER,
 )
 
 console.log(`\n============ ${okCount} OK / ${failCount} FAIL ============`)

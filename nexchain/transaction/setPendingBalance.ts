@@ -1,4 +1,5 @@
 import { rocksState } from 'nexchain/db/state'
+import { assertNexuCapped } from 'nexchain/nexucoin/isNexuCapped'
 
 /**
  * Fungsi untuk menyimpan pending balance ke database
@@ -13,6 +14,18 @@ export interface pendingBalance {
 }
 
 export const setPendingBalance = async (data: pendingBalance): Promise<any> => {
+	// GUARD FAIL-CLOSED di LUAR try/catch: blok `catch` di bawah hanya
+	// `console.error` lalu kembali normal, sehingga guard di dalamnya akan
+	// dicatat tetapi data tetap tersimpan.
+	//
+	// `pendingAmount` adalah reserve untuk transaksi yang belum dieksekusi
+	// — nilainya `Σ(amount + fee)`, selalu bilangan bulat aman ≥ 0 dan
+	// tidak boleh melebihi plafon suplai.
+	assertNexuCapped(
+		data.pendingAmount,
+		`setPendingBalance(${data.address}).pendingAmount`,
+	)
+
 	try {
 		const pendingBalanceData: pendingBalance = {
 			address: data.address,

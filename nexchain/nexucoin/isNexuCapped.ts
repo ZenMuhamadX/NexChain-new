@@ -1,4 +1,4 @@
-import { MAX_SUPPLY_NEXU } from './constants'
+import { MAX_SUPPLY_NEXU, NEXU_PER_NXC } from './constants'
 
 /**
  * Validasi nilai on-chain: bilangan bulat, tidak negatif, dan tidak
@@ -41,7 +41,7 @@ export const assertNexuCapped = (value: number, context: string): void => {
 		throw new Error(
 			`${context}: nilai nexu di luar rentang aman (${String(value)}). ` +
 				`Harus bilangan bulat antara 0 dan MAX_SUPPLY_NEXU=` +
-				`${MAX_SUPPLY_NEXU} (${(MAX_SUPPLY_NEXU / 100_000_000).toLocaleString('en-US')} NXC).`,
+				`${MAX_SUPPLY_NEXU} (${(MAX_SUPPLY_NEXU / NEXU_PER_NXC).toLocaleString('en-US')} NXC).`,
 		)
 	}
 }

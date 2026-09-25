@@ -11,6 +11,16 @@ import { Block } from 'nexchain/model/block/block'
 import { putAccount } from 'account/balance/putAccount'
 import { saveBlock } from 'nexchain/storage/block/saveBlock'
 import { logToConsole } from 'logging/logging'
+import { assertUnitConstants } from 'nexchain/nexucoin/constants'
+
+// Verifikasi konstanta satuan SEBELUM menyentuh apa pun.
+//
+// Gagal = `NEXU_PER_NXC` / `MAX_SUPPLY_NXC` sudah diubah jadi nilai yang
+// tidak aman untuk `number` (plafon di atas 90.071.992 NXC, atau desimal
+// tidak konsisten). Kondisi itu akan membuat aritmetika saldo membulatkan
+// nilai SECARA DIAM-DIAM — tidak ada error di titik lain yang menangkapnya.
+// Lebih baik node menolak boot daripada menambang di atas state yang salah.
+assertUnitConstants()
 
 // Port bisa dioverride lewat env (NEX_RPC_PORT / PORT) — dulu hardcode 8000.
 const PORT = Number(process.env.NEX_RPC_PORT ?? process.env.PORT ?? 8000)
@@ -46,7 +56,13 @@ app.listen(PORT, HOST, async () => {
 				lastTransactionDate: block.block.metadata!.created_at,
 				nonce: 0,
 			})
-			await saveBlock(block)
+			// saveBlock MENANGKAP error lalu membalikkan `false` — tanpa cek
+			// ini, gagal menulis genesis (termasuk penolakan plafon suplai di
+			// `setBlockState`) tetap dianggap sukses dan node mulai di atas
+			// rantai yang tidak ada.
+			if (!(await saveBlock(block))) {
+				throw new Error('saveBlock gagal menulis blok genesis')
+			}
 			logToConsole('Genesis block created on startup (hardcoded).')
 		} catch (error) {
 			console.error(
