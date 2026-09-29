@@ -139,7 +139,7 @@ export const Send = ({
 							<div className="field">
 								<label className="label" htmlFor="amount">Jumlah (NXC)</label>
 								<input id="amount" className="input" inputMode="decimal" placeholder="0.0" value={form.amountNxc} onChange={(event) => update({ amountNxc: event.target.value })} />
-								{touched && errors.amount ? <p className="input-error">{errors.amount}</p> : <p className="input-hint">Mendukung hingga 18 desimal.</p>}
+								{touched && errors.amount ? <p className="input-error">{errors.amount}</p> : <p className="input-hint">Mendukung hingga 8 desimal.</p>}
 							</div>
 							<div className="field">
 								<label className="label" htmlFor="fee">Biaya jaringan (nexu)</label>

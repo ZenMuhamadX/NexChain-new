@@ -8,6 +8,8 @@ import {
 import type { SendErrors, SendForm } from '../lib/sendFlow'
 import { errorMessage } from '../lib/format'
 import { explorerTxUrl } from '../lib/explorerUrl'
+import { toNexu } from 'nexchain/nexucoin/toNexu'
+import { formatNxc } from 'nexchain/nexucoin/formatNxc'
 import { Icon } from '../ui/Icon'
 import { AmountDisplay } from '../ui/AmountDisplay'
 import { AddressText } from '../ui/AddressText'
@@ -106,7 +108,21 @@ export const Send = ({
 	}
 
 	const trackUrl = result?.txHash ? explorerTxUrl(result.txHash) : ''
-	const totalNexu = (Number(form.amountNxc) || 0) * 1e18 + (Number(form.feeNexu) || 0)
+	// Konversi NXC → nexu lewat `toNexu` (8 desimal). Sebelumnya baris ini
+	// memakai `Number(form.amountNxc) * 1e18` — 1e18 adalah desimal Ethereum,
+	// bukan NexChain (8 desimal, `NEXU_PER_NXC = 100_000_000`). Untuk jumlah
+	// apa pun > 0 hasilnya melewati `MAX_SUPPLY_NEXU` (5 × 10^15) sehingga
+	// peringatan "Total melebihi saldo tersedia" SELALU menyala, bahkan saat
+	// saldo sebenarnya lebih dari cukup. `toNexu` adalah satu-satunya sumber
+	// konversi yang boleh dipakai di UI.
+	const amountNexu = ((): number => {
+		try {
+			return toNexu(form.amountNxc)
+		} catch {
+			return 0
+		}
+	})()
+	const totalNexu = amountNexu + (Number(form.feeNexu) || 0)
 	const insufficient =
 		formValid && Number.isFinite(totalNexu) && totalNexu > available
 
@@ -262,7 +278,7 @@ export const Send = ({
 					{visibleErrors.amount ? (
 						<p className="input-error">{visibleErrors.amount}</p>
 					) : (
-						<p className="input-hint">Hingga 18 angka desimal.</p>
+						<p className="input-hint">Hingga 8 angka desimal.</p>
 					)}
 				</div>
 
@@ -373,7 +389,7 @@ export const Send = ({
 						<span>Jumlah</span>
 						<strong className="review-amount">
 							<AmountDisplay
-								nexu={Math.round((Number(form.amountNxc) || 0) * 1e18)}
+								nexu={amountNexu}
 								size="table"
 								detailLabel="⋯"
 								ariaLabel="Lihat detail jumlah"
@@ -410,7 +426,8 @@ export const Send = ({
 /** nexu → string NXC tanpa nol di ekor (untuk tombol "Gunakan maks"). */
 const trimNxc = (nexu: number): string => {
 	if (!Number.isSafeInteger(nexu) || nexu <= 0) return '0'
-	const whole = Math.floor(nexu / 1e18)
-	const frac = (nexu % 1e18).toString().padStart(18, '0').replace(/0+$/, '')
-	return frac ? `${whole}.${frac}` : String(whole)
+	// `formatNxc` dari `nexchain/nexucoin` sudah memotong trailing zero pada
+	// 8 desimal. Sebelumnya implementasi ini memakai `nexu / 1e18` +
+	// `padStart(18, '0')` (desimal Ethereum) — keliru untuk NexChain (8).
+	return formatNxc(nexu)
 }
