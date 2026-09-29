@@ -21,19 +21,19 @@
  */
 import 'fake-indexeddb/auto'
 import { readFileSync } from 'node:fs'
-import { createMemoryKV, type WalletKV } from 'client/wallet/kv'
-import { createIdbKV } from 'client/wallet/idbKv'
+import { createMemoryKV, type WalletKV } from 'src/client/wallet/kv'
+import { createIdbKV } from 'src/client/wallet/idbKv'
 import {
 	decryptSecret,
 	encryptSecret,
 	KDF_ITERATIONS,
 	KDF_NAME,
-} from 'client/wallet/vaultCrypto'
-import { createJsCrypto } from 'client/wallet/jsCrypto'
-import { createWalletVault, type VaultRecord } from 'client/wallet/walletVault'
-import { genRandomMnemonic } from 'key/genRandomMnemonic'
-import { generateKeysFromMnemonic } from 'key/genKeyFromMnemonic'
-import { generateAddressFromPublicKey } from 'key/genAddrFromPubKey'
+} from 'src/client/wallet/vaultCrypto'
+import { createJsCrypto } from 'src/client/wallet/jsCrypto'
+import { createWalletVault, type VaultRecord } from 'src/client/wallet/walletVault'
+import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
+import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
+import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
 
 /** Alamat `wallet/main.json` yang sudah terdokumentasi (lihat check:tx). */
 const KNOWN_MAIN_ADDRESS = 'NxC41296362ed2b66dd3bd0a4c96b440ecf36973189'

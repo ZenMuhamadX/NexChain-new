@@ -17,9 +17,9 @@
  * node yang sedang hidup) — arah "menerima nilai sah" dicakup murni oleh
  * `assertNexuCapped` di `check:amount`.
  */
-import { putAccount } from 'account/balance/putAccount'
-import { setPendingBalance } from 'nexchain/transaction/setPendingBalance'
-import { structBalance } from 'interface/structBalance'
+import { putAccount } from 'src/wallet/balance/putAccount'
+import { setPendingBalance } from 'src/core/transaction/setPendingBalance'
+import { structBalance } from 'src/types/balance'
 import {
 	assertUnitConstants,
 	MAX_SUPPLY_NEXU,
@@ -27,12 +27,12 @@ import {
 	MAX_SAFE_NXC,
 	NEXU_PER_NXC,
 	NXC_DECIMALS,
-} from 'nexchain/nexucoin/constants'
-import { assertNexuCapped } from 'nexchain/nexucoin/isNexuCapped'
-import { txInterfaceValidator } from 'interface/validation/joi/txInterface'
-import { nexAccountValidator } from 'interface/validation/joi/nexAccount'
-import { setBlockState } from 'nexchain/storage/state/setState'
-import { Block } from 'nexchain/model/block/block'
+} from 'src/core/token/constants'
+import { assertNexuCapped } from 'src/core/token/isNexuCapped'
+import { txInterfaceValidator } from 'src/core/validation/joi/txInterface'
+import { nexAccountValidator } from 'src/core/validation/joi/nexAccount'
+import { setBlockState } from 'src/core/state/storage/state/setState'
+import { Block } from 'src/core/block/blockModel'
 
 let pass = 0
 let fail = 0

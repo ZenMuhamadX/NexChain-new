@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getVault } from './lib/vault'
-import type { UnlockedWallet, WalletVault } from 'client/wallet/walletVault'
+import type { UnlockedWallet, WalletVault } from 'src/client/wallet/walletVault'
 import {
 	fetchAccount,
 	fetchChainId,

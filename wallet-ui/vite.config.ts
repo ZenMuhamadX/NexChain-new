@@ -8,20 +8,17 @@ import { defineConfig } from 'vite'
  * proyek ini; UI hanya MENYUSUN ulang modul yang sama, sehingga perilaku
  * wallet browser dijamin identik dengan node/CLI yang sudah teruji gate.
  */
+// Setelah restrukturisasi, modul backend live di bawah `src/`.
+// Alias ini mengarahkan import `src/<modul>/...` ke root repo agar UI
+// menyusun ulang modul yang sama persis dengan node (tanpa duplikasi).
 const ROOT_MODULES = [
-	'account',
-	'base',
-	'client',
-	'common',
-	'interface',
-	'key',
-	'logging',
-	'nexchain',
-	'p2p',
-	'rpc',
-	'scripts',
-	'sign',
-	'wallet',
+	'src/core',
+	'src/crypto',
+	'src/wallet',
+	'src/types',
+	'src/client',
+	'src/rpc',
+	'src/logging',
 ] as const
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))

@@ -22,6 +22,9 @@ bun.lock
 #   base    -> sumber bernama base/ di subfolder mana pun
 # Catatan: /wallet tetap mengabaikan wallet/main.json (berisi phrase).
 /base
+# Artefak LevelDB bisa muncul di bawah src/core/ bila node dijalankan dengan
+# cwd berbeda; jangan ikut ter-track.
+src/core/base/
 /logs
 /blocks
 /myWallet

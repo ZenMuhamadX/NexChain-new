@@ -27,14 +27,14 @@ import {
 	retargetByTime,
 	MIN_DIFFICULTY_BITS,
 	MAX_DIFFICULTY_BITS,
-} from 'nexchain/miner/difficulty'
+} from 'src/core/consensus/difficulty'
 import {
 	createJob,
 	getJob,
 	cleanupExpiredJobs,
 	JOB_TTL_MS,
-} from 'nexchain/miner/jobStore'
-import { Block } from 'nexchain/model/block/block'
+} from 'src/core/consensus/jobStore'
+import { Block } from 'src/core/block/blockModel'
 
 let pass = 0
 let fail = 0

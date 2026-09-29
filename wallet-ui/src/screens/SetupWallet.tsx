@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { genRandomMnemonic } from 'key/genRandomMnemonic'
-import { validateMnemonic } from 'key/validateMnemonic'
+import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
+import { validateMnemonic } from 'src/crypto/validateMnemonic'
 import { errorMessage } from '../lib/format'
 import { Icon } from '../ui/Icon'
 import { CopyButton } from '../ui/CopyButton'

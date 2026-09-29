@@ -1,12 +1,12 @@
-import { rpcRequest } from 'client/rpc-client/lib/rpcRequest'
-import { decodeHexJson } from 'client/rpc-client/lib/decodeHexJson'
-import { rpcGetAccount } from 'client/rpc-client/controller/rpcGetAccount'
-import { rpcGetPendingBalance } from 'client/rpc-client/controller/rpcGetPendingBalance'
-import { getNonce } from 'client/rpc-client/controller/rpcGetNonce'
-import { encodeTx } from 'nexchain/hex/tx/encodeTx'
-import type { TxInterface } from 'interface/structTx'
-import type { structBalance } from 'interface/structBalance'
-import type { pendingBalance } from 'nexchain/transaction/setPendingBalance'
+import { rpcRequest } from 'src/client/rpc-client/lib/rpcRequest'
+import { decodeHexJson } from 'src/client/rpc-client/lib/decodeHexJson'
+import { rpcGetAccount } from 'src/client/rpc-client/controller/rpcGetAccount'
+import { rpcGetPendingBalance } from 'src/client/rpc-client/controller/rpcGetPendingBalance'
+import { getNonce } from 'src/client/rpc-client/controller/rpcGetNonce'
+import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
+import type { TxInterface } from 'src/types/transaction'
+import type { structBalance } from 'src/types/balance'
+import type { pendingBalance } from 'src/core/transaction/setPendingBalance'
 
 /**
  * Pembungkus RPC untuk UI wallet.

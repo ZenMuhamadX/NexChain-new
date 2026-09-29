@@ -1,11 +1,11 @@
-import { createIdbKV } from 'client/wallet/idbKv'
-import { createWalletVault } from 'client/wallet/walletVault'
-import type { WalletVault } from 'client/wallet/walletVault'
+import { createIdbKV } from 'src/client/wallet/idbKv'
+import { createWalletVault } from 'src/client/wallet/walletVault'
+import type { WalletVault } from 'src/client/wallet/walletVault'
 import type {
 	VaultRecord,
 	UnlockedWallet,
 	WalletInfo,
-} from 'client/wallet/walletVault'
+} from 'src/client/wallet/walletVault'
 import { cryptoWorker } from '@/hooks/useCryptoWorker'
 import { getPbkdf2Iterations } from '@/lib/deviceCrypto'
 
@@ -102,7 +102,7 @@ const createWorkerVault = async (): Promise<WalletVault> => {
 			await assertEmpty()
 
 			// Generate mnemonic + derive keys in worker
-			const { genRandomMnemonic } = await import('key/genRandomMnemonic')
+			const { genRandomMnemonic } = await import('src/crypto/generateRandomMnemonic')
 			const mnemonic = genRandomMnemonic()
 			const derived = await cryptoWorker.deriveKeys(mnemonic)
 
@@ -139,7 +139,7 @@ const createWorkerVault = async (): Promise<WalletVault> => {
 			passphrase: string,
 		): Promise<WalletInfo> => {
 			// Validate & normalize (same as original)
-			const { validateMnemonic } = await import('key/validateMnemonic')
+			const { validateMnemonic } = await import('src/crypto/validateMnemonic')
 			const normalized = mnemonic.trim().replace(/\s+/g, ' ')
 			validateMnemonic(normalized)
 

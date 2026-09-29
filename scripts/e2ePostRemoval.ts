@@ -20,16 +20,16 @@
  * Jalankan (node harus hidup):  bun run scripts/e2ePostRemoval.ts
  */
 import { execSync, spawn } from 'node:child_process'
-import { loadWallet } from 'account/utils/loadWallet'
-import { generateKeysFromMnemonic } from 'key/genKeyFromMnemonic'
-import { genRandomMnemonic } from 'key/genRandomMnemonic'
-import { generateAddressFromPublicKey } from 'key/genAddrFromPubKey'
-import { createUnsignedTransaction } from 'client/lib/createUnsignedTransaction'
-import { signTransaction } from 'sign/signTransaction'
-import { encodeTx } from 'nexchain/hex/tx/encodeTx'
-import { client } from 'client/rpc-client/lib/rpcClient'
-import { decodeHexJson } from 'client/rpc-client/lib/decodeHexJson'
-import type { TxInterface } from 'interface/structTx'
+import { loadWallet } from 'src/wallet/utils/loadWallet'
+import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
+import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
+import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
+import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransaction'
+import { signTransaction } from 'src/crypto/signTransaction'
+import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
+import { client } from 'src/client/rpc-client/lib/rpcClient'
+import { decodeHexJson } from 'src/client/rpc-client/lib/decodeHexJson'
+import type { TxInterface } from 'src/types/transaction'
 
 // ---------------------------------------------------------------------------
 // util

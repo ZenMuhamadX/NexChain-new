@@ -17,15 +17,15 @@ import {
 	NEXU_PER_NXC,
 	NXC_DECIMALS,
 	assertUnitConstants,
-} from 'nexchain/nexucoin/constants'
-import { parseNxc } from 'nexchain/nexucoin/parseNxc'
-import { formatNxc, formatNxcWithUnit } from 'nexchain/nexucoin/formatNxc'
+} from 'src/core/token/constants'
+import { parseNxc } from 'src/core/token/parseNxc'
+import { formatNxc, formatNxcWithUnit } from 'src/core/token/formatNxc'
 import {
 	assertNexuCapped,
 	isNexuCapped,
-} from 'nexchain/nexucoin/isNexuCapped'
-import { cutBlockReward } from 'nexchain/block/cutReward'
-import { toNexu } from 'nexchain/nexucoin/toNexu'
+} from 'src/core/token/isNexuCapped'
+import { cutBlockReward } from 'src/core/block/distributeBlockReward'
+import { toNexu } from 'src/core/token/toNexu'
 
 let okCount = 0
 let failCount = 0

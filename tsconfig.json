@@ -48,6 +48,7 @@
 		"dist/**/*",
 		"explorer",
 		"wallet-ui",
+		"wallet-ext",
 		"testlvl.ts"
 	]
 }

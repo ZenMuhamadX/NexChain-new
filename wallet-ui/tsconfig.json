@@ -16,18 +16,7 @@
 		"resolveJsonModule": true,
 		"paths": {
 			"@/*": ["./src/*"],
-			"account/*": ["../account/*"],
-			"base/*": ["../base/*"],
-			"client/*": ["../client/*"],
-			"common/*": ["../common/*"],
-			"interface/*": ["../interface/*"],
-			"key/*": ["../key/*"],
-			"logging/*": ["../logging/*"],
-			"nexchain/*": ["../nexchain/*"],
-			"rpc/*": ["../rpc/*"],
-			"scripts/*": ["../scripts/*"],
-			"sign/*": ["../sign/*"],
-			"wallet/*": ["../wallet/*"]
+			"src/*": ["../src/*"]
 		},
 		"types": ["vite/client", "node"]
 	},

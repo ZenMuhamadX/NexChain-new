@@ -1,4 +1,4 @@
-import { formatNxc as formatNxcExactString } from 'nexchain/nexucoin/formatNxc'
+import { formatNxc as formatNxcExactString } from 'src/core/token/formatNxc'
 
 /** Pemotongan string alamat/hash untuk tampilan ringkas. */
 export const truncate = (value: string, head = 10, tail = 8): string =>

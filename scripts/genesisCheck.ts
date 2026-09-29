@@ -10,19 +10,19 @@
  * Murni: tidak menyentuh DB. `NEX_CHAIN_ID` ikut menentukan hasil — solve
  * harus dijalankan dengan env chain id yang sama dengan jaringan tujuan.
  */
-import { buildGenesisBlock } from 'nexchain/block/genesis'
+import { buildGenesisBlock } from 'src/core/block/genesis'
 import {
 	GENESIS_HASH,
 	GENESIS_NONCE,
 	assertGenesisValid,
-} from 'nexchain/block/genesis'
-import { prepareBlockForHashing } from 'nexchain/block/prepareBlock'
-import { hashWithNonce } from 'nexchain/miner/Pow'
+} from 'src/core/block/genesis'
+import { prepareBlockForHashing } from 'src/core/block/prepareBlock'
+import { hashWithNonce } from 'src/core/consensus/Pow'
 import {
 	INITIAL_DIFFICULTY_BITS,
 	meetsDifficulty,
-} from 'nexchain/miner/difficulty'
-import { CHAIN_ID } from 'sign/chainId'
+} from 'src/core/consensus/difficulty'
+import { CHAIN_ID } from 'src/crypto/chainId'
 
 const solve = process.argv.includes('--solve')
 

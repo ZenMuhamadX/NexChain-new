@@ -18,13 +18,13 @@ if (typeof g.Buffer === 'undefined') {
 	g.Buffer = Buffer
 }
 
-import { encryptSecret, decryptSecret } from 'client/wallet/vaultCrypto'
-import { generateKeysFromMnemonic } from 'key/genKeyFromMnemonic'
-import { signTransaction } from 'sign/signTransaction'
-import { createUnsignedTransaction } from 'client/lib/createUnsignedTransaction'
-import type { comTxInterface } from 'interface/structComTx'
-import type { TxInterface } from 'interface/structTx'
-import type { EncryptedBlob } from 'client/wallet/vaultCrypto'
+import { encryptSecret, decryptSecret } from 'src/client/wallet/vaultCrypto'
+import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
+import { signTransaction } from 'src/crypto/signTransaction'
+import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransaction'
+import type { comTxInterface } from 'src/types/compositeTransaction'
+import type { TxInterface } from 'src/types/transaction'
+import type { EncryptedBlob } from 'src/client/wallet/vaultCrypto'
 
 // ---- Types ----
 
@@ -106,7 +106,7 @@ const handleDeriveKeys = async (
 	const derived = generateKeysFromMnemonic(normalized)
 	// generateKeysFromMnemonic returns { privateKey: 'Nx...', publicKey: 'Nx...' }
 	// We need address derived from publicKey (without Nx prefix)
-	const { generateAddressFromPublicKey } = await import('key/genAddrFromPubKey')
+	const { generateAddressFromPublicKey } = await import('src/crypto/generateAddressFromPublicKey')
 	const address = generateAddressFromPublicKey(derived.publicKey.slice(2))
 	return {
 		privateKey: derived.privateKey,

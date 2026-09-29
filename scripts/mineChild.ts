@@ -15,8 +15,8 @@
  * height naik). Semua submit diverifikasi ulang oleh node lewat
  * `nex_submitWork` — entry ini tidak memberi kekuatan apa pun pada miner.
  */
-import { runMiner } from 'client/miner/runMiner'
-import { isValidAddress } from 'nexchain/transaction/utils/isValidAddress'
+import { runMiner } from 'apps/miner/runMiner'
+import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 
 const address = process.argv[2]
 

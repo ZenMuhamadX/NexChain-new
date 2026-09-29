@@ -15,7 +15,7 @@
 		"forceConsistentCasingInFileNames": true,
 		"resolveJsonModule": true,
 		"paths": {
-			"interface/*": ["../interface/*"]
+			"src/*": ["../src/*"]
 		},
 		"types": ["vite/client", "node"]
 	},

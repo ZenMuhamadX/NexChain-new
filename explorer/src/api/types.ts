@@ -6,13 +6,13 @@
  * dengan skema on-chain. Mirror lokal dipakai untuk tipe yang modul
  * backend-nya memuat dependensi runtime (LevelDB) yang tak relevan bagi UI.
  */
-import type { structBalance } from 'interface/structBalance'
+import type { structBalance } from 'src/types/balance'
 import type {
 	blockStruct,
 	blockSummary,
 	HexString,
-} from 'interface/structBlock'
-import type { TxInterface } from 'interface/structTx'
+} from 'src/types/block'
+import type { TxInterface } from 'src/types/transaction'
 
 export type { blockStruct, blockSummary, HexString, structBalance, TxInterface }
 

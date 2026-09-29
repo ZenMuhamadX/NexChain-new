@@ -1,4 +1,4 @@
-import { setRpcUrl, getRpcUrl } from 'client/rpc-client/lib/rpcClient'
+import { setRpcUrl, getRpcUrl } from 'src/client/rpc-client/lib/rpcClient'
 import { errorMessage } from './format'
 
 /**

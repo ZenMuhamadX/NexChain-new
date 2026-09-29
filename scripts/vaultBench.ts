@@ -23,7 +23,7 @@
  */
 import { pbkdf2, pbkdf2Async } from '@noble/hashes/pbkdf2.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { KDF_ITERATIONS } from 'client/wallet/vaultCrypto'
+import { KDF_ITERATIONS } from 'src/client/wallet/vaultCrypto'
 
 const PASS = new TextEncoder().encode('passphrase-benchmark')
 const SALT = new Uint8Array(16).fill(0xab)
