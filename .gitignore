@@ -11,6 +11,7 @@ package-lock.json
 bun.lock
 !explorer/bun.lock
 !wallet-ui/bun.lock
+!wallet-ext/bun.lock
 
 # Data runtime — pola DI-JANGKAR ke root ("/nama"), supaya folder sumber yang
 # kebetulan bernama sama tidak ikut tersembunyi. Sebelumnya pola tanpa awal
@@ -34,3 +35,6 @@ bun.lock
 *.code-profile
 *.exe
 .opencode
+
+# Catatan kerja internal asisten — bukan bagian dari proyek.
+.workbuddy-ai/

@@ -27,6 +27,39 @@ export const formatNxc = (nexu: number): string => {
 	return formatNxcExactString(nexu)
 }
 
+/**
+ * Alias semantik untuk `formatNxc` — presisi penuh (8 desimal) untuk
+ * disclosure/copy. Dipakai `AmountDisplay` pada dialog "NXC presisi penuh".
+ */
+export const formatNxcExact = (nexu: number): string => formatNxc(nexu)
+
+/**
+ * Ringkas: batasi digit desimal, buang nol di ekor. Cocok untuk label saldo
+ * yang harus muat di mobile tanpa notasi ilmiah.
+ *
+ * @param nexu Bilangan bulat aman dalam nexu.
+ * @param maxDecimals Batas atas digit desimal yang ditampilkan (default 6).
+ * @returns String desimal NXC tanpa satuan, atau `—` bila tidak aman.
+ */
+export const formatNxcCompact = (nexu: number, maxDecimals = 6): string => {
+	if (!Number.isSafeInteger(nexu)) return '—'
+	if (nexu === 0) return '0'
+	const exact = formatNxcExactString(nexu)
+	const negative = exact.startsWith('-')
+	const body = negative ? exact.slice(1) : exact
+	const [whole, frac = ''] = body.split('.')
+	const trimmed = frac.slice(0, maxDecimals).replace(/0+$/, '')
+	const out = trimmed.length > 0 ? `${whole}.${trimmed}` : whole
+	// Nilai sangat kecil (mis. fee 25.000 nexu) bisa terpangkas jadi "0";
+	// fallback ke presisi penuh daripada menampilkan 0 yang menyesatkan.
+	if (out === '0' && body !== '0') return negative ? `-${body}` : body
+	return negative ? `-${out}` : out
+}
+
+/** Nilai internal bersatuan nexu, mis. "25000 nexu". */
+export const formatNexu = (nexu: number): string =>
+	Number.isSafeInteger(nexu) ? `${nexu} nexu` : '—'
+
 export const formatTime = (ms: number): string =>
 	new Date(ms).toLocaleString('id-ID', {
 		dateStyle: 'medium',

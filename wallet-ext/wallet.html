@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="id">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>NexChain Wallet</title>
+		<style>
+			/*
+			 * Shell TAB APLIKASI (full-page).
+			 *
+			 * Alasan tab ini ada: onboarding (frasa pemulihan, membuat
+			 * passphrase) dan halaman Riwayat TIDAK layak dijejalkan ke popup
+			 * 360px. Chrome menutup popup begitu pengguna mengklik di luar —
+			 * mengetik 12 kata pemulihan di dalamnya berisiko kehilangan progres.
+			 * Karena itu: popup = permukaan harian yang cepat, tab = tugas berat.
+			 */
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				/*
+				 * Tinggi TERKUNCI (height: 100vh, bukan min-height).
+				 *
+				 * Pakai min-height:100vh (versi lama) membuat body IKUT
+				 * membesar saat kartu auth lebih tinggi dari viewport. Akibatnya
+				 * rantai `html/body/#root/.auth-shell { height:100% }` turut
+				 * membesar, `.auth-main` tidak pernah perlu menggulir →
+				 * dokumen yang menggulir DAN `.auth-main` menggulir →
+				 * DOUBLE SCROLLBAR.
+				 *
+				 * Dengan `height:100vh` + `overflow:hidden`, dokumen TIDAK
+				 * pernah tumbuh; `.auth-main` / `.app-main` (yang punya
+				 * overflow-y:auto) dipaksa memegang scroll tunggal. Ini mirror
+				 * dari kunci 360x600 di popup.html.
+				 */
+				height: 100vh;
+				overflow: hidden;
+			}
+
+			html {
+				background: #f4f6fa;
+				color-scheme: light;
+			}
+
+			body {
+				display: flex;
+				justify-content: center;
+			}
+
+			/*
+			 * `.app-shell` dari style.css memakai `min-height: 100vh`; di tab
+			 * kita batasi lebarnya dan beri kerangka kartu supaya terasa seperti
+			 * aplikasi, bukan halaman yang melebar tanpa batas.
+			 */
+			body > #root {
+				width: min(100%, 900px);
+			}
+		</style>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/popup/entry.tsx"></script>
+	</body>
+</html>
