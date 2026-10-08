@@ -11,6 +11,7 @@ package-lock.json
 bun.lock
 !explorer/bun.lock
 !wallet-ui/bun.lock
+!miner-ui/bun.lock
 !wallet-ext/bun.lock
 
 # Data runtime — pola DI-JANGKAR ke root ("/nama"), supaya folder sumber yang

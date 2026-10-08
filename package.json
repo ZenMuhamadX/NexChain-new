@@ -22,7 +22,11 @@
 		"wallet:dev": "bun run --cwd wallet-ui dev",
 		"wallet:build": "bun run --cwd wallet-ui build",
 		"wallet:typecheck": "bun run --cwd wallet-ui typecheck",
-		"wallet:smoke": "bun run --cwd wallet-ui smoke"
+		"wallet:smoke": "bun run --cwd wallet-ui smoke",
+		"miner:dev": "bun run --cwd miner-ui dev",
+		"miner:build": "bun run --cwd miner-ui build",
+		"miner:typecheck": "bun run --cwd miner-ui typecheck",
+		"miner:smoke": "bun run scripts/minerUiSmoke.ts"
 	},
 	"repository": {
 		"type": "git",
