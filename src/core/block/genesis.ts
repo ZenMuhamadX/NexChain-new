@@ -47,13 +47,15 @@ export const GENESIS_MESSAGE = 'NexChain Devnet Genesis — Bitcoin-style PoW'
 /**
  * Nonce & hash hasil solve (chain id 26). Jangan diubah tanpa re-solve.
  *
- * Di-re-solve saat rombak satuan 1e18 → 1e8: `prepareBlockForHashing`
- * memuat `blockReward`, dan `toNexu(GENESIS_REWARD_NEX)` kini menghasilkan
- * `50_000_000_000` nexu, bukan `500_000_000_000_000_000_000`.
+ * Riwayat re-solve:
+ *   - rombak satuan 1e18 → 1e8: `prepareBlockForHashing` memuat `blockReward`,
+ *     dan `toNexu(GENESIS_REWARD_NEX)` berubah nilainya.
+ *   - coinbase dikeluarkan dari daftar transaksi: preimage kini juga memuat
+ *     `minerId`, `totalReward`, dan `coinbaseTransaction`.
  */
-export const GENESIS_NONCE = 326395
+export const GENESIS_NONCE = 660308
 export const GENESIS_HASH =
-	'00000ba4319876896bf7dd4c0bf6ad685dfef6b64155e51cc3cd9131216e0a06'
+	'00000fe0f6889fac24df0326191e6bc52ed7857ecb445a6825f68f1458825044'
 
 /**
  * Susun blok genesis sesuai konstanta. Murni & deterministik — tidak
