@@ -1,5 +1,5 @@
 import { createSignature } from 'src/crypto/createSignature'
-import { createTxnHash } from 'src/core/transaction/createTransactionHash'
+import { txSighash, txHashOf } from 'src/core/encoding/rlp/txCodec'
 import { TxInterface } from 'src/types/transaction'
 
 /** 64 digit hex (32 byte). Prefix `Nx` opsional diterima untuk kenyamanan. */
@@ -8,12 +8,22 @@ const HEX64 = /^(?:Nx)?[0-9a-fA-F]{64}$/
 /**
  * Tanda tangani transaksi — **fungsi murni**.
  *
+ * Alur (dua hash, bukan satu):
+ *
+ *   1. `sighash = sha256(rlp(field unsigned))`  ← yang benar-benar di-sign
+ *   2. `sign    = ECDSA(sighash)`               → { v, r, s }
+ *   3. `txHash  = sha256(payload bertipe)`      ← dihitung SETELAH signing
+ *
+ * Urutannya penting: `txHash` adalah hash dari byte tertandatangani, jadi ia
+ * baru bisa dihitung setelah langkah 2. Sebelumnya satu nilai merangkap dua
+ * peran — yang ditandatangani sekaligus identitas — sehingga `txHash` tidak
+ * pernah mengikat bentuk terenkodenya.
+ *
  * Mengembalikan objek BARU (tidak memutasi input), jadi aman dipakai untuk
  * menandatangani ulang / mencoba ulang tanpa merusak draft aslinya.
  *
  * `privateKey` menerima 64 hex dengan atau tanpa prefix `Nx` (format yang
- * dikembalikan `generateKeysFromMnemonic`), sehingga pemanggil tidak perlu
- * mengingat untuk meng-`slice(2)` — salah sumber bug yang cukup umum.
+ * dikembalikan `generateKeysFromMnemonic`).
  *
  * Private key TIDAK pernah menyentuh jaringan; hanya keluar sebagai bagian
  * dari signature `{ v, r, s }`.
@@ -30,13 +40,8 @@ export const signTransaction = (
 
 	const normalizedKey = privateKey.trim().replace(/^Nx/i, '')
 
-	// `txHash` wajib sudah ada sebelum menandatangani; kalau belum, hitung di sini
-	// (konsisten dengan `createUnsignedTransaction`).
-	const txHash = transaction.txHash ?? createTxnHash(transaction)
+	const sign = createSignature(txSighash(transaction), normalizedKey)
+	const signed: TxInterface = { ...transaction, sign }
 
-	return {
-		...transaction,
-		txHash,
-		sign: createSignature(txHash, normalizedKey),
-	}
+	return { ...signed, txHash: txHashOf(signed) }
 }

@@ -135,17 +135,11 @@ console.log('STAGE 4 — skrip Joi: .unsafe dibuang, .max(MAX_SUPPLY_NEXU) dipas
  */
 const structurallyValidTx = (): Record<string, unknown> => ({
 	amount: 1,
-	format: 'nexu',
 	sender: ADDR,
 	receiver: `NxC${'cd'.repeat(20)}`,
 	sign: { r: 'a'.repeat(64), s: 'b'.repeat(64), v: 0 },
-	timestamp: 1_790_149_112_539,
 	txHash: `Tx${'11'.repeat(32)}`,
 	nonce: 0,
-	status: 'pending',
-	isValid: true,
-	isPending: true,
-	hexInput: 'abcd',
 	fee: 5_000,
 })
 

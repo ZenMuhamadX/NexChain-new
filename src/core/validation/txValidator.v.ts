@@ -54,8 +54,8 @@ export const transactionValidator = async (
 		)
 	}
 
-	transaction.status = 'pending'
-	transaction.isValid = true
-	transaction.isPending = true
+	// Tidak ada lagi penulisan `status`/`isValid`/`isPending`: ketiganya bukan
+	// bagian transaksi. "Sudah dikonfirmasi" diturunkan dari keanggotaan blok
+	// (`isTxExecuted` membaca `metadata.blockHeight`).
 	return true
 }

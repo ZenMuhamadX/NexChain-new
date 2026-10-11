@@ -1,6 +1,5 @@
 ﻿import { ec as EC } from 'elliptic'
 import { recoverPublicKey, sign } from 'src/crypto/recoverPublicKey'
-import { hashMessage } from './hashMessage'
 import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
 
 const ec = new EC('secp256k1')
@@ -14,20 +13,18 @@ const ec = new EC('secp256k1')
  * pengirim — bukan hanya memverifikasi terhadap key hasil recover itu sendiri
  * (itu siklus tertutup dan selalu true / bisa dipalsukan).
  *
+ * @param sighash 32 byte hasil `sha256(rlp(field unsigned))`
  * @returns address pemilik key yang benar-benar menandatangani, atau undefined jika invalid
  */
 export const recoverSignerAddress = (
-	data: string,
+	sighash: Uint8Array,
 	sign: sign,
 ): string | undefined => {
 	try {
-		const dataHash = hashMessage(data)
-
-		// recoverPublicKey butuh v (untuk recoveryParam) dan r,s
-		const { publicKey } = recoverPublicKey(data, sign)
+		const { publicKey } = recoverPublicKey(sighash, sign)
 
 		const keyPair = ec.keyFromPublic(publicKey, 'hex')
-		if (!keyPair.verify(dataHash, { r: sign.r, s: sign.s })) return undefined
+		if (!keyPair.verify(sighash, { r: sign.r, s: sign.s })) return undefined
 
 		return generateAddressFromPublicKey(publicKey)
 	} catch {
@@ -38,17 +35,17 @@ export const recoverSignerAddress = (
 /**
  * Verifikasi signature.
  *
- * @param data          data yang di-hash (txHash / block hash)
+ * @param sighash       hash 32 byte yang ditandatangani
  * @param sign          signature { v, r, s }
  * @param expectedAddress jika diisi, address hasil recover WAJIB sama dengan ini.
  *                        Tanpa param ini verifikasi tidak bermakna (lihat catatan di atas).
  */
 export const verifySignature = (
-	data: string,
+	sighash: Uint8Array,
 	sign: sign,
 	expectedAddress?: string,
 ): boolean => {
-	const signer = recoverSignerAddress(data, sign)
+	const signer = recoverSignerAddress(sighash, sign)
 	if (signer === undefined) return false
 	if (expectedAddress !== undefined && signer !== expectedAddress) return false
 	return true

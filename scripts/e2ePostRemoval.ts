@@ -121,9 +121,7 @@ const sendTx = async (
 			sender,
 			receiver,
 			amount,
-			timestamp: Date.now(),
 			fee,
-			extraMessage: 'e2e-post-removal',
 		},
 		nonce,
 	)

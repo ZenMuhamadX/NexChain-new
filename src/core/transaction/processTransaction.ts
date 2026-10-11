@@ -48,12 +48,7 @@ const withBlockMetadata = (tx: TxInterface, block: blockStruct) => ({
  */
 const applyBlockReward = async (block: blockStruct): Promise<void> => {
 	const { receiver, amount } = block.coinbaseTransaction
-	const record = createCoinbaseRecord(
-		receiver,
-		amount,
-		block.header.timestamp,
-		block.height,
-	)
+	const record = createCoinbaseRecord(receiver, amount, block.height)
 
 	// Idempotensi: kalau record hadiah blok ini sudah ada, jangan kredit dua
 	// kali (mis. proses diulang setelah restart).

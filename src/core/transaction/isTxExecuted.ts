@@ -1,25 +1,39 @@
 import { getHistoryByTxHash } from 'src/core/block/query/onChain/Transaction/getHistoryByTxHash'
 
 /**
- * Apakah txHash ini SUDAH pernah dieksekusi di blok?
+ * Bentuk entri riwayat yang kita butuhkan: metadata asal blok.
+ * (`getHistoryByTxHash` mengembalikan `TxInterface`, sementara `metadata`
+ * ditambahkan `processTransact` saat eksekusi.)
+ */
+interface HistoryWithBlockRef {
+	metadata?: {
+		blockHeight?: number
+	}
+}
+
+/**
+ * Apakah txHash ini SUDAH pernah dieksekusi di sebuah blok?
  *
- * Semantik `status` pada history transaksi:
- * - `'pending'`   : ditulis saat transaksi MASUK mempool (admission,
- *                   `MemPool.addTransaction`) — belum dieksekusi;
- * - `'confirmed'` : ditulis `processTransact` SESUDAH eksekusi berhasil —
- *                   sudah dieksekusi.
+ * Diturunkan dari **keanggotaan blok**, bukan dari flag: entri riwayat yang
+ * punya `metadata.blockHeight` berarti transaksinya sudah masuk blok.
  *
- * Dipakai sebagai penjaga idempotensi: transaksi yang tersisa di mempool
- * (crash tepat setelah `saveTxHistory` tetapi sebelum `removeMemPool`,
- * atau artefak race snapshot lama) tidak akan dieksekusi dua kali di
- * blok berikutnya — cukup dibersihkan dari mempool.
+ * Sebelumnya penandanya adalah `status === 'confirmed'` — nilai mutable yang
+ * harus ditulis jalur tertentu. `blockHeight` adalah fakta rantai (ground
+ * truth), jadi penjaga idempotensi tidak lagi bergantung pada nilai yang bisa
+ * ditulis keliru.
+ *
+ * Dipakai untuk dua hal:
+ *   - transaksi yang tersisa di mempool (crash tepat setelah `saveTxHistory`
+ *     tetapi sebelum `removeMemPool`) tidak dieksekusi dua kali;
+ *   - hadiah blok tidak dikredit dua kali bila proses diulang.
  */
 export const isTxExecuted = async (txHash: string): Promise<boolean> => {
 	if (!txHash) return false
 	try {
 		const history = await getHistoryByTxHash(txHash, 'json')
 		if (typeof history === 'string') return false // enc hex — bukan objek
-		return history.status === 'confirmed'
+		const withMeta = history as HistoryWithBlockRef
+		return typeof withMeta.metadata?.blockHeight === 'number'
 	} catch {
 		// Tidak ada riwayat = belum pernah dieksekusi.
 		return false

@@ -1,65 +1,53 @@
 /**
  * Skema wire transaksi NexChain — pemetaan `TxInterface` ke list RLP.
  *
- * Ini adalah DEFINISI KONTRAK antara wallet (yang meng-encode) dan node (yang
+ * Ini DEFINISI KONTRAK antara wallet (yang meng-encode) dan node (yang
  * meng-decode). Keduanya memakai file ini, sehingga tidak mungkin berbeda
  * pendapat soal urutan field.
  *
- * Bentuk payload:
+ * Bentuk payload (tipe `0x02`, pola EIP-2718):
  *
- *     bytes = 0x01 ‖ rlp([ ...10 item... ])
- *     string = base64(bytes)                  ← yang lewat di params JSON-RPC
+ *     unsigned = [ chainId, nonce, fee, sender, receiver, amount, data ]
+ *     sighash  = sha256(rlp(unsigned))                    ← yang di-sign
+ *     signed   = [ nonce, fee, sender, receiver, amount, data, v, r, s ]
+ *     payload  = 0x02 ‖ rlp(signed)
+ *     txHash   = sha256(payload)                          ← identitas
  *
- * Byte `0x01` di LUAR list mengikuti pola EIP-2718 (typed transaction):
- * tipe menyiratkan skema, sehingga versi berikutnya (`0x02`) bisa punya
- * susunan berbeda tanpa merusak yang lama. Ia juga membuat deteksi format
- * menjadi sepele — payload msgpack lama selalu mulai dengan 0xd9/0xda.
+ * DUA hash, bukan satu. Sebelumnya `txHash` merangkap dua peran sekaligus:
+ * yang ditandatangani DAN identitasnya. Pemisahan inilah yang membuat
+ * `txHash` benar-benar mengikat byte yang dikirim:
  *
- * Susunan list (posisional — urutan adalah skema):
+ *   - `sighash` ditandatangani, dihitung dari field TANPA `v/r/s` (kalau r/s
+ *     ikut, terjadi siklus: tanda tangan atas dirinya sendiri).
+ *   - `txHash` dihitung dari payload LENGKAP, jadi berubah bila satu bit pun
+ *     berubah di wire.
  *
- *     0  sender        1 byte tag prefix + 20 byte
- *     1  receiver      idem
- *     2  amount        big-endian minimal
- *     3  fee           big-endian minimal
- *     4  nonce         big-endian minimal
- *     5  timestamp     big-endian minimal
- *     6  extraMessage  kosong = DEFAULT_EXTRA_MESSAGE, selain itu UTF-8
- *     7  v             big-endian minimal
- *     8  r             32 byte
- *     9  s             32 byte
+ * `chainId` ada di daftar unsigned (gaya EIP-155) sehingga tanda tangan
+ * terikat jaringan. `v` tetap memakai encoding EIP-155
+ * (`recoveryParam + chainId*2 + 35`).
  *
- * Field yang SENGAJA tidak dikirim, karena node menghitung atau menimpanya
- * sendiri:
+ * `sender` masih IKUT dikirim. Penghapusannya (pemulihan lewat `ecrecover`)
+ * ditunda ke Fase 4; kini terbuka karena coinbase sudah keluar dari daftar
+ * transaksi, sehingga tidak ada lagi transaksi tanpa tanda tangan.
  *
- *   - `txHash`     → dihitung ulang di sini lewat `createTxnHash`
- *   - `hexInput`   → dihitung ulang di sini lewat rumus yang sama
- *   - `status`     → node menimpa jadi 'pending' (txValidator.v.ts)
- *   - `isValid`    → node menimpa jadi true
- *   - `isPending`  → node menimpa jadi true
- *
- * Efeknya bukan sekadar hemat byte: node berhenti MEMPERCAYAI nilai turunan
- * yang dikirim client. Sebelumnya client bisa mengirim `hexInput` atau
- * `txHash` yang tidak cocok dengan isi transaksinya dan node menyimpannya
- * begitu saja.
- *
- * CATATAN PENTING: karena `status`/`isValid`/`isPending` tidak dikirim,
- * `decodeTxPayload` SELALU menghasilkan transaksi berstatus 'pending'.
- * Itu benar untuk jalur kirim (satu-satunya pemakai `encodeTx`), tetapi
- * codec ini BUKAN round-trip lossless untuk transaksi yang sudah dikonfirmasi.
+ * `format`, `timestamp`, `hexInput`, dan seluruh state siklus hidup
+ * (`status`/`isValid`/`isPending`) TIDAK lagi menjadi bagian transaksi
+ * maupun wire.
  */
 
 import { TxInterface } from 'src/types/transaction'
-import { createTxnHash } from 'src/core/transaction/createTransactionHash'
-import { DEFAULT_EXTRA_MESSAGE } from 'src/core/transaction/constants'
-import { stringToHex } from 'src/core/encoding/hex/stringToHex'
+import { HexString } from 'src/types/block'
+import { CHAIN_ID } from 'src/crypto/chainId'
+import { sha256 } from 'src/core/encoding/sha256'
 import { rlpEncode, type RlpInput } from './rlpEncode'
 import { rlpDecode } from './rlpDecode'
 
-/** Byte tipe transaksi (EIP-2718 style). Versi berikutnya: 0x02, 0x03, … */
-export const TX_TYPE_RLP = 0x01
+/** Byte tipe transaksi (EIP-2718). `0x01` = skema RLP lama. */
+export const TX_TYPE = 0x02
 
 /** Panjang list yang valid — bagian dari kontrak, bukan angka bebas. */
-const ITEM_COUNT = 10
+export const UNSIGNED_ITEM_COUNT = 7
+export const SIGNED_ITEM_COUNT = 9
 
 /** Prefix alamat yang dikenal. Indeks array = tag byte di payload. */
 const ADDRESS_PREFIXES = ['NxC', 'NxS'] as const
@@ -72,17 +60,18 @@ const SIGNATURE_BYTES = 32
 
 const LOWERCASE_HEX = /^[0-9a-f]+$/
 
-const textEncoder = new TextEncoder()
-const textDecoder = new TextDecoder()
+/** Prefix `txHash`. Murni tampilan — tidak ikut di-hash. */
+export const TX_HASH_PREFIX = 'TxC'
 
 // ---------------------------------------------------------------------------
 // Helper byte <-> teks
 // ---------------------------------------------------------------------------
 
 const hexToBytes = (hex: string): Uint8Array => {
-	const out = new Uint8Array(hex.length >> 1)
+	const clean = hex.startsWith('0x') ? hex.slice(2) : hex
+	const out = new Uint8Array(clean.length >> 1)
 	for (let i = 0; i < out.length; i++) {
-		out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+		out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16)
 	}
 	return out
 }
@@ -100,10 +89,10 @@ const bytesToHex = (bytes: Uint8Array): string => {
 /**
  * Alamat `NxC`/`NxS` + 40 hex → 1 byte tag prefix + 20 byte.
  *
- * Hanya huruf kecil yang diterima. Alamat nyata selalu huruf kecil
+ * Hanya huruf kecil yang diterima: alamat nyata selalu huruf kecil
  * (`generateAddressFromPublicKey` memakai keluaran js-sha3), dan menolak
  * bentuk lain di sini membuat kegagalan terjadi di client dengan pesan yang
- * jelas — bukan di node sebagai "signature tidak cocok" yang membingungkan.
+ * jelas — bukan di node sebagai "signature tidak cocok".
  */
 const addressToBytes = (address: string): Uint8Array => {
 	if (typeof address !== 'string') {
@@ -150,7 +139,7 @@ const numberToBytes = (value: number, field: string): Uint8Array => {
 			`txCodec: ${field} harus bilangan bulat aman >= 0, dapat ${value}`,
 		)
 	}
-	// Nol direpresentasikan sebagai byte string kosong (aturan RLP/Ethereum).
+	// Nol direpresentasikan byte string kosong (aturan RLP/Ethereum).
 	if (value === 0) return new Uint8Array(0)
 
 	const out: number[] = []
@@ -163,7 +152,6 @@ const numberToBytes = (value: number, field: string): Uint8Array => {
 }
 
 const bytesToNumber = (bytes: Uint8Array, field: string): number => {
-	// Bentuk kanonik tidak boleh punya byte nol di depan.
 	if (bytes.length > 0 && bytes[0] === 0) {
 		throw new Error(`txCodec: ${field} tidak kanonik (byte nol di depan)`)
 	}
@@ -176,25 +164,22 @@ const bytesToNumber = (bytes: Uint8Array, field: string): number => {
 }
 
 // ---------------------------------------------------------------------------
-// Pesan & tanda tangan
+// Data & tanda tangan
 // ---------------------------------------------------------------------------
 
-/**
- * Pesan default TIDAK dikirim ulang — ia konstanta protokol. Mengirim string
- * 50 karakter yang sama di setiap transaksi adalah pemborosan murni, jadi
- * kasus umum diwakili byte string kosong.
- *
- * Round-trip tetap utuh: pesan kustom yang kebetulan sama persis dengan
- * default akan ter-encode sebagai kosong dan kembali menjadi default — nilai
- * yang identik.
- */
-const messageToBytes = (message: string): Uint8Array =>
-	message === DEFAULT_EXTRA_MESSAGE
-		? new Uint8Array(0)
-		: textEncoder.encode(message)
+/** `data` kosong/tidak ada → byte string kosong (0x80 di RLP). */
+const dataToBytes = (data: HexString | undefined): Uint8Array => {
+	if (data === undefined) return new Uint8Array(0)
+	const clean = data.startsWith('0x') ? data.slice(2) : data
+	if (clean.length === 0) return new Uint8Array(0)
+	if (clean.length % 2 !== 0 || !LOWERCASE_HEX.test(clean)) {
+		throw new Error('txCodec: data harus hex huruf kecil panjang genap')
+	}
+	return hexToBytes(clean)
+}
 
-const bytesToMessage = (bytes: Uint8Array): string =>
-	bytes.length === 0 ? DEFAULT_EXTRA_MESSAGE : textDecoder.decode(bytes)
+const bytesToData = (bytes: Uint8Array): HexString | undefined =>
+	bytes.length === 0 ? undefined : (`0x${bytesToHex(bytes)}` as HexString)
 
 const signatureHexToBytes = (hex: string, field: string): Uint8Array => {
 	if (typeof hex !== 'string' || hex.length !== SIGNATURE_BYTES * 2) {
@@ -218,42 +203,43 @@ const signatureBytesToHex = (bytes: Uint8Array, field: string): string => {
 }
 
 // ---------------------------------------------------------------------------
-// Transaksi <-> list RLP
+// List RLP
 // ---------------------------------------------------------------------------
 
-/** Ubah transaksi menjadi list RLP posisional (lihat tabel di header). */
-export const txToRlpList = (tx: TxInterface): RlpInput[] => {
-	if (tx.format !== 'nexu') {
-		throw new Error(
-			`txCodec: format transaksi harus 'nexu', dapat ${tx.format}`,
-		)
-	}
-	if (!tx.sign) {
-		throw new Error('txCodec: transaksi belum ditandatangani')
-	}
+/** List yang DITANDATANGANI: field tanpa `v/r/s`, plus `chainId`. */
+export const txUnsignedRlpList = (tx: TxInterface): RlpInput[] => [
+	numberToBytes(CHAIN_ID, 'chainId'),
+	numberToBytes(tx.nonce, 'nonce'),
+	numberToBytes(tx.fee, 'fee'),
+	addressToBytes(tx.sender),
+	addressToBytes(tx.receiver),
+	numberToBytes(tx.amount, 'amount'),
+	dataToBytes(tx.data),
+]
 
+/** List yang DIKIRIM: field ditambah `v/r/s`. */
+export const txToRlpList = (tx: TxInterface): RlpInput[] => {
+	if (!tx.sign) throw new Error('txCodec: transaksi belum ditandatangani')
 	return [
+		numberToBytes(tx.nonce, 'nonce'),
+		numberToBytes(tx.fee, 'fee'),
 		addressToBytes(tx.sender),
 		addressToBytes(tx.receiver),
 		numberToBytes(tx.amount, 'amount'),
-		numberToBytes(tx.fee, 'fee'),
-		numberToBytes(tx.nonce, 'nonce'),
-		numberToBytes(tx.timestamp, 'timestamp'),
-		messageToBytes(tx.extraMessage ?? DEFAULT_EXTRA_MESSAGE),
+		dataToBytes(tx.data),
 		numberToBytes(tx.sign.v, 'v'),
 		signatureHexToBytes(tx.sign.r, 'r'),
 		signatureHexToBytes(tx.sign.s, 's'),
 	]
 }
 
-/**
- * Kebalikan `txToRlpList`. Menghitung ulang `txHash` dan `hexInput` dari
- * field yang diterima, dan mengisi status node-managed dengan nilai awal.
- */
+/** Kebalikan `txToRlpList`. `txHash` diisi `decodeTxPayload`, bukan di sini. */
 export const rlpListToTx = (list: RlpInput): TxInterface => {
-	if (!Array.isArray(list) || list.length !== ITEM_COUNT) {
+	if (!Array.isArray(list) || list.length !== SIGNED_ITEM_COUNT) {
 		const got = Array.isArray(list) ? `${list.length} item` : typeof list
-		throw new Error(`txCodec: list RLP harus ${ITEM_COUNT} item, dapat ${got}`)
+		throw new Error(
+			`txCodec: list RLP harus ${SIGNED_ITEM_COUNT} item, dapat ${got}`,
+		)
 	}
 
 	const item = (index: number, field: string): Uint8Array => {
@@ -264,67 +250,62 @@ export const rlpListToTx = (list: RlpInput): TxInterface => {
 		return value
 	}
 
-	const sender = bytesToAddress(item(0, 'sender'))
-	const receiver = bytesToAddress(item(1, 'receiver'))
-	const amount = bytesToNumber(item(2, 'amount'), 'amount')
-	const fee = bytesToNumber(item(3, 'fee'), 'fee')
-	const nonce = bytesToNumber(item(4, 'nonce'), 'nonce')
-	const timestamp = bytesToNumber(item(5, 'timestamp'), 'timestamp')
-	const extraMessage = bytesToMessage(item(6, 'extraMessage'))
-	const sign = {
-		v: bytesToNumber(item(7, 'v'), 'v'),
-		r: signatureBytesToHex(item(8, 'r'), 'r'),
-		s: signatureBytesToHex(item(9, 's'), 's'),
+	const data = bytesToData(item(5, 'data'))
+
+	return {
+		nonce: bytesToNumber(item(0, 'nonce'), 'nonce'),
+		fee: bytesToNumber(item(1, 'fee'), 'fee'),
+		sender: bytesToAddress(item(2, 'sender')),
+		receiver: bytesToAddress(item(3, 'receiver')),
+		amount: bytesToNumber(item(4, 'amount'), 'amount'),
+		// Sebar bersyarat: `exactOptionalPropertyTypes` menolak `data:
+		// undefined` eksplisit, dan menyebar `{}` menjaga `data` tetap absen.
+		...(data === undefined ? {} : { data }),
+		sign: {
+			v: bytesToNumber(item(6, 'v'), 'v'),
+			r: signatureBytesToHex(item(7, 'r'), 'r'),
+			s: signatureBytesToHex(item(8, 's'), 's'),
+		},
 	}
-
-	// Urutan key di bawah HARUS sama dengan `createUnsignedTransaction`:
-	// `check:tx` membandingkan lewat `JSON.stringify`, yang peka urutan.
-	const base = {
-		format: 'nexu' as const,
-		amount,
-		receiver,
-		sender,
-		timestamp,
-		fee,
-		nonce,
-		isPending: true,
-		isValid: false,
-		extraMessage,
-		status: 'pending' as const,
-		sign,
-	}
-
-	const txHash = createTxnHash(base as TxInterface)
-	const hexInput = stringToHex(
-		JSON.stringify({ format: 'nexu', amount, receiver, sender, timestamp }),
-	)
-
-	return { ...base, txHash, hexInput }
 }
 
 // ---------------------------------------------------------------------------
-// Payload lengkap (byte tipe + RLP)
+// Hash & payload
 // ---------------------------------------------------------------------------
 
-/** Transaksi → byte payload: `0x01 ‖ rlp(list)`. */
+/** Hash yang DITANDATANGANI — 32 byte. */
+export const txSighash = (tx: TxInterface): Uint8Array =>
+	sha256(rlpEncode(txUnsignedRlpList(tx)), 'buffer') as Uint8Array
+
+/** Payload wire: `0x02 ‖ rlp(signed)`. */
 export const encodeTxPayload = (tx: TxInterface): Uint8Array => {
 	const body = rlpEncode(txToRlpList(tx))
 	const out = new Uint8Array(body.length + 1)
-	out[0] = TX_TYPE_RLP
+	out[0] = TX_TYPE
 	out.set(body, 1)
 	return out
 }
 
-/** Byte payload → transaksi. Melempar bila tipe tidak dikenal atau rusak. */
+/** Identitas transaksi: hash dari byte yang benar-benar dikirim. */
+export const txHashOfPayload = (payload: Uint8Array): string =>
+	TX_HASH_PREFIX + (sha256(payload, 'hex') as string)
+
+/** `txHash` sebuah transaksi — encode lalu hash payload-nya. */
+export const txHashOf = (tx: TxInterface): string =>
+	txHashOfPayload(encodeTxPayload(tx))
+
+/** Byte payload → transaksi, lengkap dengan `txHash` hasil hash byte itu. */
 export const decodeTxPayload = (data: Uint8Array): TxInterface => {
-	if (data.length === 0) {
-		throw new Error('txCodec: payload kosong')
-	}
-	const type = data[0]
-	if (type !== TX_TYPE_RLP) {
+	if (data.length === 0) throw new Error('txCodec: payload kosong')
+	if (data[0] !== TX_TYPE) {
 		throw new Error(
-			`txCodec: tipe transaksi tidak dikenal: 0x${type.toString(16).padStart(2, '0')}`,
+			`txCodec: tipe transaksi tidak dikenal: 0x${data[0]
+				.toString(16)
+				.padStart(2, '0')}`,
 		)
 	}
-	return rlpListToTx(rlpDecode(data.subarray(1)))
+	return {
+		...rlpListToTx(rlpDecode(data.subarray(1))),
+		txHash: txHashOfPayload(data),
+	}
 }

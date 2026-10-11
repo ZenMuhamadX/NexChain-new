@@ -16,33 +16,18 @@ import _ from 'lodash'
 export const verifyStruct = async (chains: Block) => {
 	// Define the schema for the MemPoolInterface
 	const txInterface = Joi.object({
-		format: Joi.string().required(),
 		sender: Joi.string().required(),
 		receiver: Joi.string().required(),
 		amount: Joi.number().required().max(MAX_SUPPLY_NEXU),
 		txHash: Joi.string().required(),
-		timestamp: Joi.number().required(),
 		sign: Joi.object({
 			r: Joi.string().required(),
 			s: Joi.string().required(),
 			v: Joi.number().required(),
 		}).required(),
-		extraMessage: Joi.string().optional(),
-		extraData: Joi.any().optional(),
+		data: Joi.string().optional(),
 		fee: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
-		// nonce OPSIONAL: blok lama (sebelum fix nonce) tidak punya field ini
-		// dan harus tetap lolos validasi rantai. Untuk transaksi BARU,
-		// nonce wajib -- dicek ketat di txInterfaceValidator saat masuk mempool.
-		nonce: Joi.number().integer().min(0).optional(),
-		status: Joi.string().required(),
-		isPending: Joi.boolean().required(),
-		isValid: Joi.boolean().required(),
-		// Flag kontrak: OPSIONAL — tx LAMA di rantai menyimpannya (wajib
-		// diterima supaya blok lama tetap lolos), tx BARU tanpa field ini
-		// juga harus lolos (fitur smart contract dibuang).
-		isReceiverContract: Joi.boolean().optional(),
-		isSenderContract: Joi.boolean().optional(),
-		hexInput: Joi.string().required(),
+		nonce: Joi.number().integer().min(0).required(),
 	})
 
 	// Define the schema for the coinbaseTransaction object

@@ -26,10 +26,11 @@ import { validateAddresses } from 'src/core/validation/module/isValidAddress'
 import { validateAddressLengths } from 'src/core/validation/module/isValidAddressLength'
 import { validateRule } from 'src/core/validation/module/validateField'
 import { normalizeParams } from 'src/rpc/normalizeParams'
-import { createTxnHash } from 'src/core/transaction/createTransactionHash'
+import { txSighash, txHashOf, TX_TYPE } from 'src/core/encoding/rlp/txCodec'
 import { setRpcUrl, getRpcUrl } from 'src/client/rpc-client/lib/rpcClient'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
+import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { comTxInterface } from 'src/types/compositeTransaction'
 import { encodeV } from 'src/crypto/chainId'
 import { MAX_SUPPLY_NEXU } from 'src/core/token/constants'
@@ -59,9 +60,8 @@ const input: comTxInterface = {
 	format: 'NXC',
 	receiver: RECEIVER,
 	sender: SNAPSHOT_ADDRESS,
-	timestamp: 1790149112539,
 	fee: 5000,
-	extraMessage: 'check:tx',
+	data: stringToHex('check:tx'),
 }
 
 const build = (nonce: number): ReturnType<typeof createUnsignedTransaction> =>
@@ -82,21 +82,28 @@ ok(
 const tx = signTransaction(draft.tx!, privateKey)
 ok(
 	'recover signer == sender',
-	recoverSignerAddress(tx.txHash!, tx.sign) === SNAPSHOT_ADDRESS,
+	recoverSignerAddress(txSighash(tx), tx.sign) === SNAPSHOT_ADDRESS,
 )
 ok(
 	'v membawa CHAIN_ID saat ini (EIP-155)',
 	tx.sign.v === encodeV(0) || tx.sign.v === encodeV(1),
 )
 
-// ---- 3. setara dengan logika inline lama (hash/r/s/hexInput identik) ----
+// ---- 3. dua hash: txHash mengikat byte tertandatangani ----
 ok(
-	'txHash == createTxnHash(tx) (nonce ikut ter-hash)',
-	tx.txHash === createTxnHash(tx),
+	'txHash == txHashOf(tx) (hash dari payload bertipe)',
+	tx.txHash === txHashOf(tx),
 )
-ok('format dinormalisasi ke nexu', tx.format === 'nexu')
+ok(
+	'sighash TIDAK berubah oleh tanda tangan (bebas siklus r/s)',
+	txSighash({ ...tx, sign: { v: 0, r: '0'.repeat(64), s: '0'.repeat(64) } })
+		.length === 32,
+)
 ok('amount dikonversi NXC -> nexu (1 NXC = 1e8 nexu)', tx.amount === 1e8)
-ok('hexInput terisi', typeof tx.hexInput === 'string' && tx.hexInput.length > 0)
+ok(
+	'data tersimpan sebagai hex',
+	typeof tx.data === 'string' && tx.data.startsWith('0x'),
+)
 
 // ---- 4. signTransaction murni: tidak memutasi draft ----
 const before = JSON.stringify(draft.tx)
@@ -104,11 +111,18 @@ signTransaction(draft.tx!, privateKey)
 ok('signTransaction TIDAK memutasi input', JSON.stringify(draft.tx) === before)
 ok(
 	'draft unsigned masih ber-sign placeholder',
-	draft.tx!.sign.r === '' && draft.tx!.sign.s === '' && draft.tx!.sign.v === 0,
+	draft.tx!.sign.r === '0'.repeat(64) &&
+		draft.tx!.sign.s === '0'.repeat(64) &&
+		draft.tx!.sign.v === 0,
 )
+ok('draft unsigned BELUM punya txHash', draft.tx!.txHash === undefined)
 
 // ---- 5. nonce berbeda -> txHash berbeda (anti-replay) ----
-ok('nonce beda -> txHash beda', build(1).tx!.txHash !== build(0).tx!.txHash)
+ok(
+	'nonce beda -> txHash beda',
+	signTransaction(build(1).tx!, privateKey).txHash !==
+		signTransaction(build(0).tx!, privateKey).txHash,
+)
 
 // ---- 6. encode/decode roundtrip utuh ----
 const payload = encodeTx(tx)
@@ -131,8 +145,8 @@ ok(
 	tx.sign.r.length === 64 && tx.sign.s.length === 64,
 )
 ok(
-	'RLP: byte pertama adalah tipe transaksi 0x01',
-	atob(payload).charCodeAt(0) === 0x01,
+	'RLP: byte pertama adalah tipe transaksi 0x02',
+	atob(payload).charCodeAt(0) === TX_TYPE,
 )
 // Kanonisitas: encode ulang hasil decode harus menghasilkan byte yang sama.
 ok(

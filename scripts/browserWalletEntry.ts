@@ -36,12 +36,10 @@ import { ecc } from 'src/crypto/ecc'
 import { createSignature } from 'src/crypto/createSignature'
 import { signTransaction } from 'src/crypto/signTransaction'
 import { verifySignature, recoverSignerAddress } from 'src/crypto/verifySignature'
-import { hashMessage } from 'src/crypto/hashMessage'
 import { CHAIN_ID, encodeV, decodeV } from 'src/crypto/chainId'
 import { sha256, hexToBytes } from 'src/core/encoding/sha256'
 import { keccak256 } from 'src/core/encoding/keccak256'
 import { processPubKey } from 'src/wallet/utils/processPubKey'
-import { createTxnHash } from 'src/core/transaction/createTransactionHash'
 import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
@@ -56,7 +54,6 @@ import {
 	createUnsignedTransaction,
 	MIN_AMOUNT_NEXU,
 } from 'src/client/lib/createUnsignedTransaction'
-import { DEFAULT_EXTRA_MESSAGE } from 'src/core/transaction/constants'
 import { getNonce } from 'src/client/rpc-client/controller/rpcGetNonce'
 import { setRpcUrl, getRpcUrl } from 'src/client/rpc-client/lib/rpcClient'
 import { createWalletVault, PRIMARY_WALLET_ID } from 'src/client/wallet/walletVault'
@@ -87,7 +84,6 @@ export const browserWalletSurface = {
 	createSignature,
 	signTransaction,
 	createUnsignedTransaction,
-	DEFAULT_EXTRA_MESSAGE,
 	MIN_AMOUNT_NEXU,
 	getNonce,
 	setRpcUrl,
@@ -104,7 +100,6 @@ export const browserWalletSurface = {
 	decodeHexJson,
 	verifySignature,
 	recoverSignerAddress,
-	hashMessage,
 	CHAIN_ID,
 	encodeV,
 	decodeV,
@@ -112,7 +107,6 @@ export const browserWalletSurface = {
 	hexToBytes,
 	keccak256,
 	processPubKey,
-	createTxnHash,
 	createMerkleRoot,
 	encodeTx,
 	decodeTx,

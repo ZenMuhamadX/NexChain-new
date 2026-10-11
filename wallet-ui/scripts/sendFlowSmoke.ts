@@ -122,7 +122,6 @@ const main = async (): Promise<void> => {
 				format: 'NXC',
 				sender: info.address,
 				amount: Number(form.amountNxc),
-				timestamp: Date.now(),
 				fee: Number(form.feeNexu),
 			},
 			0,

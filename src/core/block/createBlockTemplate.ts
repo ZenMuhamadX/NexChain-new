@@ -39,16 +39,6 @@ export const createBlockTemplate = async (
 		throw new Error('Latest block is undefined.')
 	}
 
-	// Tandai transaksi mempool sebagai terkonfirmasi SEBELUM masuk blok
-	// (flag ini ikut masuk preimage PoW dan divalidasi verifyStruct).
-	// Pemanggilan loop lama di mining.ts dipindahkan ke sini supaya satu
-	// transaksi yang lolos ke blok selalu berstatus konsisten.
-	for (const tx of transactions) {
-		tx.isValid = true
-		tx.isPending = false
-		tx.status = 'confirmed'
-	}
-
 	const height = latestBlock.block.height + 1
 	const timestamp = generateTimestampz()
 

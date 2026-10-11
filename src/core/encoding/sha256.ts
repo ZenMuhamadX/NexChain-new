@@ -25,9 +25,14 @@ export const hexToBytes = (hex: string): Uint8Array<ArrayBuffer> => {
  * ("Module crypto has been externalized").
  * Hasil hex dijamin identik dengan crypto.createHash('sha256').digest('hex'),
  * sehingga txHash / merkleRoot / address yang sudah ada TIDAK berubah.
+ *
+ * Menerima `Uint8Array` juga (js-sha256 mendukungnya secara native) — ini
+ * yang dipakai jalur transaksi, karena preimage-nya byte RLP. Mengubah byte
+ * menjadi string lebih dulu akan SALAH: UTF-8 akan meng-encode ulang byte
+ * >= 0x80 menjadi dua byte.
  */
 export const sha256 = (
-	data: string,
+	data: string | Uint8Array,
 	enc: 'hex' | 'buffer',
 ): string | Uint8Array => {
 	const hex = jsSha256(data)

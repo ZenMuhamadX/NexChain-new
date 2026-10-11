@@ -1,20 +1,32 @@
 import { TxInterface } from 'src/types/transaction'
 import { sha256 } from 'src/core/encoding/sha256'
-import { txToString } from 'src/core/encoding/hex/tx/txToString'
 
-// Fungsi untuk menghitung Merkle Root dari transaksi
+/**
+ * Daun merkle untuk sebuah transaksi = `txHash`-nya.
+ *
+ * Sebelumnya daunnya adalah `txToString(tx)` =
+ * `sender:receiver:amount:timestamp` — string turunan yang:
+ *   - bergantung pada `timestamp` (yang kini dihapus, waktunya milik blok);
+ *   - TIDAK mencakup `fee`, `nonce`, `data`, dan `sign`, sehingga merkle root
+ *     tidak meng-commit transaksi secara utuh.
+ *
+ * Dengan `txHash` sebagai daun, merkle root meng-commit byte transaksi yang
+ * sebenarnya — karena `txHash = sha256(payload bertipe)`.
+ */
+const leafOf = (tx: TxInterface): string => {
+	if (!tx.txHash) {
+		throw new Error('createMerkleRoot: transaksi tanpa txHash')
+	}
+	return tx.txHash
+}
+
+/** Merkle root dari daftar transaksi (daun = `txHash`). */
 export const createMerkleRoot = (transactions: TxInterface[]): string => {
 	if (transactions.length === 0) {
 		return sha256('', 'hex') as string
 	}
 
-	if (transactions.length === 1) {
-		return sha256(txToString(transactions[0]), 'hex') as string
-	}
-
-	let transactionHashes: string[] = transactions.map(
-		(tx) => sha256(txToString(tx), 'hex') as string,
-	)
+	let transactionHashes: string[] = transactions.map(leafOf)
 
 	while (transactionHashes.length > 1) {
 		const tempHashes: string[] = []

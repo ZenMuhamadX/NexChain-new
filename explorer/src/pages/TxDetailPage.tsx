@@ -121,11 +121,15 @@ export function TxDetailPage() {
 				<div className="detail-heading">
 					<p className="detail-eyebrow">Transaction</p>
 					<h1 id="tx-title">
-						{tx.isPending ? 'Pending Transaction' : 'Transaction'}
-						<span className={`badge badge-${tx.status}`}>{tx.status}</span>
+						{meta ? 'Transaction' : 'Pending Transaction'}
+						<span className={`badge badge-${meta ? 'confirmed' : 'pending'}`}>
+							{meta ? 'confirmed' : 'pending'}
+						</span>
 					</h1>
 					<p>
-						{formatDateTime(tx.timestamp)} · {timeAgo(tx.timestamp)}
+						{meta
+							? `${formatDateTime(meta.blockTimestamp)} · ${timeAgo(meta.blockTimestamp)}`
+							: 'Belum masuk blok'}
 						{confirmations !== undefined
 							? ` · ${formatNumber(confirmations)} confirmations`
 							: ''}
@@ -143,7 +147,9 @@ export function TxDetailPage() {
 						<p className="panel-eyebrow">Transaction data</p>
 						<h2 id="tx-overview-title">Overview</h2>
 					</div>
-					<span className="panel-meta">Valid: {tx.isValid ? 'Yes' : 'No'}</span>
+					<span className="panel-meta">
+						{meta ? `Block #${formatNumber(meta.blockHeight)}` : 'Pending'}
+					</span>
 				</div>
 				<div className="panel-body">
 					<dl className="detail-grid">
@@ -156,7 +162,9 @@ export function TxDetailPage() {
 						<div className="detail-row">
 							<dt>Status</dt>
 							<dd>
-								<span className={`badge badge-${tx.status}`}>{tx.status}</span>
+								<span className={`badge badge-${meta ? 'confirmed' : 'pending'}`}>
+									{meta ? 'confirmed' : 'pending'}
+								</span>
 							</dd>
 						</div>
 						<div className="detail-row">
@@ -173,7 +181,9 @@ export function TxDetailPage() {
 						</div>
 						<div className="detail-row">
 							<dt>Timestamp</dt>
-							<dd>{formatDateTime(tx.timestamp)}</dd>
+							<dd>
+								{meta ? formatDateTime(meta.blockTimestamp) : 'Belum masuk blok'}
+							</dd>
 						</div>
 						<div className="detail-row">
 							<dt>Confirmations</dt>
@@ -200,10 +210,6 @@ export function TxDetailPage() {
 						<div className="detail-row">
 							<dt>Nonce</dt>
 							<dd>{formatNumber(tx.nonce)}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Format</dt>
-							<dd>{tx.format}</dd>
 						</div>
 						{meta ? (
 							<div className="detail-row detail-row-full">
@@ -257,24 +263,13 @@ export function TxDetailPage() {
 				</div>
 			</section>
 
-			{tx.extraMessage ? (
-				<section className="panel" aria-labelledby="tx-message-title">
+			{tx.data ? (
+				<section className="panel" aria-labelledby="tx-data-title">
 					<div className="panel-head">
-						<h2 id="tx-message-title">Message</h2>
+						<h2 id="tx-data-title">Data</h2>
 					</div>
 					<div className="panel-body">
-						<p className="tx-message">{tx.extraMessage}</p>
-					</div>
-				</section>
-			) : null}
-
-			{tx.hexInput ? (
-				<section className="panel" aria-labelledby="tx-input-title">
-					<div className="panel-head">
-						<h2 id="tx-input-title">Raw input</h2>
-					</div>
-					<div className="panel-body">
-						<RawInput hexInput={tx.hexInput} />
+						<RawInput hex={tx.data} />
 					</div>
 				</section>
 			) : null}
@@ -308,7 +303,7 @@ export function TxDetailPage() {
 	)
 }
 
-function RawInput({ hexInput }: { hexInput: string }) {
-	const text = tryHexText(hexInput)
-	return <p className="tx-message mono">{text ?? hexInput}</p>
+function RawInput({ hex }: { hex: string }) {
+	const text = tryHexText(hex)
+	return <p className="tx-message mono">{text ?? hex}</p>
 }
