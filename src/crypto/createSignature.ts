@@ -24,8 +24,18 @@ export const createSignature = (
 	// Mendapatkan pasangan kunci
 	const keyPair = ec.keyFromPrivate(normalizedKey, 'hex')
 
-	// Membuat signature
-	const signature = keyPair.sign(dataHash)
+	// Membuat signature.
+	//
+	// `canonical: true` memaksa `s` ke bentuk low-s (s <= n/2). Tanpa opsi
+	// ini elliptic membiarkan `s` melewati n/2, sehingga tanda tangan menjadi
+	// MALLEABLE: pihak ketiga bisa mengganti `s` dengan `n - s` dan hasilnya
+	// tetap valid untuk pengirim yang sama.
+	//
+	// Dampaknya kecil selama txHash dihitung dari field saja (r/s tidak ikut),
+	// tetapi menjadi fatal begitu txHash = hash dari byte tertandatangani —
+	// satu transaksi logis akan menghasilkan DUA txHash berbeda sehingga dedup
+	// mempool rusak. Ethereum mewajibkan low-s (EIP-2) justru karena itu.
+	const signature = keyPair.sign(dataHash, { canonical: true })
 
 	// Mendapatkan nilai r, s, dan v dari signature.
 	//
