@@ -7,15 +7,32 @@
  *
  * Bentuk payload (tipe `0x02`, pola EIP-2718):
  *
- *     unsigned = [ chainId, nonce, fee, sender, receiver, amount, data ]
+ *     unsigned = [ chainId, nonce, fee, receiver, amount, data ]     (6 item)
  *     sighash  = sha256(rlp(unsigned))                    ← yang di-sign
- *     signed   = [ nonce, fee, sender, receiver, amount, data, v, r, s ]
+ *     signed   = [ nonce, fee, receiver, amount, data, v, r, s ]     (8 item)
  *     payload  = 0x02 ‖ rlp(signed)
  *     txHash   = sha256(payload)                          ← identitas
  *
- * DUA hash, bukan satu. Sebelumnya `txHash` merangkap dua peran sekaligus:
- * yang ditandatangani DAN identitasnya. Pemisahan inilah yang membuat
- * `txHash` benar-benar mengikat byte yang dikirim:
+ * ## Pengirim TIDAK dikirim
+ *
+ * `sender` tidak ada di wire. Pengirim dipulihkan dari tanda tangan lewat
+ * `ecrecover(sighash, v, r, s)` — `from`. Ini model Ethereum: tanda tangan
+ * ADALAH definisi pengirim.
+ *
+ * Konsekuensinya lebih dari sekadar hemat 22 byte:
+ *
+ *   - Tidak ada lagi "klaim" pengirim yang harus dicocokkan dengan kenyataan.
+ *     Sebelumnya node memverifikasi `signer === sender`; sekarang nilai hasil
+ *     pemulihan langsung menjadi `from`, sehingga tidak mungkin ada
+ *     ketidakcocokan.
+ *   - `from` tidak bisa dipalsukan tanpa memalsukan tanda tangan, karena ia
+ *     dihitung DARI tanda tangan itu.
+ *
+ * ## Dua hash, bukan satu
+ *
+ * Sebelumnya `txHash` merangkap dua peran sekaligus: yang ditandatangani DAN
+ * identitasnya. Pemisahan inilah yang membuat `txHash` benar-benar mengikat
+ * byte yang dikirim:
  *
  *   - `sighash` ditandatangani, dihitung dari field TANPA `v/r/s` (kalau r/s
  *     ikut, terjadi siklus: tanda tangan atas dirinya sendiri).
@@ -26,10 +43,6 @@
  * terikat jaringan. `v` tetap memakai encoding EIP-155
  * (`recoveryParam + chainId*2 + 35`).
  *
- * `sender` masih IKUT dikirim. Penghapusannya (pemulihan lewat `ecrecover`)
- * ditunda ke Fase 4; kini terbuka karena coinbase sudah keluar dari daftar
- * transaksi, sehingga tidak ada lagi transaksi tanpa tanda tangan.
- *
  * `format`, `timestamp`, `hexInput`, dan seluruh state siklus hidup
  * (`status`/`isValid`/`isPending`) TIDAK lagi menjadi bagian transaksi
  * maupun wire.
@@ -38,6 +51,7 @@
 import { TxInterface } from 'src/types/transaction'
 import { HexString } from 'src/types/block'
 import { CHAIN_ID } from 'src/crypto/chainId'
+import { recoverSignerAddress } from 'src/crypto/verifySignature'
 import { sha256 } from 'src/core/encoding/sha256'
 import { rlpEncode, type RlpInput } from './rlpEncode'
 import { rlpDecode } from './rlpDecode'
@@ -46,8 +60,8 @@ import { rlpDecode } from './rlpDecode'
 export const TX_TYPE = 0x02
 
 /** Panjang list yang valid — bagian dari kontrak, bukan angka bebas. */
-export const UNSIGNED_ITEM_COUNT = 7
-export const SIGNED_ITEM_COUNT = 9
+export const UNSIGNED_ITEM_COUNT = 6
+export const SIGNED_ITEM_COUNT = 8
 
 /** Prefix alamat yang dikenal. Indeks array = tag byte di payload. */
 const ADDRESS_PREFIXES = ['NxC', 'NxS'] as const
@@ -211,7 +225,6 @@ export const txUnsignedRlpList = (tx: TxInterface): RlpInput[] => [
 	numberToBytes(CHAIN_ID, 'chainId'),
 	numberToBytes(tx.nonce, 'nonce'),
 	numberToBytes(tx.fee, 'fee'),
-	addressToBytes(tx.sender),
 	addressToBytes(tx.receiver),
 	numberToBytes(tx.amount, 'amount'),
 	dataToBytes(tx.data),
@@ -223,7 +236,6 @@ export const txToRlpList = (tx: TxInterface): RlpInput[] => {
 	return [
 		numberToBytes(tx.nonce, 'nonce'),
 		numberToBytes(tx.fee, 'fee'),
-		addressToBytes(tx.sender),
 		addressToBytes(tx.receiver),
 		numberToBytes(tx.amount, 'amount'),
 		dataToBytes(tx.data),
@@ -233,7 +245,12 @@ export const txToRlpList = (tx: TxInterface): RlpInput[] => {
 	]
 }
 
-/** Kebalikan `txToRlpList`. `txHash` diisi `decodeTxPayload`, bukan di sini. */
+/**
+ * Kebalikan `txToRlpList`.
+ *
+ * `from` dan `txHash` TIDAK diisi di sini — keduanya turunan. `decodeTxPayload`
+ * yang melengkapinya (satu lewat `ecrecover`, satu lewat hash payload).
+ */
 export const rlpListToTx = (list: RlpInput): TxInterface => {
 	if (!Array.isArray(list) || list.length !== SIGNED_ITEM_COUNT) {
 		const got = Array.isArray(list) ? `${list.length} item` : typeof list
@@ -250,21 +267,20 @@ export const rlpListToTx = (list: RlpInput): TxInterface => {
 		return value
 	}
 
-	const data = bytesToData(item(5, 'data'))
+	const data = bytesToData(item(4, 'data'))
 
 	return {
 		nonce: bytesToNumber(item(0, 'nonce'), 'nonce'),
 		fee: bytesToNumber(item(1, 'fee'), 'fee'),
-		sender: bytesToAddress(item(2, 'sender')),
-		receiver: bytesToAddress(item(3, 'receiver')),
-		amount: bytesToNumber(item(4, 'amount'), 'amount'),
+		receiver: bytesToAddress(item(2, 'receiver')),
+		amount: bytesToNumber(item(3, 'amount'), 'amount'),
 		// Sebar bersyarat: `exactOptionalPropertyTypes` menolak `data:
 		// undefined` eksplisit, dan menyebar `{}` menjaga `data` tetap absen.
 		...(data === undefined ? {} : { data }),
 		sign: {
-			v: bytesToNumber(item(6, 'v'), 'v'),
-			r: signatureBytesToHex(item(7, 'r'), 'r'),
-			s: signatureBytesToHex(item(8, 's'), 's'),
+			v: bytesToNumber(item(5, 'v'), 'v'),
+			r: signatureBytesToHex(item(6, 'r'), 'r'),
+			s: signatureBytesToHex(item(7, 's'), 's'),
 		},
 	}
 }
@@ -276,6 +292,22 @@ export const rlpListToTx = (list: RlpInput): TxInterface => {
 /** Hash yang DITANDATANGANI — 32 byte. */
 export const txSighash = (tx: TxInterface): Uint8Array =>
 	sha256(rlpEncode(txUnsignedRlpList(tx)), 'buffer') as Uint8Array
+
+/**
+ * Pengirim — TURUNAN, bukan field yang dikirim.
+ *
+ * `ecrecover` atas `(sighash, v, r, s)`. Mengembalikan `undefined` bila
+ * tanda tangan tidak bisa dipulihkan (r/s/v rusak) — pemanggil memperlakukannya
+ * sebagai transaksi tidak sah, bukan sebagai transaksi tanpa pengirim.
+ *
+ * Perhatikan: `recoverPubKey` pada signature apa pun SELALU menghasilkan
+ * sebuah public key, jadi nilai kembaliannya hanya bermakna bila tanda
+ * tangannya benar-benar dibuat oleh pemilik alamat itu. Di sini hal itu
+ * otomatis: alamat hasil pemulihan ITULAH pengirimnya — tidak ada klaim lain
+ * untuk dibandingkan.
+ */
+export const txFrom = (tx: TxInterface): string | undefined =>
+	recoverSignerAddress(txSighash(tx), tx.sign)
 
 /** Payload wire: `0x02 ‖ rlp(signed)`. */
 export const encodeTxPayload = (tx: TxInterface): Uint8Array => {
@@ -294,7 +326,14 @@ export const txHashOfPayload = (payload: Uint8Array): string =>
 export const txHashOf = (tx: TxInterface): string =>
 	txHashOfPayload(encodeTxPayload(tx))
 
-/** Byte payload → transaksi, lengkap dengan `txHash` hasil hash byte itu. */
+/**
+ * Byte payload → transaksi LENGKAP: `from` dipulihkan, `txHash` dihitung.
+ *
+ * Keduanya sengaja diisi di sini supaya hasil decode adalah objek yang
+ * konsisten dengan dirinya sendiri — tidak ada jalan bagi pemanggil untuk
+ * "lupa" menghitung pengirim, dan tidak ada nilai pengirim dari luar yang
+ * bisa menyelinap masuk.
+ */
 export const decodeTxPayload = (data: Uint8Array): TxInterface => {
 	if (data.length === 0) throw new Error('txCodec: payload kosong')
 	if (data[0] !== TX_TYPE) {
@@ -304,8 +343,11 @@ export const decodeTxPayload = (data: Uint8Array): TxInterface => {
 				.padStart(2, '0')}`,
 		)
 	}
+	const base = rlpListToTx(rlpDecode(data.subarray(1)))
+	const from = txFrom(base)
 	return {
-		...rlpListToTx(rlpDecode(data.subarray(1))),
+		...base,
+		...(from === undefined ? {} : { from }),
 		txHash: txHashOfPayload(data),
 	}
 }

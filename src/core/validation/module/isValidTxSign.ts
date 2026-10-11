@@ -20,10 +20,13 @@ import { TxInterface } from 'src/types/transaction'
  *    tanpa ia, properti itu tidak pernah dipakai. Sekaligus menangkap data
  *    yang diubah setelah ditandatangani (mis. JSON mempool yang disunting).
  *
- * 3. **`signer === sender`.** Address hasil recover WAJIB cocok dengan
- *    pemilik `sender`, supaya pihak lain tidak bisa membuat transaksi atas
- *    nama orang lain. (Pemeriksaan ini hilang di Fase 4, saat `sender`
- *    dihapus dan hasil recover LANGSUNG menjadi `from`.)
+ * 3. **Konsistensi `from`.** Sejak `sender` dihapus dari wire, `from` adalah
+ *    hasil `ecrecover` atas tanda tangan itu sendiri (lihat `txCodec.txFrom`).
+ *    Pemeriksaan di sini menghitung ULANG nilainya dan membandingkan — bukan
+ *    untuk "mencocokkan klaim dengan kenyataan" (tidak ada klaim lagi),
+ *    melainkan untuk menangkap `from` yang disunting setelah decode: JSON
+ *    mempool/riwayat yang diubah isinya tidak akan lolos, karena nilai
+ *    turunan tidak akan lagi cocok dengan tanda tangannya.
  */
 export const validateTransactionSignature = async (
 	transaction: TxInterface,
@@ -60,8 +63,8 @@ export const validateTransactionSignature = async (
 	}
 
 	return validateRule(
-		signer === transaction.sender,
+		signer === transaction.from,
 		'transactionValidator',
-		'Signature does not match sender address',
+		'Recovered signer does not match transaction from',
 	)
 }

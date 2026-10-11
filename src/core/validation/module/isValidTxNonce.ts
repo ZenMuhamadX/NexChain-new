@@ -29,17 +29,19 @@ export const validateTransactionNonce = async (
 		return false
 	}
 
-	// Pengirim non-standar (mis. "COINBASE") tidak punya akun → skip nonce
-	if (!isValidAddress(transaction.sender)) return true
+	// Pengirim non-standar tidak punya akun → skip nonce. (Sejak coinbase
+	// keluar dari daftar transaksi, `from` selalu alamat hasil `ecrecover`
+	// yang sah, jadi cabang ini praktis tidak pernah terpakai — disimpan
+	// sebagai jaring pengaman.)
+	if (!isValidAddress(transaction.from!)) return true
 
-	const account = await getAccount(transaction.sender)
+	const account = await getAccount(transaction.from!)
 	const accountNonce = account?.nonce ?? 0
 
 	// Hitung tx sender yang masih pending di mempool
 	const mempool = await loadMempool().catch(() => [])
 	const pendingCount = Array.isArray(mempool)
-		? mempool.filter((tx: TxInterface) => tx.sender === transaction.sender)
-				.length
+		? mempool.filter((tx: TxInterface) => tx.from === transaction.from).length
 		: 0
 
 	const expectedNonce = accountNonce + pendingCount

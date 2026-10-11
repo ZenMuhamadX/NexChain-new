@@ -16,7 +16,9 @@ import _ from 'lodash'
 export const verifyStruct = async (chains: Block) => {
 	// Define the schema for the MemPoolInterface
 	const txInterface = Joi.object({
-		sender: Joi.string().required(),
+		// `from` adalah hasil ecrecover, bukan field yang dikirim. Transaksi
+		// di dalam blok selalu sudah melewati decode, jadi nilainya ada.
+		from: Joi.string().required(),
 		receiver: Joi.string().required(),
 		amount: Joi.number().required().max(MAX_SUPPLY_NEXU),
 		txHash: Joi.string().required(),

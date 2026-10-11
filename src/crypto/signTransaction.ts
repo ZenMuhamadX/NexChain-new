@@ -1,4 +1,5 @@
 import { createSignature } from 'src/crypto/createSignature'
+import { recoverSignerAddress } from 'src/crypto/verifySignature'
 import { txSighash, txHashOf } from 'src/core/encoding/rlp/txCodec'
 import { TxInterface } from 'src/types/transaction'
 
@@ -8,14 +9,21 @@ const HEX64 = /^(?:Nx)?[0-9a-fA-F]{64}$/
 /**
  * Tanda tangani transaksi — **fungsi murni**.
  *
- * Alur (dua hash, bukan satu):
+ * Alur:
  *
  *   1. `sighash = sha256(rlp(field unsigned))`  ← yang benar-benar di-sign
  *   2. `sign    = ECDSA(sighash)`               → { v, r, s }
- *   3. `txHash  = sha256(payload bertipe)`      ← dihitung SETELAH signing
+ *   3. `from    = ecrecover(sighash, v, r, s)`  ← pengirim, DARI tanda tangan
+ *   4. `txHash  = sha256(payload bertipe)`      ← dihitung SETELAH signing
  *
- * Urutannya penting: `txHash` adalah hash dari byte tertandatangani, jadi ia
- * baru bisa dihitung setelah langkah 2. Sebelumnya satu nilai merangkap dua
+ * Langkah 3 penting untuk keseragaman: pengirim dihitung dengan cara yang
+ * PERSIS SAMA seperti yang dipakai node saat `decodeTxPayload`. Karena
+ * keduanya memulihkan dari tanda tangan yang sama, nilai `from` di client dan
+ * di node tidak mungkin berbeda. Transaksi tidak lagi membawa klaim pengirim
+ * yang harus dicocokkan.
+ *
+ * Urutannya juga penting: `txHash` adalah hash dari byte tertandatangani, jadi
+ * ia baru bisa dihitung setelah langkah 2. Sebelumnya satu nilai merangkap dua
  * peran — yang ditandatangani sekaligus identitas — sehingga `txHash` tidak
  * pernah mengikat bentuk terenkodenya.
  *
@@ -40,8 +48,17 @@ export const signTransaction = (
 
 	const normalizedKey = privateKey.trim().replace(/^Nx/i, '')
 
-	const sign = createSignature(txSighash(transaction), normalizedKey)
+	const sighash = txSighash(transaction)
+	const sign = createSignature(sighash, normalizedKey)
+	const from = recoverSignerAddress(sighash, sign)
+
 	const signed: TxInterface = { ...transaction, sign }
 
-	return { ...signed, txHash: txHashOf(signed) }
+	return {
+		...signed,
+		// Sebar bersyarat demi `exactOptionalPropertyTypes`. Dalam praktiknya
+		// `from` selalu terisi di sini — tanda tangannya baru saja dibuat.
+		...(from === undefined ? {} : { from }),
+		txHash: txHashOf(signed),
+	}
 }

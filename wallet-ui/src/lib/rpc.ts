@@ -87,7 +87,7 @@ export const fetchHistory = async (address: string): Promise<HistoryRow[]> => {
 
 	const mempool = await fetchMempool()
 	const pending = mempool
-		.filter((tx) => tx.sender === address || tx.receiver === address)
+		.filter((tx) => tx.from === address || tx.receiver === address)
 		.filter((tx) => typeof tx.txHash !== 'string' || !seen.has(tx.txHash))
 
 	const rows: HistoryRow[] = [

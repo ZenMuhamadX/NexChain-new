@@ -26,7 +26,9 @@ export const txInterfaceValidator = Joi.object({
 			'number.min': '"amount" must be at least 1 nexu',
 			'number.max': '"amount" must not exceed the supply cap (50.000.000 NXC)',
 		}),
-	sender: Joi.string().required(),
+	// `sender` TIDAK ada lagi: pengirim kini turunan (`from`). Joi menolak
+	// key yang tidak dikenal secara bawaan, jadi transaksi yang masih membawa
+	// `sender` akan gagal di sini — bukan diabaikan diam-diam.
 	receiver: Joi.string().required(),
 	// Data arbitrer (hex). Menggantikan `extraMessage`; opsional, tanpa
 	// nilai default yang wajib dibawa setiap transaksi.
@@ -36,6 +38,12 @@ export const txInterfaceValidator = Joi.object({
 		s: Joi.string().required(),
 		v: Joi.number().required(),
 	}).required(),
+	// Turunan `ecrecover` atas tanda tangan. WAJIB ada pada transaksi yang
+	// diterima node (diisi `decodeTx` / `signTransaction`) — karena itu
+	// `required()`, bukan `optional()`. Validator lain (`validateAddresses`,
+	// `validateAddressLengths`, ...) memakai non-null assertion dan
+	// mengandalkan jaminan dari baris ini.
+	from: Joi.string().required(),
 	// Turunan `sha256(payload bertipe)` — selalu ada pada transaksi yang
 	// diterima node (diisi `decodeTx`), dan diverifikasi ulang oleh
 	// `validateTransactionSignature`.

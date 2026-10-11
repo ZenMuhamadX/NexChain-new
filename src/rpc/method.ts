@@ -197,7 +197,7 @@ rpc.addMethod('nex_getNextNonce', async (address: string) => {
 	const account = await getAccount(address)
 	const mempool = await loadMempool().catch(() => [])
 	const pendingCount = Array.isArray(mempool)
-		? mempool.filter((tx: TxInterface) => tx.sender === address).length
+		? mempool.filter((tx: TxInterface) => tx.from === address).length
 		: 0
 	return stringToHex(JSON.stringify((account?.nonce ?? 0) + pendingCount))
 })

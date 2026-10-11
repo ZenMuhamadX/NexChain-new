@@ -246,8 +246,8 @@ export function TxDetailPage() {
 					<div className="transfer-flow">
 						<div className="transfer-party">
 							<span>From</span>
-							<Link className="mono" to={`/address/${tx.sender}`}>
-								{tx.sender}
+							<Link className="mono" to={`/address/${tx.from ?? ''}`}>
+								{tx.from ?? '—'}
 							</Link>
 						</div>
 						<div className="transfer-arrow" aria-hidden="true">

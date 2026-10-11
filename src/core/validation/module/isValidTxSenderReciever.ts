@@ -13,7 +13,7 @@ export const validateTransactionSenderReceiver = (
 	transaction: TxInterface,
 ): boolean => {
 	return validateRule(
-		transaction.sender !== transaction.receiver,
+		transaction.from !== transaction.receiver,
 		'transactionValidator',
 		'Invalid transaction sender and receiver',
 	)

@@ -130,8 +130,9 @@ const sendTx = async (
 	}
 	let tx: TxInterface = signTransaction(built.tx, privateKey)
 	if (legacyFlags) {
-		// Klien LAMA masih menyertakan flag kontrak — field ini tidak ikut
-		// di-hash, dan kini bersifat opsional: harus tetap diterima mempool.
+		// Klien LAMA masih menyertakan flag kontrak. Field ini TIDAK lagi
+		// bagian skema, dan `encodeTx` membuang setiap field di luar skema —
+		// jadi node tidak pernah melihatnya dan transaksi tetap diterima.
 		tx = {
 			...tx,
 			isSenderContract: true,
@@ -376,20 +377,24 @@ if (H1 !== null) {
 		`got=${r3}, ekspektasi=${S * C_AMOUNT}`,
 	)
 
-	// blok & coinbase
+	// blok & coinbase — hadiah BUKAN lagi transaksi di dalam daftar.
 	const blk = await hexJson<{ block?: Record<string, any> }>(
 		'nex_getBlockByHeight',
 		H1,
 	)
 	const block = blk?.block
-	const coinbase = block?.transactions?.[0]
+	const coinbase = block?.coinbaseTransaction
 	const totalReward: number = block?.totalReward ?? 0
 	ok(
-		'coinbase tx PERTAMA: sender=COINBASE, receiver=miner, amount=totalReward',
-		coinbase?.sender === 'COINBASE' &&
-			coinbase?.receiver === sender &&
-			coinbase?.amount === totalReward,
+		'coinbase = FIELD BLOK (bukan transaksi): receiver=miner, amount=totalReward',
+		coinbase?.receiver === sender && coinbase?.amount === totalReward,
 		`reward=${totalReward}`,
+	)
+	ok(
+		'tidak ada pseudo-tx hadiah di block.transactions',
+		(block?.transactions ?? []).every(
+			(tx: TxInterface) => tx.from !== 'COINBASE',
+		),
 	)
 	const blockHashes: string[] = (block?.transactions ?? [])
 		.map((tx: TxInterface) => tx.txHash!)

@@ -45,7 +45,10 @@ export const createCoinbaseRecord = (
 ): TxInterface => ({
 	nonce: 0,
 	fee: 0,
-	sender: COINBASE_SENDER,
+	// Label tampilan pada RECORD riwayat — bukan transaksi, bukan konsensus.
+	// `from` di sini sengaja bukan alamat sah supaya wallet/explorer bisa
+	// mengenali entri hadiah; ia tidak pernah lewat kodek maupun validasi.
+	from: COINBASE_SENDER,
 	receiver,
 	amount,
 	data: stringToHex(COINBASE_MESSAGE),

@@ -52,7 +52,7 @@ export function TxTable({
 				<caption className="sr-only">
 					{compact
 						? 'Transactions — hash, amount, age and status'
-						: 'Transactions — hash, sender, receiver, amount, fee, age and status'}
+						: 'Transactions — hash, from, receiver, amount, fee, age and status'}
 				</caption>
 				<thead>
 					<tr>
@@ -92,7 +92,7 @@ export function TxTable({
 				</thead>
 				<tbody>
 					{rows.map((tx, index) => (
-						<tr key={tx.txHash ?? `${tx.sender}-${tx.receiver}-${index}`}>
+						<tr key={tx.txHash ?? `${tx.from}-${tx.receiver}-${index}`}>
 							<td data-label="TxHash">
 								{tx.txHash ? (
 									<Link
@@ -111,10 +111,10 @@ export function TxTable({
 									<td data-label="From">
 										<Link
 											className="link mono"
-											to={`/address/${tx.sender}`}
-											title={tx.sender}
+											to={`/address/${tx.from ?? ''}`}
+											title={tx.from}
 										>
-											{truncateMiddle(tx.sender, 8, 6)}
+											{truncateMiddle(tx.from ?? '', 8, 6)}
 										</Link>
 									</td>
 									<td data-label="To">

@@ -56,7 +56,7 @@ const applyBlockReward = async (block: blockStruct): Promise<void> => {
 
 	try {
 		await processReceiver(receiver, amount)
-		await saveTxByAddress(record.sender, record.receiver, record.txHash!)
+		await saveTxByAddress(record.from!, record.receiver, record.txHash!)
 		await saveTxHistory(record.txHash!, withBlockMetadata(record, block))
 	} catch (error) {
 		loggingErr({
@@ -97,9 +97,9 @@ export const processTransact = async (
 		}
 
 		try {
-			await processSender(tx.sender, tx.amount, tx.fee!)
+			await processSender(tx.from!, tx.amount, tx.fee!)
 			await processReceiver(tx.receiver, tx.amount)
-			await saveTxByAddress(tx.sender, tx.receiver, tx.txHash!)
+			await saveTxByAddress(tx.from!, tx.receiver, tx.txHash!)
 			await saveTxHistory(tx.txHash!, withBlockMetadata(tx, block))
 			removeMemPool(tx.txHash!)
 		} catch (error) {

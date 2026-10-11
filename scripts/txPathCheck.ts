@@ -32,6 +32,7 @@ import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { comTxInterface } from 'src/types/compositeTransaction'
+import { TxInterface } from 'src/types/transaction'
 import { encodeV } from 'src/crypto/chainId'
 import { MAX_SUPPLY_NEXU } from 'src/core/token/constants'
 
@@ -81,12 +82,32 @@ ok(
 )
 const tx = signTransaction(draft.tx!, privateKey)
 ok(
-	'recover signer == sender',
+	'recover signer == alamat pemilik mnemonic',
 	recoverSignerAddress(txSighash(tx), tx.sign) === SNAPSHOT_ADDRESS,
 )
 ok(
 	'v membawa CHAIN_ID saat ini (EIP-155)',
 	tx.sign.v === encodeV(0) || tx.sign.v === encodeV(1),
+)
+
+// ---- 2b. `from` TURUNAN — tidak dikirim, dipulihkan dari tanda tangan ----
+ok(
+	'from diisi hasil ecrecover (== alamat penanda tangan)',
+	tx.from === SNAPSHOT_ADDRESS,
+)
+ok(
+	'from TIDAK ada di wire (tidak ada field sender di objek hasil decode)',
+	!Object.prototype.hasOwnProperty.call(decodeTx(encodeTx(tx)), 'sender'),
+)
+// `comTxInterface.sender` hanya niat pemanggil (dipakai untuk mengambil
+// nonce). Transaksinya sendiri tidak boleh terpengaruh olehnya — kalau
+// terpengaruh, berarti pengirim masih ikut di-hash dan masih dikirim.
+ok(
+	'comTxInterface.sender tidak memengaruhi transaksi sama sekali',
+	JSON.stringify(
+		createUnsignedTransaction({ ...input, sender: `NxC${'ab'.repeat(20)}` }, 0)
+			.tx,
+	) === JSON.stringify(draft.tx),
 )
 
 // ---- 3. dua hash: txHash mengikat byte tertandatangani ----
@@ -116,6 +137,10 @@ ok(
 		draft.tx!.sign.v === 0,
 )
 ok('draft unsigned BELUM punya txHash', draft.tx!.txHash === undefined)
+ok(
+	'draft unsigned BELUM punya from (pengirim baru ada setelah ditandatangani)',
+	draft.tx!.from === undefined,
+)
 
 // ---- 5. nonce berbeda -> txHash berbeda (anti-replay) ----
 ok(
@@ -128,6 +153,10 @@ ok(
 const payload = encodeTx(tx)
 const round = decodeTx(payload)
 ok('encodeTx -> decodeTx identik', JSON.stringify(round) === JSON.stringify(tx))
+ok(
+	'decodeTx memulihkan from dari tanda tangan (tanpa field pengirim)',
+	round.from === SNAPSHOT_ADDRESS,
+)
 
 // ---- 6b. RLP: bentuk wire, kanonisitas, penolakan payload rusak ----
 ok(
@@ -177,13 +206,23 @@ ok(
 	'validateTransactionSignature menerima tx sendiri',
 	await validateTransactionSignature(tx),
 )
-const attacker = generateKeysFromMnemonic(
+const attackerKeys = generateKeysFromMnemonic(
 	'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong',
-).privateKey
-const forged = signTransaction(build(0).tx!, attacker)
+)
+const forged = signTransaction(build(0).tx!, attackerKeys.privateKey)
+// Di model lama transaksi ini akan MENGKLAIM `sender = SNAPSHOT_ADDRESS`
+// sementara tanda tangannya milik penyerang — dan ditolak karena klaim tidak
+// cocok dengan kenyataan. Sekarang tidak ada klaim lagi: `from` DITURUNKAN
+// dari tanda tangan, jadi transaksi ini sah — tapi sebagai transaksi MILIK
+// PENYERANG, bukan milik korban. Itulah jaminannya, dan ia berlaku tanpa
+// pemeriksaan tambahan.
 ok(
-	'validateTransactionSignature MENOLAK tx yang ditandatangani pihak lain',
-	(await validateTransactionSignature(forged)) === false,
+	'pihak lain tidak bisa bertransaksi atas nama alamat korban',
+	forged.from !== SNAPSHOT_ADDRESS && typeof forged.from === 'string',
+)
+ok(
+	'tx pihak lain tetap SAH — from-nya penyerang sendiri, bukan korban',
+	(await validateTransactionSignature(forged)) === true,
 )
 // Balik seluruh byte terakhir r -> dijamin berbeda (XOR 0xff), bukan kebetulan sama
 const flippedLast = (parseInt(tx.sign.r.slice(-2), 16) ^ 0xff)
@@ -197,12 +236,32 @@ ok(
 	'validateTransactionSignature menolak r yang diubah',
 	(await validateTransactionSignature(tampered)) === false,
 )
+// `from` adalah nilai turunan. Kalau ia disunting (mis. JSON mempool yang
+// diubah isinya), nilai itu tidak lagi cocok dengan tanda tangannya.
+ok(
+	'validateTransactionSignature menolak `from` yang diubah',
+	(await validateTransactionSignature({
+		...tx,
+		from: `NxC${'33'.repeat(20)}`,
+	})) === false,
+)
+
+/** Salinan tanpa `from` — mensimulasikan record yang kehilangan field turunan. */
+const stripFrom = (source: TxInterface): TxInterface => {
+	const copy: TxInterface = { ...source }
+	delete copy.from
+	return copy
+}
+ok(
+	'validateTransactionSignature menolak tx tanpa `from`',
+	(await validateTransactionSignature(stripFrom(tx))) === false,
+)
 
 // ---- 8. validator murni lain ----
 ok('fee <= amount diterima', validateTransactionFees(tx))
 ok(
 	'sender == receiver ditolak',
-	validateTransactionSenderReceiver({ ...tx, receiver: tx.sender }) === false,
+	validateTransactionSenderReceiver({ ...tx, receiver: tx.from! }) === false,
 )
 const small = createUnsignedTransaction(
 	{ ...input, format: 'nexu', amount: 0.5 },
@@ -284,7 +343,7 @@ ok(
 )
 ok(
 	'S1: sender == receiver DITOLAK',
-	validateTransactionSenderReceiver({ ...validTx, receiver: validTx.sender }) ===
+	validateTransactionSenderReceiver({ ...validTx, receiver: validTx.from! }) ===
 		false,
 )
 
@@ -294,7 +353,7 @@ ok(
 )
 ok(
 	'S1: alamat prefix salah DITOLAK',
-	validateAddresses({ ...validTx, sender: 'NxX' + '0'.repeat(40) }) === false,
+	validateAddresses({ ...validTx, from: 'NxX' + '0'.repeat(40) }) === false,
 )
 ok(
 	'S1: receiver address tidak valid DITOLAK',

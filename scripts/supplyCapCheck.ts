@@ -131,11 +131,11 @@ console.log('STAGE 4 — skrip Joi: .unsafe dibuang, .max(MAX_SUPPLY_NEXU) dipas
 /**
  * Objek transaksi minimum yang memenuhi seluruh field WAJIB
  * `txInterfaceValidator`. Struktural saja — Joi tidak memverifikasi
- * kriptografi, jadi nilai r/s/hexInput boleh dummy.
+ * kriptografi, jadi nilai r/s/from boleh dummy.
  */
 const structurallyValidTx = (): Record<string, unknown> => ({
 	amount: 1,
-	sender: ADDR,
+	from: ADDR,
 	receiver: `NxC${'cd'.repeat(20)}`,
 	sign: { r: 'a'.repeat(64), s: 'b'.repeat(64), v: 0 },
 	txHash: `Tx${'11'.repeat(32)}`,

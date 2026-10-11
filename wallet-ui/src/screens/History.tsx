@@ -111,7 +111,7 @@ export const History = ({
 								</thead>
 								<tbody>
 									{rows.map((row) => {
-										const outgoing = row.tx.sender === address
+										const outgoing = row.tx.from === address
 										const hash = row.tx.txHash ?? ''
 										return (
 											<tr key={hash || row.tx.receiver}>

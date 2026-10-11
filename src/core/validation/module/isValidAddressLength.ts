@@ -10,7 +10,7 @@ import { TxInterface } from 'src/types/transaction'
 export const validateAddressLengths = (transaction: TxInterface): boolean => {
 	return (
 		validateRule(
-			transaction.sender.length === 43,
+			transaction.from!.length === 43,
 			'transactionValidator',
 			'Invalid transaction sender length',
 		) &&

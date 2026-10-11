@@ -20,6 +20,11 @@ export interface UnsignedTransactionResult {
  *
  * Yang berubah dari versi lama:
  *
+ *   - `sender` TIDAK lagi ikut transaksi. Pengirim adalah hasil `ecrecover`
+ *     atas tanda tangan, jadi ia baru ada setelah `signTransaction` — dan
+ *     tidak pernah dikirim di wire. `comTxInterface.sender` tetap dipakai
+ *     pemanggil untuk mengambil nonce (itu alamat user sendiri), tapi bukan
+ *     bagian transaksi on-chain.
  *   - `txHash` TIDAK lagi dihitung di sini. Ia turunan dari byte yang sudah
  *     ditandatangani, jadi baru ada setelah `signTransaction`.
  *   - `hexInput` dihapus — turunan, tidak pernah diverifikasi siapa pun.
@@ -56,7 +61,6 @@ export const createUnsignedTransaction = (
 	const tx: TxInterface = {
 		nonce,
 		fee: transaction.fee,
-		sender: transaction.sender,
 		receiver: transaction.receiver,
 		amount: convertedAmount,
 		...(transaction.data === undefined ? {} : { data: transaction.data }),
