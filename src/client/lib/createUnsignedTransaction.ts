@@ -3,10 +3,10 @@ import { comTxInterface } from 'src/types/compositeTransaction'
 import { TxInterface } from 'src/types/transaction'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { toNexu } from 'src/core/token/toNexu'
-
-/** Pesan default yang dibawa transaksi bila caller tidak mengirim extraMessage. */
-export const DEFAULT_EXTRA_MESSAGE =
-	'NexChains A Next Generation Blockchain for Everyone'
+// Konstanta protokol tinggal di core/ karena ikut di-hash DAN dipakai oleh
+// codec wire (`core/encoding/rlp/txCodec`). core/ tidak boleh bergantung ke
+// client/, jadi rumahnya harus di core.
+import { DEFAULT_EXTRA_MESSAGE } from 'src/core/transaction/constants'
 
 /** Minimum amount setelah konversi format, dalam nexu. */
 export const MIN_AMOUNT_NEXU = 1

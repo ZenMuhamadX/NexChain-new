@@ -147,7 +147,7 @@ const main = async (): Promise<void> => {
 			)
 			ok(
 				/^[A-Za-z0-9+/]+={0,2}$/.test(encoded),
-				'alur: payload berupa base64 msgpack (bukan JSON telanjang)',
+				'alur: payload berupa base64 RLP (bukan JSON telanjang)',
 			)
 		}
 

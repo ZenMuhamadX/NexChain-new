@@ -54,9 +54,9 @@ import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { clientSideTxValidate } from 'src/client/lib/clientValidateTx'
 import {
 	createUnsignedTransaction,
-	DEFAULT_EXTRA_MESSAGE,
 	MIN_AMOUNT_NEXU,
 } from 'src/client/lib/createUnsignedTransaction'
+import { DEFAULT_EXTRA_MESSAGE } from 'src/core/transaction/constants'
 import { getNonce } from 'src/client/rpc-client/controller/rpcGetNonce'
 import { setRpcUrl, getRpcUrl } from 'src/client/rpc-client/lib/rpcClient'
 import { createWalletVault, PRIMARY_WALLET_ID } from 'src/client/wallet/walletVault'

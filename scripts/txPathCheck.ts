@@ -111,8 +111,52 @@ ok(
 ok('nonce beda -> txHash beda', build(1).tx!.txHash !== build(0).tx!.txHash)
 
 // ---- 6. encode/decode roundtrip utuh ----
-const round = decodeTx(encodeTx(tx))
+const payload = encodeTx(tx)
+const round = decodeTx(payload)
 ok('encodeTx -> decodeTx identik', JSON.stringify(round) === JSON.stringify(tx))
+
+// ---- 6b. RLP: bentuk wire, kanonisitas, penolakan payload rusak ----
+ok(
+	'RLP: payload berupa base64 yang sah',
+	/^[A-Za-z0-9+/]+={0,2}$/.test(payload),
+)
+// ~131 byte membuktikan `hexInput` (360 B) dan `txHash` (79 B) memang tidak
+// ikut terkirim — keduanya dihitung ulang node.
+ok(
+	`RLP: payload jauh lebih kecil dari format lama (${payload.length} < 300)`,
+	payload.length < 300,
+)
+ok(
+	'RLP: r/s tepat 32 byte (64 hex)',
+	tx.sign.r.length === 64 && tx.sign.s.length === 64,
+)
+ok(
+	'RLP: byte pertama adalah tipe transaksi 0x01',
+	atob(payload).charCodeAt(0) === 0x01,
+)
+// Kanonisitas: encode ulang hasil decode harus menghasilkan byte yang sama.
+ok(
+	'RLP: encode ulang hasil decode identik (kanonik)',
+	encodeTx(round) === payload,
+)
+
+// Payload rusak harus DITOLAK KERAS, bukan di-parse setengah.
+const rejectsPayload = (name: string, data: string): void => {
+	let threw = false
+	try {
+		decodeTx(data)
+	} catch {
+		threw = true
+	}
+	ok(`RLP: menolak ${name}`, threw)
+}
+rejectsPayload('base64 tidak valid', '!!!bukan-base64!!!')
+rejectsPayload('payload kosong', '')
+rejectsPayload(
+	'tipe transaksi tidak dikenal',
+	btoa(String.fromCharCode(0x09, 0xc0)),
+)
+rejectsPayload('payload terpotong', payload.slice(0, payload.length - 8))
 
 // ---- 7. validasi signature murni: lolos & anti-forge ----
 ok(

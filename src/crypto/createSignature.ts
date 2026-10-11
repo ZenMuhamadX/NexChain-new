@@ -27,9 +27,15 @@ export const createSignature = (
 	// Membuat signature
 	const signature = keyPair.sign(dataHash)
 
-	// Mendapatkan nilai r, s, dan v dari signature
-	const r = signature.r.toString('hex')
-	const s = signature.s.toString('hex')
+	// Mendapatkan nilai r, s, dan v dari signature.
+	//
+	// r/s di-PAD ke 32 byte (64 karakter hex). `BN.toString('hex')` memangkas
+	// byte nol di depan, sehingga panjangnya bisa kurang dari 64 dan tidak
+	// bisa ditulis sebagai 32 byte tetap di RLP. Padding ini netral secara
+	// kriptografi: nol di depan tidak mengubah nilai, dan `elliptic`
+	// mem-parse r/s lewat BN — jadi tanda tangan tetap sah.
+	const r = signature.r.toString('hex').padStart(64, '0')
+	const s = signature.s.toString('hex').padStart(64, '0')
 	const recoveryParam = signature.recoveryParam! // Nilai ini adalah 0 atau 1
 
 	// EIP-155: v = recoveryParam + chainId * 2 + 35 (replay protection)
