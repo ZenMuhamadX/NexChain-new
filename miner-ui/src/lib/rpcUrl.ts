@@ -14,6 +14,12 @@ import { errorMessage } from './format'
  * atau menaruh node di balik proxy HTTPS.
  */
 const STORAGE_KEY = 'nex_miner_rpc_url'
+// Kredensial Basic Auth method tulis (nex_getWork / nex_submitWork) —
+// dipakai bila node menyetel RPC_USER/RPC_PASSWORD. Sengaja di namespace
+// `nex_miner_*` yang sama dengan URL supaya tidak bercampur dengan key
+// wallet/explorer pada origin yang sama.
+const USER_KEY = 'nex_miner_rpc_user'
+const PASS_KEY = 'nex_miner_rpc_pass'
 const RPC_PORT = 8000
 
 const envRpcUrl = (): string | undefined => {
@@ -77,6 +83,51 @@ export const persistRpcUrl = (url: string): void => {
 	}
 }
 
+export interface RpcCredentials {
+	user: string
+	password: string
+}
+
+/**
+ * Kredensial Basic Auth tersimpan untuk method tulis
+ * (`nex_getWork` / `nex_submitWork` — lihat `lib/rpc.ts`).
+ *
+ * Keduanya kosong = tanpa kredensial → request dikirim TANPA header
+ * `Authorization` (node dev lokal tanpa auth tetap jalan seperti biasanya).
+ */
+export const getRpcCredentials = (): RpcCredentials => {
+	try {
+		return {
+			user: localStorage.getItem(USER_KEY) ?? '',
+			password: localStorage.getItem(PASS_KEY) ?? '',
+		}
+	} catch {
+		// localStorage diblokir (private mode) → perlakukan sebagai tanpa auth
+		return { user: '', password: '' }
+	}
+}
+
+/**
+ * Simpan kredensial dari layar Settings (keduanya kosong = hapus).
+ * Nilai disimpan apa adanya (di-trim) walaupun baru satu yang terisi;
+ * header Basic baru dibentuk bila KEDUANYA terisi — sama dengan aturan server.
+ */
+export const persistRpcCredentials = (user: string, password: string): void => {
+	const trimmedUser = user.trim()
+	const trimmedPassword = password.trim()
+	try {
+		if (!trimmedUser && !trimmedPassword) {
+			localStorage.removeItem(USER_KEY)
+			localStorage.removeItem(PASS_KEY)
+			return
+		}
+		localStorage.setItem(USER_KEY, trimmedUser)
+		localStorage.setItem(PASS_KEY, trimmedPassword)
+	} catch {
+		// gagal persist bukan gagal koneksi; berlaku sesi ini saja
+	}
+}
+
 export interface RpcConnectionResult {
 	ok: boolean
 	chainId?: number
@@ -87,7 +138,9 @@ export interface RpcConnectionResult {
  * Probe koneksi ringan TANPA mengubah client aktif — dipakai layar
  * Settings supaya user bisa memvalidasi URL sebelum menyimpannya.
  */
-export const testRpcUrl = async (value: string): Promise<RpcConnectionResult> => {
+export const testRpcUrl = async (
+	value: string,
+): Promise<RpcConnectionResult> => {
 	let parsed: URL
 	try {
 		parsed = new URL(value.trim())

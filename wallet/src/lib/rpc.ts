@@ -4,6 +4,7 @@ import { rpcGetAccount } from 'src/client/rpc-client/controller/rpcGetAccount'
 import { rpcGetPendingBalance } from 'src/client/rpc-client/controller/rpcGetPendingBalance'
 import { getNonce } from 'src/client/rpc-client/controller/rpcGetNonce'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
+import { getRpcUrl, getRpcCredentials } from './rpcUrl'
 import type { TxInterface } from 'src/types/transaction'
 import type { structBalance } from 'src/types/balance'
 import type { pendingBalance } from 'src/core/transaction/setPendingBalance'
@@ -17,6 +18,11 @@ import type { pendingBalance } from 'src/core/transaction/setPendingBalance'
  *
  * Param tanpa-argumen memakai `''` karena `client.request` json-rpc-2.0
  * butuh dua argumen dan meneruskan params verbatim sebagai argumen tunggal.
+ *
+ * Pengecualian: `nex_sendRawTransaction` (method TULIS) tidak lewat
+ * `rpcRequest` bersama, tapi lewat `writeRequest` lokal di bawah — satu-satunya
+ * jalan menyelipkan header `Authorization: Basic …` dari layar Settings
+ * (lihat `lib/rpcUrl.ts` → `getRpcCredentials`).
  */
 
 export const fetchAccount = (
@@ -97,7 +103,9 @@ export const fetchHistory = async (address: string): Promise<HistoryRow[]> => {
 	// Urutkan menurut waktu BLOK. Transaksi masih tertunda belum punya blok,
 	// jadi ia diletakkan paling atas (paling baru).
 	const timeOf = (row: HistoryRow): number =>
-		row.pending ? Number.MAX_SAFE_INTEGER : (row.tx.metadata?.blockTimestamp ?? 0)
+		row.pending
+			? Number.MAX_SAFE_INTEGER
+			: (row.tx.metadata?.blockTimestamp ?? 0)
 	rows.sort((a, b) => timeOf(b) - timeOf(a))
 	return rows
 }
@@ -108,14 +116,84 @@ export interface SendRawResult {
 	error?: string
 }
 
+/**
+ * Header `Authorization: Basic …` dari kredensial Settings — `undefined`
+ * bila belum lengkap, sehingga dev lokal TANPA auth tetap mengirim request
+ * persis seperti biasanya (tanpa header).
+ *
+ * `btoa` hanya menerima Latin-1, jadi string-nya dulu di-encode UTF-8
+ * (password non-ASCII tidak membuatnya melempar).
+ */
+const basicAuthHeader = (): string | undefined => {
+	const { user, password } = getRpcCredentials()
+	if (!user || !password) return undefined
+	const bytes = new TextEncoder().encode(`${user}:${password}`)
+	let binary = ''
+	for (const byte of bytes) binary += String.fromCharCode(byte)
+	return `Basic ${btoa(binary)}`
+}
+
+/** Batas tunggu — sama dengan `src/client/rpc-client/lib/rpcClient.ts`. */
+const RPC_TIMEOUT_MS = 10_000
+
+const timeoutSignal = (): AbortSignal | null =>
+	typeof AbortSignal !== 'undefined' &&
+	typeof (AbortSignal as { timeout?: unknown }).timeout === 'function'
+		? AbortSignal.timeout(RPC_TIMEOUT_MS)
+		: null
+
+let writeRequestId = 0
+
+/**
+ * Request JSON-RPC untuk METHOD TULIS, lengkap dengan header Basic Auth.
+ *
+ * Client bersama (`src/client/rpc-client/lib/rpcClient.ts`) tidak punya
+ * titik sisipan header, dan hanya method tulis yang butuh autentikasi —
+ * jadi jalur fetch-nya ditulis sendiri di sini dengan perilaku yang sama
+ * (URL aktif dari `getRpcUrl`, timeout, error non-200 / `error` JSON-RPC
+ * → throw supaya `sendForm` memetakannya ke pesan UI).
+ */
+const writeRequest = async <T>(method: string, params: unknown): Promise<T> => {
+	const headers: Record<string, string> = { 'content-type': 'application/json' }
+	const authorization = basicAuthHeader()
+	if (authorization) headers.authorization = authorization
+
+	const response = await fetch(getRpcUrl(), {
+		method: 'POST',
+		headers,
+		body: JSON.stringify({
+			jsonrpc: '2.0',
+			id: ++writeRequestId,
+			method,
+			params,
+		}),
+		signal: timeoutSignal(),
+	})
+	if (!response.ok) {
+		throw new Error(
+			response.status === 401 || response.status === 403
+				? `Node menolak transaksi (HTTP ${response.status}) — periksa RPC Username/Password di Settings.`
+				: `HTTP ${response.status} ${response.statusText}`,
+		)
+	}
+	const body = (await response.json()) as {
+		result?: T
+		error?: { code?: number; message?: string }
+	}
+	if (body.error) {
+		throw new Error(body.error.message ?? `JSON-RPC error ${body.error.code}`)
+	}
+	return body.result as T
+}
+
 /** Kirim transaksi sudah tertandatangan (`nex_sendRawTransaction`, JSON polos). */
 export const sendRawTransaction = async (
 	signed: TxInterface,
 ): Promise<SendRawResult> => {
-	const response = (await rpcRequest(
+	const response = await writeRequest<SendRawResult>(
 		'nex_sendRawTransaction',
 		encodeTx(signed),
-	)) as SendRawResult | undefined
+	)
 
 	const result: SendRawResult = { status: response?.status === true }
 	if (typeof response?.txHash === 'string') result.txHash = response.txHash

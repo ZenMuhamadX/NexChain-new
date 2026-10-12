@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import { persistRpcUrl, getRpcUrl, testRpcUrl } from '../lib/rpcUrl'
+import {
+	persistRpcUrl,
+	getRpcUrl,
+	testRpcUrl,
+	getRpcCredentials,
+	persistRpcCredentials,
+} from '../lib/rpcUrl'
 import { getExplorerUrl, persistExplorerUrl } from '../lib/explorerUrl'
 import { errorMessage } from '../lib/format'
 import { Icon } from '../ui/Icon'
@@ -19,6 +25,8 @@ export const Settings = ({
 	mnemonic,
 }: SettingsProps): React.JSX.Element => {
 	const [rpcUrl, setRpcUrl] = useState(getRpcUrl())
+	const [rpcUser, setRpcUser] = useState(getRpcCredentials().user)
+	const [rpcPassword, setRpcPassword] = useState(getRpcCredentials().password)
 	const [explorerUrl, setExplorerUrl] = useState(getExplorerUrl())
 	const [rpcMessage, setRpcMessage] = useState('')
 	const [rpcError, setRpcError] = useState('')
@@ -32,7 +40,8 @@ export const Settings = ({
 	const saveRpc = (): void => {
 		try {
 			persistRpcUrl(rpcUrl)
-				setRpcMessage('URL RPC tersimpan untuk browser ini.')
+			persistRpcCredentials(rpcUser, rpcPassword)
+			setRpcMessage('URL RPC & kredensial tersimpan untuk browser ini.')
 			setRpcError('')
 		} catch (error) {
 			setRpcError(errorMessage(error))
@@ -54,7 +63,11 @@ export const Settings = ({
 		try {
 			const normalized = persistExplorerUrl(explorerUrl)
 			setExplorerUrl(normalized)
-			setExplorerMessage(normalized ? 'URL Explorer tersimpan.' : 'Link Explorer dikembalikan ke default development.')
+			setExplorerMessage(
+				normalized
+					? 'URL Explorer tersimpan.'
+					: 'Link Explorer dikembalikan ke default development.',
+			)
 			setExplorerError('')
 		} catch (error) {
 			setExplorerError(errorMessage(error))
@@ -87,35 +100,122 @@ export const Settings = ({
 			<section className="card settings-card">
 				<div className="settings-section">
 					<div className="settings-section__heading">
-						<span className="settings-icon"><Icon name="diamond" size={17} aria-hidden="true" /></span>
-						<div><h2>Koneksi node</h2><p>Sumber data wallet dan saldo.</p></div>
+						<span className="settings-icon">
+							<Icon name="diamond" size={17} aria-hidden="true" />
+						</span>
+						<div>
+							<h2>Koneksi node</h2>
+							<p>Sumber data wallet dan saldo.</p>
+						</div>
 					</div>
 					<div className="field">
-						<label className="label" htmlFor="rpc">URL JSON-RPC</label>
+						<label className="label" htmlFor="rpc">
+							URL JSON-RPC
+						</label>
 						<div className="input-with-action">
-							<input id="rpc" className="input mono" value={rpcUrl} onChange={(event) => setRpcUrl(event.target.value)} placeholder="http://localhost:8000/rpc" />
-							<button type="button" className="button button--secondary" onClick={() => void checkRpc()} disabled={testingRpc}>{testingRpc ? 'Menguji…' : 'Uji'}</button>
-							<button type="button" className="button button--primary" onClick={saveRpc}>Simpan</button>
+							<input
+								id="rpc"
+								className="input mono"
+								value={rpcUrl}
+								onChange={(event) => setRpcUrl(event.target.value)}
+								placeholder="http://localhost:8000/rpc"
+							/>
+							<button
+								type="button"
+								className="button button--secondary"
+								onClick={() => void checkRpc()}
+								disabled={testingRpc}
+							>
+								{testingRpc ? 'Menguji…' : 'Uji'}
+							</button>
+							<button
+								type="button"
+								className="button button--primary"
+								onClick={saveRpc}
+							>
+								Simpan
+							</button>
 						</div>
 						{rpcMessage ? <Notice variant="ok">{rpcMessage}</Notice> : null}
 						{rpcError ? <Notice variant="error">{rpcError}</Notice> : null}
+					</div>
+
+					<div className="field">
+						<label className="label" htmlFor="rpcUser">
+							RPC Username
+						</label>
+						<input
+							id="rpcUser"
+							className="input mono"
+							value={rpcUser}
+							onChange={(event) => setRpcUser(event.target.value)}
+							placeholder="(opsional)"
+							autoComplete="off"
+							spellCheck={false}
+						/>
+						<p className="input-hint">
+							Dipakai untuk method tulis (kirim transaksi) bila node menyetel
+							RPC_USER/RPC_PASSWORD. Kosongkan untuk node lokal tanpa auth —
+							disimpan di browser ini.
+						</p>
+					</div>
+
+					<div className="field">
+						<label className="label" htmlFor="rpcPassword">
+							RPC Password
+						</label>
+						<input
+							id="rpcPassword"
+							type="password"
+							className="input mono"
+							value={rpcPassword}
+							onChange={(event) => setRpcPassword(event.target.value)}
+							placeholder="(opsional)"
+							autoComplete="off"
+						/>
 					</div>
 				</div>
 
 				<div className="settings-section">
 					<div className="settings-section__heading">
-						<span className="settings-icon"><Icon name="arrowUpRight" size={17} aria-hidden="true" /></span>
-						<div><h2>Koneksi Explorer</h2><p>Dipakai untuk melacak hash transaksi terkonfirmasi.</p></div>
+						<span className="settings-icon">
+							<Icon name="arrowUpRight" size={17} aria-hidden="true" />
+						</span>
+						<div>
+							<h2>Koneksi Explorer</h2>
+							<p>Dipakai untuk melacak hash transaksi terkonfirmasi.</p>
+						</div>
 					</div>
 					<div className="field">
-						<label className="label" htmlFor="explorer">Base URL Explorer</label>
+						<label className="label" htmlFor="explorer">
+							Base URL Explorer
+						</label>
 						<div className="input-with-action">
-							<input id="explorer" className="input mono" value={explorerUrl} onChange={(event) => setExplorerUrl(event.target.value)} placeholder="https://explorer.example.com" />
-							<button type="button" className="button button--primary" onClick={saveExplorer}>Simpan</button>
+							<input
+								id="explorer"
+								className="input mono"
+								value={explorerUrl}
+								onChange={(event) => setExplorerUrl(event.target.value)}
+								placeholder="https://explorer.example.com"
+							/>
+							<button
+								type="button"
+								className="button button--primary"
+								onClick={saveExplorer}
+							>
+								Simpan
+							</button>
 						</div>
-						<p className="input-hint">Kosongkan untuk menonaktifkan link eksternal. Development lokal memakai http://localhost:5173.</p>
-						{explorerMessage ? <Notice variant="ok">{explorerMessage}</Notice> : null}
-						{explorerError ? <Notice variant="error">{explorerError}</Notice> : null}
+						<p className="input-hint">
+							Kosongkan untuk menonaktifkan link eksternal. Development lokal
+							memakai http://localhost:5173.
+						</p>
+						{explorerMessage ? (
+							<Notice variant="ok">{explorerMessage}</Notice>
+						) : null}
+						{explorerError ? (
+							<Notice variant="error">{explorerError}</Notice>
+						) : null}
 					</div>
 				</div>
 			</section>
@@ -123,30 +223,83 @@ export const Settings = ({
 			<section className="card settings-card">
 				<div className="settings-section">
 					<div className="settings-section__heading">
-						<span className="settings-icon"><Icon name="lock" size={17} aria-hidden="true" /></span>
-						<div><h2>Keamanan wallet</h2><p>Visibilitas frasa pemulihan dan kontrol sesi.</p></div>
+						<span className="settings-icon">
+							<Icon name="lock" size={17} aria-hidden="true" />
+						</span>
+						<div>
+							<h2>Keamanan wallet</h2>
+							<p>Visibilitas frasa pemulihan dan kontrol sesi.</p>
+						</div>
 					</div>
 					{mnemonic ? (
 						<div className="security-reveal">
-							<div className="security-reveal__heading"><span className="label">Frasa pemulihan</span><CopyButton text={mnemonic} ariaLabel="Salin frasa pemulihan" variant="secondary" /></div>
-							<button type="button" className="button button--secondary" onClick={() => setShowMnemonic((value) => !value)}>
-								<Icon name={showMnemonic ? 'eyeOff' : 'eye'} size={15} aria-hidden="true" />{showMnemonic ? 'Sembunyikan frasa' : 'Tampilkan frasa'}
+							<div className="security-reveal__heading">
+								<span className="label">Frasa pemulihan</span>
+								<CopyButton
+									text={mnemonic}
+									ariaLabel="Salin frasa pemulihan"
+									variant="secondary"
+								/>
+							</div>
+							<button
+								type="button"
+								className="button button--secondary"
+								onClick={() => setShowMnemonic((value) => !value)}
+							>
+								<Icon
+									name={showMnemonic ? 'eyeOff' : 'eye'}
+									size={15}
+									aria-hidden="true"
+								/>
+								{showMnemonic ? 'Sembunyikan frasa' : 'Tampilkan frasa'}
 							</button>
-							{showMnemonic ? <div className="mnemonic-reveal"><code>{mnemonic}</code><p>Jangan pernah membagikan frasa ini. Dukungan NexChain tidak akan pernah memintanya.</p></div> : null}
+							{showMnemonic ? (
+								<div className="mnemonic-reveal">
+									<code>{mnemonic}</code>
+									<p>
+										Jangan pernah membagikan frasa ini. Dukungan NexChain tidak
+										akan pernah memintanya.
+									</p>
+								</div>
+							) : null}
 						</div>
 					) : null}
-					<button type="button" className="button button--secondary" onClick={onLock}><Icon name="lock" size={15} aria-hidden="true" /> Kunci wallet sekarang</button>
+					<button
+						type="button"
+						className="button button--secondary"
+						onClick={onLock}
+					>
+						<Icon name="lock" size={15} aria-hidden="true" /> Kunci wallet
+						sekarang
+					</button>
 				</div>
 			</section>
 
 			<section className="card danger-zone">
 				<div className="settings-section__heading">
-					<span className="settings-icon settings-icon--danger"><Icon name="trash" size={17} aria-hidden="true" /></span>
-					<div><h2>Zona berbahaya</h2><p>Tindakan permanen untuk browser ini.</p></div>
+					<span className="settings-icon settings-icon--danger">
+						<Icon name="trash" size={17} aria-hidden="true" />
+					</span>
+					<div>
+						<h2>Zona berbahaya</h2>
+						<p>Tindakan permanen untuk browser ini.</p>
+					</div>
 				</div>
 				<div className="danger-row">
-					<div><strong>Hapus wallet lokal</strong><span>Menghapus vault terenkripsi dari perangkat ini. Tindakan ini tidak dapat dibatalkan.</span></div>
-					<button type="button" className="button button--danger" onClick={() => setWipeOpen(true)}><Icon name="trash" size={15} aria-hidden="true" /> Hapus wallet</button>
+					<div>
+						<strong>Hapus wallet lokal</strong>
+						<span>
+							Menghapus vault terenkripsi dari perangkat ini. Tindakan ini tidak
+							dapat dibatalkan.
+						</span>
+					</div>
+					<button
+						type="button"
+						className="button button--danger"
+						onClick={() => setWipeOpen(true)}
+					>
+						<Icon name="trash" size={15} aria-hidden="true" /> Hapus wallet
+					</button>
 				</div>
 			</section>
 
@@ -160,7 +313,10 @@ export const Settings = ({
 				confirmLoading={wipeBusy}
 				onConfirm={() => void confirmWipe()}
 			>
-				<p>Ini menghapus vault terenkripsi dari browser ini. Tanpa frasa pemulihan cadangan, dana dalam wallet ini tidak dapat dipulihkan.</p>
+				<p>
+					Ini menghapus vault terenkripsi dari browser ini. Tanpa frasa
+					pemulihan cadangan, dana dalam wallet ini tidak dapat dipulihkan.
+				</p>
 			</Modal>
 		</div>
 	)

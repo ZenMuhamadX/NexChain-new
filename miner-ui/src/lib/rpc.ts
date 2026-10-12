@@ -1,5 +1,6 @@
 import { rpcRequest } from 'src/client/rpc-client/lib/rpcRequest'
 import { decodeHexJson } from 'src/client/rpc-client/lib/decodeHexJson'
+import { getRpcUrl, getRpcCredentials } from './rpcUrl'
 import type { structBalance } from 'src/types/balance'
 
 /**
@@ -14,6 +15,12 @@ import type { structBalance } from 'src/types/balance'
  * Semuanya mengembalikan JSON polos KECUALI `nex_getAccount` yang
  * hex-JSON (lihat catatan heterogenitas di AGENTS.md), karena itu
  * `decodeHexJson` dipakai di sana.
+ *
+ * Dua dari metode di atas (`nex_getWork` / `nex_submitWork`) adalah method
+ * TULIS — bila node menyetel `RPC_USER`/`RPC_PASSWORD` ia menuntut HTTP Basic,
+ * jadi keduanya dikirim lewat `writeRequest` lokal yang menyelipkan header
+ * `Authorization` dari kredensial Settings (lihat `lib/rpcUrl.ts`).
+ * Metode baca tetap lewat `rpcRequest` biasa tanpa autentikasi.
  */
 
 /** Respons mentah `nex_getWork` — longgar, divalidasi di pemanggil. */
@@ -64,14 +71,85 @@ export interface BlockSummary {
 	totalReward: number
 }
 
+/**
+ * Header `Authorization: Basic …` dari kredensial Settings — `undefined`
+ * bila belum lengkap, sehingga node TANPA auth tetap menerima request
+ * tanpa header (perilaku lama tidak berubah).
+ *
+ * `btoa` hanya menerima Latin-1, jadi string-nya dulu di-encode UTF-8.
+ */
+const basicAuthHeader = (): string | undefined => {
+	const { user, password } = getRpcCredentials()
+	if (!user || !password) return undefined
+	const bytes = new TextEncoder().encode(`${user}:${password}`)
+	let binary = ''
+	for (const byte of bytes) binary += String.fromCharCode(byte)
+	return `Basic ${btoa(binary)}`
+}
+
+/** Batas tunggu — sama dengan `src/client/rpc-client/lib/rpcClient.ts`. */
+const RPC_TIMEOUT_MS = 10_000
+
+const timeoutSignal = (): AbortSignal | null =>
+	typeof AbortSignal !== 'undefined' &&
+	typeof (AbortSignal as { timeout?: unknown }).timeout === 'function'
+		? AbortSignal.timeout(RPC_TIMEOUT_MS)
+		: null
+
+let writeRequestId = 0
+
+/**
+ * Request JSON-RPC untuk METHOD TULIS (`nex_getWork` / `nex_submitWork`),
+ * lengkap dengan header Basic Auth bila kredensial tersimpan.
+ *
+ * Client bersama (`src/client/rpc-client/lib/rpcClient.ts`) tidak punya
+ * titik sisipan header, dan hanya method tulis yang menuntut autentikasi —
+ * jadi jalur fetch-nya ditulis sendiri dengan perilaku yang sama (URL aktif,
+ * timeout, error non-200 / `error` JSON-RPC → throw; pemanggil di
+ * `hooks/useMiner.ts` sudah menangkapnya dan mengulang dengan jeda).
+ */
+const writeRequest = async <T>(method: string, params: unknown): Promise<T> => {
+	const headers: Record<string, string> = { 'content-type': 'application/json' }
+	const authorization = basicAuthHeader()
+	if (authorization) headers.authorization = authorization
+
+	const response = await fetch(getRpcUrl(), {
+		method: 'POST',
+		headers,
+		body: JSON.stringify({
+			jsonrpc: '2.0',
+			id: ++writeRequestId,
+			method,
+			params,
+		}),
+		signal: timeoutSignal(),
+	})
+	if (!response.ok) {
+		throw new Error(
+			response.status === 401 || response.status === 403
+				? `Node menolak method tulis (HTTP ${response.status}) — periksa RPC Username/Password di Settings.`
+				: `HTTP ${response.status} ${response.statusText}`,
+		)
+	}
+	const body = (await response.json()) as {
+		result?: T
+		error?: { code?: number; message?: string }
+	}
+	if (body.error) {
+		throw new Error(body.error.message ?? `JSON-RPC error ${body.error.code}`)
+	}
+	return body.result as T
+}
+
 export const getWork = (minerAddress: string): Promise<WorkResponse> =>
-	rpcRequest('nex_getWork', { minerAddress })
+	writeRequest('nex_getWork', { minerAddress })
 
 export const submitWork = (
 	jobId: string,
 	nonce: number,
 	hash: string,
-): Promise<SubmitResponse> => rpcRequest('nex_submitWork', { jobId, nonce, hash })
+): Promise<SubmitResponse> =>
+	writeRequest('nex_submitWork', { jobId, nonce, hash })
 
 export const getRecentBlocks = async (count = 1): Promise<BlockSummary[]> => {
 	const raw = await rpcRequest('nex_getRecentBlocks', { count })
