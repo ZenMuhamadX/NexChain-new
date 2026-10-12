@@ -407,10 +407,12 @@ if (H1 !== null) {
 		counts.every((count) => count === 1),
 		`counts=[${counts.join(',')}]`,
 	)
+	// Sejak fork transaksi, coinbase adalah FIELD BLOK, bukan elemen
+	// `transactions` — jadi blok hanya berisi tx pengguna (2 + S), tanpa +1.
 	ok(
-		`jumlah tx blok = coinbase + ${2 + S} tx uji`,
-		block?.transactions?.length === 1 + 2 + S,
-		`got=${block?.transactions?.length}, ekspektasi=${1 + 2 + S}`,
+		`jumlah tx blok = ${2 + S} tx uji (coinbase di luar daftar)`,
+		block?.transactions?.length === 2 + S,
+		`got=${block?.transactions?.length}, ekspektasi=${2 + S}`,
 	)
 
 	// R4: fee tidak dicetak — pengirim kehilangan amount+fee, penerima hanya amount
