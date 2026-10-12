@@ -81,7 +81,7 @@ export const verifyChainIntegrity = async (): Promise<boolean> => {
 				level: 'error',
 				priority: 'high',
 				context: 'verifyChainIntegrity',
-				hint: 'Rantai rusak atau bukan milik jaringan ini — hentikan node, periksa NEX_CHAIN_ID, atau reset base/. Mining ditolak sampai rantai valid.',
+				hint: 'Rantai rusak atau bukan milik jaringan ini — hentikan node, periksa NEX_CHAIN_ID, atau reset direktori data (NEX_DATA_DIR). Mining ditolak sampai rantai valid.',
 			})
 			return false
 		}

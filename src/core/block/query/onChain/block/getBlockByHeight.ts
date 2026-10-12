@@ -7,14 +7,18 @@ export const getBlockByHeight = async (
 	height: number,
 	enc: 'json' | 'hex',
 ): Promise<Block | undefined | HexString> => {
-	try {
-		const blockHash = await rocksState.get(`blockHeight:${height}`, {
-			fillCache: true,
-		})
-		if (!blockHash) return undefined
-		return await getBlockByHash(blockHash as string, enc)
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	} catch (error) {
-		return undefined
-	}
+	// `level` v10 mengembalikan `undefined` untuk key yang tidak ada (tidak
+	// melempar), jadi `undefined` di sini berarti blok pada height itu
+	// BENAR-BENAR tidak ada.
+	//
+	// Dulu seluruh fungsi dibungkus try/catch yang menelan setiap error lalu
+	// mengembalikan `undefined` — sehingga "gagal membaca" tidak bisa
+	// dibedakan dari "tidak ada". Akibatnya node yang gagal membaca genesis
+	// menyimpulkan rantainya kosong dan menulis genesis baru DI ATAS data yang
+	// sebenarnya ada. Error asli sekarang dibiarkan naik (fail-closed).
+	const blockHash = await rocksState.get(`blockHeight:${height}`, {
+		fillCache: true,
+	})
+	if (!blockHash) return undefined
+	return await getBlockByHash(blockHash as string, enc)
 }
