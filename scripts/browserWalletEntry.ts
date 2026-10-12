@@ -16,14 +16,14 @@
  *     menggantikan tiny-secp256k1 yang memakai .wasm gaya webpack
  *   - logging (fs/path/winston di-import lazy + specifier tak-literal)
  *   - client-side tx validator + RPC client (fetch)
- *   - Phase B: createUnsignedTransaction + signTransaction (murni, tanpa I/O,
- *     tanpa loadWallet) — inilah yang akan dipakai wallet browser untuk
- *     menyusun & menanda-tangani transaksi
+ *   - Phase B: createUnsignedTransaction + signTransaction (murni, tanpa I/O
+ *     filesystem) — inilah yang dipakai wallet browser untuk menyusun &
+ *     menanda-tangani transaksi
  *   - decode hex-JSON + nex_getNextNonce (perbaikan validasi saldo & nonce)
  *   - Phase E : konfigurasi URL RPC
  *   - Phase C : vault wallet browser — IndexedDB (`idb`) + Web Crypto
- *     (PBKDF2-SHA256 -> AES-GCM). Ini yang menggantikan `loadWallet` berbasis
- *     fs/path untuk penyimpanan mnemonic di browser.
+ *     (PBKDF2-SHA256 -> AES-GCM). Satu-satunya tempat mnemonic disimpan di
+ *     sisi klien; node sendiri tidak punya wallet.
  *
  * (resolveTxRoles & rpcGetContractBalance dihapus dari permukaan ini
  *  bersama fitur smart contract.)
@@ -39,7 +39,7 @@ import { verifySignature, recoverSignerAddress } from 'src/crypto/verifySignatur
 import { CHAIN_ID, encodeV, decodeV } from 'src/crypto/chainId'
 import { sha256, hexToBytes } from 'src/core/encoding/sha256'
 import { keccak256 } from 'src/core/encoding/keccak256'
-import { processPubKey } from 'src/wallet/utils/processPubKey'
+import { processPubKey } from 'src/crypto/processPubKey'
 import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'

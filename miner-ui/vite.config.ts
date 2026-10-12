@@ -13,7 +13,6 @@ import { defineConfig } from 'vite'
 const ROOT_MODULES = [
 	'src/core',
 	'src/crypto',
-	'src/wallet',
 	'src/types',
 	'src/client',
 	'src/rpc',

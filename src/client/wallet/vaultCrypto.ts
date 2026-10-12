@@ -1,4 +1,4 @@
-import { uint8ToHex } from 'src/wallet/backup/lib/bytesToHex'
+import { uint8ToHex } from 'src/core/encoding/hex/uint8ToHex'
 import { hexToBytes } from 'src/core/encoding/sha256'
 import { createJsCrypto } from './jsCrypto'
 

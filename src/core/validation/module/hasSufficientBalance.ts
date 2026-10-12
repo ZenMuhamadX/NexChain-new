@@ -1,7 +1,7 @@
 import { loggingErr } from 'src/logging/errorLog'
 import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { logToConsole } from 'src/logging/logging'
-import { getAccount } from '../balance/getAccount'
+import { getAccount } from 'src/core/state/account/getAccount'
 
 /**
  * Checks if the provided address has sufficient balance.

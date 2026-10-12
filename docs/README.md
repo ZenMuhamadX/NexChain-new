@@ -40,7 +40,7 @@ arsitektur *"inti terpisah + miner independen + frontend terpisah"*:
 | `src/core/encoding/`    | Hex, sha256, keccak256, helper `lib/` (format, ukuran, timestamp).             |
 | `src/core/token/`       | Nexucoin: konversi nexu ↔ NxC, formatting.                                    |
 | `src/core/validation/`  | Validator transaksi & modul bantu (`joi/`, `module/`).                        |
-| `src/wallet/`           | Akun/wallet: buat, muat, simpan, saldo, backup.                               |
+| `src/core/state/account/` | Ledger on-chain: saldo & nonce semua alamat (`getAccount`/`putAccount`). |
 | `src/crypto/`           | Kriptografi: ECC, signature, address, mnemonic, hash.                         |
 | `src/types/`            | Tipe domain terpusat (transaction, block, balance, header, …).                |
 | `src/client/`           | Klien bersama: buat transaksi, rpc-client, vault browser.                     |
@@ -98,7 +98,3 @@ di bawah `src/`, langsung bisa diimpor secara bare — tidak perlu mengubah path
 jadi ia mengalias `src/` root secara langsung. Snapshot (pola `wallet-ext/`
 yang sudah dihapus) berarti ada salinan kripto basi yang bisa menyimpang dari
 inti — justru itu yang ingin dihindari.
-
-> **Peringatan tabrakan nama:** `src/wallet/` (modul inti) dan `wallet/`
-> (paket UI, di root) adalah dua hal berbeda. Bereaksi terhadap keduanya
-> secara berbeda saat menelusuri kode.

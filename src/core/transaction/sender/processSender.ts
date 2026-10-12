@@ -3,9 +3,9 @@ import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { loggingErr } from 'src/logging/errorLog'
 import { getPendingBalance } from '../getPendingBalance'
 import { setPendingBalance } from '../setPendingBalance'
-import { getAccount } from 'src/wallet/balance/getAccount'
-import { putAccount } from 'src/wallet/balance/putAccount'
-import { hasSufficientBalance } from 'src/wallet/utils/hasSufficientBalance'
+import { getAccount } from 'src/core/state/account/getAccount'
+import { putAccount } from 'src/core/state/account/putAccount'
+import { hasSufficientBalance } from 'src/core/validation/module/hasSufficientBalance'
 
 export const processSender = async (
 	senderAddress: string,

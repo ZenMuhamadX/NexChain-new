@@ -14,5 +14,5 @@ Semua primitif kriptografi. Dulu berada di `key/` + `sign/`.
 
 ## Hubungan
 
-Dipakai oleh `src/wallet`, `src/core/transaction` (sign tx), dan
+Dipakai oleh `src/client/wallet` (vault browser), `src/core/transaction` (sign tx), dan
 `src/core/validation` (verifikasi signature).

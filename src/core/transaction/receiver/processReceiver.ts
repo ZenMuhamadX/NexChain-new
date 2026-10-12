@@ -1,5 +1,5 @@
-import { getAccount } from 'src/wallet/balance/getAccount'
-import { putAccount } from 'src/wallet/balance/putAccount'
+import { getAccount } from 'src/core/state/account/getAccount'
+import { putAccount } from 'src/core/state/account/putAccount'
 import { structBalance } from 'src/types/balance'
 import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 

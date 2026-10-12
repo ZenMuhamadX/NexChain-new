@@ -6,7 +6,7 @@ import { saveMempool } from 'src/core/state/storage/mempool/saveMemPool'
 import { getPendingBalance } from 'src/core/transaction/getPendingBalance'
 import { setPendingBalance } from 'src/core/transaction/setPendingBalance'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
-import { getAccount } from 'src/wallet/balance/getAccount'
+import { getAccount } from 'src/core/state/account/getAccount'
 import { formatStr } from 'src/core/encoding/lib/formatString'
 
 /**

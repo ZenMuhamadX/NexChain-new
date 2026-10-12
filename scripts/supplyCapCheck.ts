@@ -17,7 +17,7 @@
  * node yang sedang hidup) — arah "menerima nilai sah" dicakup murni oleh
  * `assertNexuCapped` di `check:amount`.
  */
-import { putAccount } from 'src/wallet/balance/putAccount'
+import { putAccount } from 'src/core/state/account/putAccount'
 import { setPendingBalance } from 'src/core/transaction/setPendingBalance'
 import { structBalance } from 'src/types/balance'
 import {

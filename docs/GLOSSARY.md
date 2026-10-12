@@ -51,5 +51,5 @@ Istilah yang muncul berulang di kode & dokumentasi.
 ## Lainnya
 - **Hex encoding** — representasi heksadesimal untuk data biner. `src/core/encoding/`.
 - **Validation** — pemeriksaan transaksi (amount, signature, nonce, fee, alamat). `src/core/validation/`.
-- **Wallet** — akun pengguna (key + state saldo). `src/wallet/`.
+- **Wallet** — akun pengguna (key + state saldo). Kunci & vault di `src/client/wallet/`; ledger state (saldo on-chain) di `src/core/state/account/`.
 - **Client** — kode bersama antara node, browser, dan tes. `src/client/`.

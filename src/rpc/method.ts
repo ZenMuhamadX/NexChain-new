@@ -8,12 +8,11 @@ import { structBalance } from 'src/types/balance'
 import { getHistoryByTxHash } from 'src/core/block/query/onChain/Transaction/getHistoryByTxHash'
 import { getHistoryByAddress } from 'src/core/block/query/onChain/Transaction/getHistoryByAddress'
 import { Block } from 'src/core/block/blockModel'
-import { getAccount } from 'src/wallet/balance/getAccount'
+import { getAccount } from 'src/core/state/account/getAccount'
 import { addTxToMempool } from 'src/core/transaction/addTransactionToMempool'
 import { TxInterface } from 'src/types/transaction'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
 import { getPendingBalance } from 'src/core/transaction/getPendingBalance'
-import { createNewWalletAddress } from 'src/wallet/createNewWallet'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
 import { blockSummary } from 'src/types/block'
@@ -251,9 +250,11 @@ rpc.addMethod('nex_sendRawTransaction', async (data: string) => {
 	}
 })
 
-rpc.addMethod('nex_createWallet', async () => {
-	return JSON.stringify(await createNewWalletAddress())
-})
+// `nex_createWallet` DIHAPUS. Node tidak boleh punya wallet/akun sendiri:
+// mining sepenuhnya keyless (miner mengirim `minerAddress` ke `nex_getWork`),
+// dan genesis membayar ke burned address tanpa wallet node. Method itu hanya
+// membuat akun saldo 0 lalu mengembalikan mnemonic ke pemanggil — tidak ada
+// konsumen, dan keberadaannya menyiratkan node memegang kunci.
 
 // Mining (job eksternal) — node menyusun template + difficulty adaptif
 // target 30 detik; miner eksternal yang menghitung PoW lewat HTTP sehingga

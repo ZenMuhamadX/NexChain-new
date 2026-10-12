@@ -16,16 +16,11 @@ bun.lock
 # Data runtime — pola DI-JANGKAR ke root ("/nama"), supaya folder sumber yang
 # kebetulan bernama sama tidak ikut tersembunyi. Sebelumnya pola tanpa awal
 # "/" menyembunyikan dua hal yang seharusnya ikut ter-track:
-#   wallet  -> client/wallet/*.ts   (5 file vault: kv, idbKv, jsCrypto,
-#                                    vaultCrypto, walletVault)
 #   config  -> explorer/src/config/env.ts (RPC_URL, diimpor 2 modul explorer)
 #
-# CATATAN PENTING — dua arti "wallet" di root:
-#   /wallet/main.json  = file mnemonic NODE (rahasia, harus diabaikan)
-#   wallet/            = package UI wallet (SUMBER, harus ter-track)
-# Karena itu `/wallet` TIDAK BISA dipakai lagi: ia akan menelan seluruh package
-# UI. Yang diabaikan sekarang hanya ISI dari store mnemonic node, dengan
-# mengecualikan (whitelist) package UI secara eksplisit.
+# CATATAN: `/wallet/*` di bawah hanya mengabaikan file tak ter-track di dalam
+# folder UI wallet (root), BUKAN sumbernya. Package UI sendiri di-whitelist
+# secara eksplisit supaya tetap ter-track.
 #
 # Data node (LevelDB). Lokasinya ditentukan NEX_DATA_DIR, default `./data`
 # relatif terhadap cwd tempat node dijalankan — lihat
@@ -52,12 +47,9 @@ src/core/base/
 !/wallet/scripts/
 !/wallet/shells/
 !/wallet/README.md
-# Store mnemonic NODE — file wallet node (default `src/wallet/main.json`)
-# berisi mnemonic dan TIDAK boleh ter-commit. Nama berkasnya mengikuti
-# `primaryWalletName` di config/wallet.conf.json, jadi abaikan semua `.json`
-# di sana. CATATAN: `/wallet/*` di atas hanya menutup folder UI wallet di root;
-# file ini ada di bawah `src/`, jadi butuh aturan sendiri.
-src/wallet/*.json
+# File wallet node sudah dihapus bersama seluruh layer wallet node;
+# baris ini dibiarkan sebagai dokumentasi historis.
+# src/wallet/*.json
 # Penyimpanan vault wallet desktop (Electron userData) bisa muncul di sini
 # saat seseorang menguji dengan data dir lokal; jangan ikut ter-track.
 wallet/shells/desktop/electron/*.local.json
@@ -66,6 +58,8 @@ wallet/release/
 wallet/release-*/
 /config
 /test.ts
+# Direktori data sementara dari test E2E / integrasi.
+data-e2e-test/
 
 # Lain-lain
 *.txt

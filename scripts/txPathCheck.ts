@@ -69,8 +69,8 @@ const build = (nonce: number): ReturnType<typeof createUnsignedTransaction> =>
 	createUnsignedTransaction(input, nonce)
 
 // ---- 1. snapshot address (derivation tidak bergeser) ----
-// generateAddressFromPublicKey menerima hex TANPA prefix "Nx"
-// (sama seperti account/createNewWallet & importWalletFromMnemonic).
+// generateAddressFromPublicKey menerima hex TANPA prefix "Nx" (sama seperti
+// jalur derivasi wallet klien: mnemonic -> pubkey -> alamat).
 const addr = generateAddressFromPublicKey(publicKey.slice(2))
 ok(`address snapshot tetap (${addr})`, addr === SNAPSHOT_ADDRESS)
 

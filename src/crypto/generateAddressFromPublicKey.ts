@@ -1,4 +1,4 @@
-﻿import { processPubKey } from 'src/wallet/utils/processPubKey'
+﻿import { processPubKey } from './processPubKey'
 import { keccak256 } from 'src/core/encoding/keccak256'
 
 /**

@@ -17,5 +17,4 @@ bun run rpc:start
 
 ## Bergantung pada
 
-`src/rpc` (handler), `src/core` (mesin blockchain), `src/wallet` (wallet node),
-`src/logging`.
+`src/rpc` (handler), `src/core` (mesin blockchain), `src/logging`.

@@ -3,7 +3,7 @@ import { validateMnemonic } from './validateMnemonic'
 import { mnemonicToSeedSync } from 'bip39'
 import BIP32Factory from 'bip32'
 import { ecc } from './ecc'
-import { uint8ToHex } from 'src/wallet/backup/lib/bytesToHex'
+import { uint8ToHex } from 'src/core/encoding/hex/uint8ToHex'
 
 // Pakai adapter elliptic (murni JS) menggantikan tiny-secp256k1, karena
 // tiny-secp256k1 memuat WebAssembly dengan gaya webpack yang gagal dibundle

@@ -6,6 +6,7 @@
  *
  * Skenario:
  *   0. drain mempool sisa (bila ada) supaya baseline bersih
+ *  0b. danai sender uji dengan menambang 1 blok (node tidak punya wallet)
  *   1. `nex_getContractBalance` sudah TIDAK ADA (method not found)
  *   2. `nex_getWork` lolos  → verifikasi penuh rantai LAMA dengan skema baru
  *   3. TX-A: fee ter-debit penuh (amount+fee), reserve pending tepat, R4
@@ -17,10 +18,12 @@
  *      bal0 − (semua amount+fee) + totalReward  (fee tidak dicetak / R4)
  *   7. `nex_getWork` setelah blok baru → rantai baru+lama tetap lolos
  *
+ * Mandiri: sender uji dibuat di dalam skrip ini dan didanai lewat mining, jadi
+ * TIDAK perlu wallet node (node memang tidak punya). Rantai boleh kosong.
+ *
  * Jalankan (node harus hidup):  bun run scripts/e2ePostRemoval.ts
  */
 import { execSync, spawn } from 'node:child_process'
-import { loadWallet } from 'src/wallet/utils/loadWallet'
 import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
 import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
 import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
@@ -84,16 +87,22 @@ const nextNonce = async (address: string): Promise<number> =>
 	(await hexJson<number>('nex_getNextNonce', address)) ?? 0
 
 // ---------------------------------------------------------------------------
-// wallet node + helper transaksi
+// sender uji + helper transaksi
 // ---------------------------------------------------------------------------
+//
+// Node TIDAK punya wallet (lihat catatan di `src/rpc/method.ts`), jadi sender
+// dibuat DI SINI — bukan dibaca dari `src/wallet/main.json`. Mnemonic diambil
+// dari `NEX_E2E_SENDER_MNEMONIC` bila diset (berguna untuk menyelidiki alamat
+// yang sama berulang kali), atau dibuat baru. Pendanaannya lewat menambang satu
+// blok ke alamat ini — lihat bagian 0b di bawah.
 
-const wallet = loadWallet()
-if (!wallet) {
-	console.error('Wallet node tidak ditemukan — batal.')
-	process.exit(1)
-}
-const sender: string = wallet.address
-const { privateKey } = generateKeysFromMnemonic(wallet.phrase)
+const senderPhrase: string =
+	process.env.NEX_E2E_SENDER_MNEMONIC?.trim() || (await genRandomMnemonic())
+const senderKeys = generateKeysFromMnemonic(senderPhrase)
+const sender: string = generateAddressFromPublicKey(
+	senderKeys.publicKey.slice(2),
+)
+const privateKey = senderKeys.privateKey
 
 const freshAddress = async (): Promise<string> => {
 	const phrase = await genRandomMnemonic()
@@ -237,6 +246,21 @@ if (preCount > 0) {
 const pre2 = await hexJson<unknown[]>('nex_getMempool')
 const mem0 = Array.isArray(pre2) ? pre2.length : 0
 ok('baseline mempool kosong', mem0 === 0, `sisa=${mem0}`)
+
+// ---- 0b. danai sender ----
+//
+// Node tidak punya wallet, jadi tidak ada saldo yang bisa dipinjam. Sender
+// didanai dengan menambang satu blok ke alamatnya sendiri: coinbase membayar
+// `minerAddress` yang dikirim miner, persis seperti alur mining sungguhan.
+// Genesis tidak bisa dipakai — hadiahnya sengaja dibakar ke burned address.
+if ((await getBal(sender)) === 0) {
+	const funded = await mineOneBlock()
+	ok(
+		'sender didanai lewat mining (node tanpa wallet)',
+		funded !== null,
+		funded ? `height=${funded}` : 'timeout',
+	)
+}
 
 // ---- 1. RPC kontrak dihapus ----
 try {

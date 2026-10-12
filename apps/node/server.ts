@@ -8,7 +8,7 @@ import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByH
 import { getGenesisBlock, GENESIS_HASH } from 'src/core/block/genesis'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import { Block } from 'src/core/block/blockModel'
-import { putAccount } from 'src/wallet/balance/putAccount'
+import { putAccount } from 'src/core/state/account/putAccount'
 import { saveBlock } from 'src/core/state/storage/block/saveBlock'
 import { logToConsole } from 'src/logging/logging'
 import { assertUnitConstants } from 'src/core/token/constants'

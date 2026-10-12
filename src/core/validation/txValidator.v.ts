@@ -9,7 +9,7 @@ import { validateAddresses } from 'src/core/validation/module/isValidAddress'
 import { validateAddressLengths } from 'src/core/validation/module/isValidAddressLength'
 import { TxInterface } from 'src/types/transaction'
 import { isNexu } from 'src/core/token/isNexu'
-import { hasSufficientBalance } from 'src/wallet/utils/hasSufficientBalance'
+import { hasSufficientBalance } from 'src/core/validation/module/hasSufficientBalance'
 
 export const transactionValidator = async (
 	transaction: TxInterface,

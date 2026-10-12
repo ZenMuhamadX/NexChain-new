@@ -1,5 +1,5 @@
 ﻿import { TxInterface } from 'src/types/transaction'
-import { getAccount } from 'src/wallet/balance/getAccount'
+import { getAccount } from 'src/core/state/account/getAccount'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { validateRule } from './validateField'
