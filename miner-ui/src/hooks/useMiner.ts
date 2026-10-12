@@ -11,11 +11,7 @@ import { errorMessage, formatDuration, shortHash } from '@/lib/format'
 import { useMinerWorker } from './useMinerWorker'
 
 export type MinerStatus =
-	| 'idle'
-	| 'connecting'
-	| 'mining'
-	| 'submitting'
-	| 'retrying'
+	'idle' | 'connecting' | 'mining' | 'submitting' | 'retrying'
 
 export interface FoundBlock {
 	height: number
@@ -85,7 +81,13 @@ const toMiningJob = (
  * Web Worker (`useMinerWorker`). Semua keputusan konsensus tetap di node.
  */
 export const useMiner = () => {
-	const { ready, error: workerError, mine, stop: stopWorker } = useMinerWorker()
+	const {
+		ready,
+		error: workerError,
+		workerCount,
+		mine,
+		stop: stopWorker,
+	} = useMinerWorker()
 
 	const [status, setStatus] = useState<MinerStatus>('idle')
 	const [running, setRunning] = useState(false)
@@ -109,19 +111,16 @@ export const useMiner = () => {
 	const totalHashesRef = useRef(0)
 	const logIdRef = useRef(0)
 
-	const pushLog = useCallback(
-		(level: LogEntry['level'], message: string) => {
-			logIdRef.current += 1
-			const entry: LogEntry = {
-				id: logIdRef.current,
-				at: Date.now(),
-				level,
-				message,
-			}
-			setLog((prev) => [entry, ...prev].slice(0, MAX_LOG))
-		},
-		[],
-	)
+	const pushLog = useCallback((level: LogEntry['level'], message: string) => {
+		logIdRef.current += 1
+		const entry: LogEntry = {
+			id: logIdRef.current,
+			at: Date.now(),
+			level,
+			message,
+		}
+		setLog((prev) => [entry, ...prev].slice(0, MAX_LOG))
+	}, [])
 
 	const refreshBalance = useCallback(async () => {
 		const addr = addressRef.current
@@ -136,10 +135,7 @@ export const useMiner = () => {
 
 	const refreshTip = useCallback(async () => {
 		try {
-			const [blocks, id] = await Promise.all([
-				getRecentBlocks(1),
-				getChainId(),
-			])
+			const [blocks, id] = await Promise.all([getRecentBlocks(1), getChainId()])
 			setTipHeight(blocks[0]?.height ?? null)
 			if (typeof id === 'number') setChainId(id)
 			setConnected(true)
@@ -333,6 +329,7 @@ export const useMiner = () => {
 	return {
 		ready,
 		workerError,
+		workerCount,
 		status,
 		running,
 		stopping,

@@ -46,7 +46,7 @@ node. Karena node memverifikasi ulang, miner tidak dapat memanipulasi rantai.
 | `src/screens/Miner.tsx` | Layar utama |
 | `src/screens/Settings.tsx` | Modal endpoint node |
 
-## Catatan
+## Item kunci
 
 - **Hashrate browser** jauh di bawah miner native. Difficulty node adaptif
   (target 30 detik), jadi miner browser yang berjalan **sendirian** akan
@@ -57,3 +57,31 @@ node. Karena node memverifikasi ulang, miner tidak dapat memanipulasi rantai.
   Deploy wajib mengisi `VITE_RPC_URL` ke endpoint HTTPS atau memakai proxy.
 - Job di node berumur 5 menit (`JOB_TTL_MS`); UI menampilkan countdown dan
   otomatis meminta job baru saat kedaluwarsa.
+
+## Performa PoW
+
+Loop PoW adalah satu-satunya tempat biaya hashing berarti, jadi ada dua
+optimasi di jalur ini:
+
+1. **Hasher buffer-tetap** (`createPowHasher` dari `src/core/consensus/Pow`,
+   diimplementasi di `src/core/encoding/sha256.ts`). Payload di-encode SEKALI
+   per job; tiap hash hanya menulis digit nonce ke buffer tetap — menghapus
+   concat string per iterasi yang dulu lebih mahal daripada hashing itu
+   sendiri. Paritas dengan `hashWithNonce` dibuktikan gate `bun run check:pow`.
+2. **Pool worker dengan partisi nonce** (`useMinerWorker.ts`). Ruang nonce
+   dibagi dengan stride: worker ke-`i` mulai di `i` dan melangkah `N`. Tidak
+   ada tumpang tindih, tidak butuh koordinasi pusat, dan worker pertama yang
+   menemukan solusi menang.
+
+Jumlah worker diambil dari `navigator.hardwareConcurrency` (dibatasi maksimum
+4) dan bisa ditimpa lewat `localStorage['nex_miner_workers']`.
+
+**Kalibrasi dulu, jangan asal banyak.** Pengukuran lapangan menunjukkan
+throughput saturasi di 2–3 worker dan justru **turun** setelahnya (kontensi +
+alokasi hasher per-hash). Jalankan `bun run pow:bench` dari root untuk melihat
+rekomendasi jumlah worker di mesin ini:
+
+```
+bun run pow:bench
+```
+

@@ -112,14 +112,13 @@ export const Miner = ({
 
 				{trimmed && !valid ? (
 					<p className="hint error">
-						Format alamat salah — harus diawali NxC/NxS dan tepat 43
-						karakter.
+						Format alamat salah — harus diawali NxC/NxS dan tepat 43 karakter.
 					</p>
 				) : (
 					<p className="hint">
-						Mining sepenuhnya eksternal dan tanpa kunci: node menyusun
-						template, UI hanya mencari nonce, lalu node memverifikasi
-						ulang dan mengkredit hadiah.
+						Mining sepenuhnya eksternal dan tanpa kunci: node menyusun template,
+						UI hanya mencari nonce, lalu node memverifikasi ulang dan mengkredit
+						hadiah.
 					</p>
 				)}
 
@@ -135,7 +134,11 @@ export const Miner = ({
 				<Stat
 					label="Hashrate"
 					value={formatHashrate(miner.hashrate)}
-					hint="job berjalan"
+					hint={
+						miner.workerCount > 0
+							? `${miner.workerCount} worker`
+							: 'job berjalan'
+					}
 				/>
 				<Stat label="Total hash" value={formatCount(miner.totalHashes)} />
 				<Stat
@@ -148,9 +151,7 @@ export const Miner = ({
 					label="Saldo hadiah"
 					value={formatNxc(miner.balanceNexu)}
 					hint={
-						miner.address
-							? shortHash(miner.address, 8, 5)
-							: 'alamat hadiah'
+						miner.address ? shortHash(miner.address, 8, 5) : 'alamat hadiah'
 					}
 				/>
 				<Stat
@@ -182,18 +183,9 @@ export const Miner = ({
 						<div className="kv">
 							<Kv k="Job ID" v={currentJob.jobId} />
 							<Kv k="Height" v={`#${currentJob.height}`} />
-							<Kv
-								k="Difficulty"
-								v={`${currentJob.difficulty} bits`}
-							/>
-							<Kv
-								k="Nonce terakhir"
-								v={formatCount(miner.currentNonce)}
-							/>
-							<Kv
-								k="Hash job ini"
-								v={formatCount(miner.currentHashes)}
-							/>
+							<Kv k="Difficulty" v={`${currentJob.difficulty} bits`} />
+							<Kv k="Nonce terakhir" v={formatCount(miner.currentNonce)} />
+							<Kv k="Hash job ini" v={formatCount(miner.currentHashes)} />
 							<Kv
 								k="Blok sebelumnya"
 								v={shortHash(currentJob.previousBlockHash)}
@@ -210,8 +202,8 @@ export const Miner = ({
 					</>
 				) : (
 					<p className="empty">
-						Belum ada job aktif. Tekan “Mulai mining” untuk meminta job
-						dari node.
+						Belum ada job aktif. Tekan “Mulai mining” untuk meminta job dari
+						node.
 					</p>
 				)}
 			</section>
@@ -236,23 +228,15 @@ export const Miner = ({
 									>
 										#{block.height}
 									</span>
-									<span
-										className="grow mono truncate"
-										title={block.hash}
-									>
+									<span className="grow mono truncate" title={block.hash}>
 										{shortHash(block.hash)}
 									</span>
-									<span className="muted">
-										{block.difficulty}b
-									</span>
+									<span className="muted">{block.difficulty}b</span>
 									<span className="muted">
 										{formatDuration(block.elapsedMs)}
 									</span>
 									{block.accepted ? null : (
-										<span
-											className="badge badge-danger"
-											title={block.error}
-										>
+										<span className="badge badge-danger" title={block.error}>
 											ditolak
 										</span>
 									)}
@@ -277,9 +261,7 @@ export const Miner = ({
 									key={entry.id}
 									data-level={entry.level}
 								>
-									<span className="log-time">
-										{formatClock(entry.at)}
-									</span>
+									<span className="log-time">{formatClock(entry.at)}</span>
 									<span className="log-msg">{entry.message}</span>
 								</div>
 							))}

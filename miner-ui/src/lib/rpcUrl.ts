@@ -2,7 +2,7 @@ import { setRpcUrl, getRpcUrl } from 'src/client/rpc-client/lib/rpcClient'
 import { errorMessage } from './format'
 
 /**
- * Persistensi URL RPC di browser (pola sama dengan wallet-ui).
+ * Persistensi URL RPC di browser (pola sama dengan `wallet/`).
  *
  * Prioritas endpoint:
  *   1. `localStorage`       — override manual via Settings.

@@ -4,22 +4,30 @@
  * Kenapa worker: loop PoW menghitung ribuan SHA-256 per potongan secara
  * SINKRON. Bila dijalankan di main thread, seluruh tab React membeku
  * (spinner berhenti, tombol Stop tidak bisa diklik). Worker memisahkan
- * komputasi dari UI — persis pola `crypto.worker.ts` di wallet-ui.
+ * komputasi dari UI — persis pola `crypto.worker.ts` di `wallet/`.
  *
  * PENTING — aturan konsensus diimpor dari modul KANONIK node, bukan
  * disalin:
- *   - `hashWithNonce`  (src/core/consensus/Pow)      → SHA-256(payload‖nonce)
- *   - `meetsDifficulty`(src/core/consensus/difficulty)
+ *   - `createPowHasher` (src/core/consensus/Pow)      → SHA-256(payload‖nonce)
+ *   - `meetsDifficulty` (src/core/consensus/difficulty)
  * Keduanya murni (js-sha256, tanpa Node API) sehingga aman di browser dan
  * hasilnya identik dengan yang diverifikasi node saat `nex_submitWork`.
+ * Paritas `PowHasher` vs `hashWithNonce` dibuktikan gate `check:pow`.
  * Node tetap memverifikasi ulang — worker ini tidak bisa memanipulasi apa pun.
+ *
+ * Optimasi (jalur panas):
+ *   1. `PowHasher` meng-encode payload SEKALI per job; tiap hash hanya
+ *      menulis digit nonce ke buffer tetap — jauh lebih cepat daripada
+ *      `sha256(`${payload}${nonce}`)` yang concat string tiap iterasi.
+ *   2. Beberapa worker dibagi ruang nonce (stride tetap) supaya memakai
+ *      sisa core CPU; lihat `useMinerWorker.ts`.
  */
-import { hashWithNonce } from 'src/core/consensus/Pow'
+import { createPowHasher } from 'src/core/consensus/Pow'
 import { meetsDifficulty } from 'src/core/consensus/difficulty'
 
 /** Potongan hash per iterasi — cukup besar untuk throughput, cukup kecil
  *  agar pesan STOP & pengecekan expiry tetap responsif. */
-const HASH_CHUNK = 25_000
+const HASH_CHUNK = 50_000
 /** Interval minimal antar laporan progres (ms) — menjaga main thread santai. */
 const PROGRESS_INTERVAL_MS = 400
 
@@ -27,7 +35,14 @@ export interface MineJobPayload {
 	payload: string
 	difficulty: number
 	expiresAt: number
+	/** Titik awal ruang nonce worker ini. */
 	startNonce?: number
+	/**
+	 * Jarak antar-nonce. Untuk N worker, worker-i memakai
+	 * `startNonce = i, stride = N` sehingga ruang nonce terpartisi tanpa
+	 * tumpang tindih dan tanpa koordinasi pusat. Default 1 (satu worker).
+	 */
+	nonceStride?: number
 }
 
 export type MinerWorkerRequest =
@@ -35,7 +50,13 @@ export type MinerWorkerRequest =
 	| { id: string; type: 'STOP' }
 
 export type MinerWorkerResponse =
-	| { id: string; type: 'PROGRESS'; hashes: number; hashrate: number; nonce: number }
+	| {
+			id: string
+			type: 'PROGRESS'
+			hashes: number
+			hashrate: number
+			nonce: number
+	  }
 	| {
 			id: string
 			type: 'RESULT'
@@ -75,9 +96,13 @@ const runJob = async (
 	job: MineJobPayload,
 ): Promise<void> => {
 	const startedAt = Date.now()
+	const stride = job.nonceStride && job.nonceStride > 0 ? job.nonceStride : 1
 	let nonce = job.startNonce ?? 0
 	let hashes = 0
 	let lastProgressAt = startedAt
+
+	// Encode payload SEKALI untuk seluruh job — inti optimasi jalur panas.
+	const hasher = createPowHasher(job.payload)
 
 	while (token === currentToken) {
 		if (Date.now() >= job.expiresAt) {
@@ -90,10 +115,11 @@ const runJob = async (
 			return
 		}
 
-		const chunkEnd = nonce + HASH_CHUNK
-		for (; nonce < chunkEnd; nonce++) {
+		// Satu potongan: `HASH_CHUNK` nonce dengan langkah `stride`.
+		const chunkEnd = nonce + HASH_CHUNK * stride
+		for (; nonce < chunkEnd; nonce += stride) {
 			hashes++
-			const hash = hashWithNonce(job.payload, nonce)
+			const hash = hasher.hash(nonce)
 			if (meetsDifficulty(hash, job.difficulty)) {
 				ctx.postMessage({
 					id,

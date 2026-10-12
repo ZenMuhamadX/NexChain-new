@@ -39,7 +39,7 @@ export default defineConfig({
 		],
 	},
 	// JSX runtime otomatis (react/jsx-runtime) tanpa @vitejs/plugin-react —
-	// mengikuti pola explorer & wallet-ui: transform esbuild sudah cukup.
+	// mengikuti pola explorer & wallet: transform esbuild sudah cukup.
 	esbuild: { jsx: 'automatic' },
 	server: {
 		port: 5175,
