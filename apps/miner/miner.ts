@@ -16,6 +16,12 @@
  *     yang dipakai node (lihat catatan di nexchain/block/sha256.ts).
  * Node tetap memverifikasi ulang setiap submit (nex_submitWork) — miner ini
  * hanya membantu mencari nonce, tidak bisa memanipulasi rantai.
+ *
+ * File ini SENGAJA tetap mandiri (nol dependensi) untuk kemudahan distribusi.
+ * Karena itu loop PoW di sini memakai versi buffer-tetap yang di-inline —
+ * semantiknya identik dengan `PowHasher` di `src/core/encoding/sha256.ts`
+ * (dibuktikan gate `check:pow`), hanya saja tidak bisa diimpor tanpa
+ * mengorbankan sifat satu-file.
  */
 import { createHash } from 'node:crypto'
 
@@ -43,9 +49,55 @@ const meetsDifficulty = (hash: string, bits: number): boolean => {
 	return true
 }
 
-/** PoW hash = SHA-256(`${payload}${nonce}`) hex — identik dgn hashWithNonce node. */
+/** PoW hash = SHA-256(`${payload}${nonce}`) hex — rujukan lambat (satu hash). */
 const hashWithNonce = (payload: string, nonce: number): string =>
 	createHash('sha256').update(`${payload}${nonce}`).digest('hex')
+
+/**
+ * Hasher ber-buffer-tetap untuk loop panas.
+ *
+ * Payload di-encode SEKALI; tiap hash hanya menulis digit nonce ke buffer tetap
+ * (tanpa concat string, tanpa alokasi per iterasi). Hasilnya byte-per-byte
+ * identik dengan `hashWithNonce` — lihat komentar header.
+ *
+ * `Math.floor(n / 10)` dipakai, BUKAN `(n / 10) | 0`: operator `| 0` memaksa
+ * int32 dan menghasilkan digit salah untuk nonce >= 2^31.
+ */
+class PowHasher {
+	private readonly combined: Buffer
+	private readonly base: number
+
+	constructor(payload: string) {
+		const payloadBytes = Buffer.from(payload, 'utf8')
+		this.base = payloadBytes.length
+		this.combined = Buffer.allocUnsafe(this.base + 24)
+		payloadBytes.copy(this.combined, 0)
+	}
+
+	hash(nonce: number): string {
+		let len = 0
+		let n = nonce
+		if (n === 0) {
+			this.combined[this.base] = 48
+			len = 1
+		} else {
+			while (n > 0) {
+				this.combined[this.base + len++] = 48 + (n % 10)
+				n = Math.floor(n / 10)
+			}
+			const start = this.base
+			const end = this.base + len - 1
+			for (let i = start, j = end; i < j; i++, j--) {
+				const t = this.combined[i]
+				this.combined[i] = this.combined[j]
+				this.combined[j] = t
+			}
+		}
+		return createHash('sha256')
+			.update(this.combined.subarray(0, this.base + len))
+			.digest('hex')
+	}
+}
 
 /** Salinan nexchain/transaction/utils/isValidAddress.ts — kriteria node. */
 const isValidAddress = (address: string): boolean => {
@@ -185,12 +237,14 @@ const findSolution = (
 	isRunning: () => boolean,
 	onProgress: (hashes: number) => void,
 ): { nonce: number; hash: string } | null => {
+	// Encode payload sekali untuk seluruh job (jalur panas).
+	const hasher = new PowHasher(work.payload)
 	let nonce = 0
 	while (isRunning()) {
 		if (Date.now() >= work.expiresAt) return null
 		const chunkEnd = nonce + HASH_CHUNK
 		for (; nonce < chunkEnd; nonce++) {
-			const hash = hashWithNonce(work.payload, nonce)
+			const hash = hasher.hash(nonce)
 			if (meetsDifficulty(hash, work.difficulty)) {
 				return { nonce, hash }
 			}
@@ -321,6 +375,26 @@ const runMiner = async (
 	)
 }
 
+/**
+ * Verifikasi-diri: hasher cepat (PowHasher) harus byte-per-byte sama dengan
+ * `hashWithNonce`. Dijalankan sebelum mining supaya kesalahan encoding
+ * ketahuan di sini, bukan setelah nonce ditemukan dan ditolak node.
+ */
+const selfCheckHasher = (): boolean => {
+	const samples: Array<[string, number]> = [
+		['', 0],
+		['abc', 1],
+		['{"height":1,"tx":[]}', 999999],
+		['caf\u00e9-\u4e2d\u6587', Number.MAX_SAFE_INTEGER],
+	]
+	for (const [payload, nonce] of samples) {
+		const fast = new PowHasher(payload).hash(nonce)
+		const slow = hashWithNonce(payload, nonce)
+		if (fast !== slow) return false
+	}
+	return true
+}
+
 // ---------------------------------------------------------------------------
 // Entry: tanya-jawab dulu, lalu mining
 // ---------------------------------------------------------------------------
@@ -331,6 +405,13 @@ const main = async (): Promise<void> => {
 		'Kebutuhan hanya URL node + alamat wallet.',
 		'Tidak perlu seed/private key.\n',
 	)
+
+	if (!selfCheckHasher()) {
+		console.error(
+			'FATAL: hasher cepat tidak identik dengan sha256 rujukan — miner dihentikan.',
+		)
+		process.exit(1)
+	}
 
 	// ---- 1. URL RPC node -------------------------------------------------
 	let rpcUrl = ''
