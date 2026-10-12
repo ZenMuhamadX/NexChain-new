@@ -15,11 +15,10 @@ bun.lock
 
 # Data runtime — pola DI-JANGKAR ke root ("/nama"), supaya folder sumber yang
 # kebetulan bernama sama tidak ikut tersembunyi. Sebelumnya pola tanpa awal
-# "/" menyembunyikan tiga hal yang seharusnya ikut ter-track:
+# "/" menyembunyikan dua hal yang seharusnya ikut ter-track:
 #   wallet  -> client/wallet/*.ts   (5 file vault: kv, idbKv, jsCrypto,
 #                                    vaultCrypto, walletVault)
 #   config  -> explorer/src/config/env.ts (RPC_URL, diimpor 2 modul explorer)
-#   base    -> sumber bernama base/ di subfolder mana pun
 #
 # CATATAN PENTING — dua arti "wallet" di root:
 #   /wallet/main.json  = file mnemonic NODE (rahasia, harus diabaikan)
@@ -27,9 +26,14 @@ bun.lock
 # Karena itu `/wallet` TIDAK BISA dipakai lagi: ia akan menelan seluruh package
 # UI. Yang diabaikan sekarang hanya ISI dari store mnemonic node, dengan
 # mengecualikan (whitelist) package UI secara eksplisit.
-/base
-# Artefak LevelDB bisa muncul di bawah src/core/ bila node dijalankan dengan
-# cwd berbeda; jangan ikut ter-track.
+#
+# Data node (LevelDB). Lokasinya ditentukan NEX_DATA_DIR, default `./data`
+# relatif terhadap cwd tempat node dijalankan — lihat
+# src/core/state/db/dataDir.ts. Sebelumnya diturunkan dari __dirname sehingga
+# selalu jatuh ke dalam source tree (src/core/base/).
+/data
+# Lokasi lama sebelum data dipindah ke ./data. Dibiarkan terabaikan supaya sisa
+# data lama tidak ikut ter-track bila masih ada.
 src/core/base/
 /logs
 /blocks
@@ -48,6 +52,12 @@ src/core/base/
 !/wallet/scripts/
 !/wallet/shells/
 !/wallet/README.md
+# Store mnemonic NODE — file wallet node (default `src/wallet/main.json`)
+# berisi mnemonic dan TIDAK boleh ter-commit. Nama berkasnya mengikuti
+# `primaryWalletName` di config/wallet.conf.json, jadi abaikan semua `.json`
+# di sana. CATATAN: `/wallet/*` di atas hanya menutup folder UI wallet di root;
+# file ini ada di bawah `src/`, jadi butuh aturan sendiri.
+src/wallet/*.json
 # Penyimpanan vault wallet desktop (Electron userData) bisa muncul di sini
 # saat seseorang menguji dengan data dir lokal; jangan ikut ter-track.
 wallet/shells/desktop/electron/*.local.json

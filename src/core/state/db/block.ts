@@ -1,9 +1,9 @@
-import path from 'path'
 import { initFile } from './init'
+import { dataPath } from './dataDir'
 import { Level } from 'level'
 
 initFile()
-const dirPath = path.join(__dirname, '../../base/block')
+const dirPath = dataPath('block')
 
 export const rocksBlock = new Level(dirPath, {
 	valueEncoding: 'utf-8', // Store values in hex format

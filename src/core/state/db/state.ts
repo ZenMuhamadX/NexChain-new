@@ -1,9 +1,9 @@
-import path from 'path'
 import { initFile } from './init'
+import { dataPath } from './dataDir'
 import { Level } from 'level'
 
 initFile()
-const dirPath = path.join(__dirname, '../../base/state')
+const dirPath = dataPath('state')
 
 export const rocksState = new Level(dirPath, {
 	valueEncoding: 'json', // Store state data in JSON format

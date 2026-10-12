@@ -1,9 +1,9 @@
-import path from 'path'
 import { initFile } from './init'
+import { dataPath } from './dataDir'
 import { Level } from 'level'
 
 initFile()
-const dirPath = path.join(__dirname, '../../base/history')
+const dirPath = dataPath('history')
 
 export const rocksHistory = new Level(dirPath, {
 	valueEncoding: 'utf-8', // Store transaction data in JSON format

@@ -34,7 +34,7 @@ Verifikasi konstanta: `bun run genesis:check`. Pada boot, node menulis genesis d
 
 1. Ubah `NEX_CHAIN_ID` di `.env` (atau konstanta `GENESIS_TIMESTAMP`/`GENESIS_MESSAGE` di `src/core/block/genesis.ts`).
 2. `bun run genesis:solve` → tempel `GENESIS_NONCE` & `GENESIS_HASH` ke `src/core/block/genesis.ts`.
-3. `bun run genesis:check` → pastikan valid, lalu reset `base/` dan mulai node.
+3. `bun run genesis:check` → pastikan valid, lalu reset direktori data (`NEX_DATA_DIR`, default `./data`) dan mulai node.
 
 Data devnet/test: dana uji dikirim lewat transaksi airdrop normal setelah genesis (bukan dari premine).
 

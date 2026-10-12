@@ -15,6 +15,7 @@
 		"check:cap": "bun run scripts/supplyCapCheck.ts",
 		"check:difficulty": "bun run scripts/difficultyRetargetCheck.ts",
 		"check:pow": "bun run scripts/powParityCheck.ts",
+		"check:data": "bun run scripts/dataDirCheck.ts",
 		"pow:bench": "bun run scripts/powBench.ts",
 		"genesis:check": "bun run scripts/genesisCheck.ts",
 		"genesis:solve": "bun run scripts/genesisCheck.ts --solve",
