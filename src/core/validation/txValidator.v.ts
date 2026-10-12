@@ -23,8 +23,9 @@ export const transactionValidator = async (
 			error?.message || 'Invalid transaction amount',
 		)
 	}
-	// Signature ketat: signer hasil recover WAJIB == sender (jalur resolver
-	// owner kontrak dihapus bersama fitur smart contract).
+	// Signature ketat: `from` (hasil ecrecover) WAJIB konsisten dengan tanda
+	// tangan (jalur resolver owner kontrak dihapus bersama fitur smart
+	// contract).
 	if (!(await validateTransactionSignature(transaction))) return false
 
 	if (!validateTransactionSenderReceiver(transaction)) return false
@@ -42,7 +43,7 @@ export const transactionValidator = async (
 
 	if (
 		!(await hasSufficientBalance(
-			transaction.sender,
+			transaction.from!,
 			transaction.amount,
 			transaction.fee!,
 		))
@@ -54,8 +55,8 @@ export const transactionValidator = async (
 		)
 	}
 
-	transaction.status = 'pending'
-	transaction.isValid = true
-	transaction.isPending = true
+	// Tidak ada lagi penulisan `status`/`isValid`/`isPending`: ketiganya bukan
+	// bagian transaksi. "Sudah dikonfirmasi" diturunkan dari keanggotaan blok
+	// (`isTxExecuted` membaca `metadata.blockHeight`).
 	return true
 }

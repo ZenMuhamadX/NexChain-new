@@ -87,14 +87,18 @@ export const fetchHistory = async (address: string): Promise<HistoryRow[]> => {
 
 	const mempool = await fetchMempool()
 	const pending = mempool
-		.filter((tx) => tx.sender === address || tx.receiver === address)
+		.filter((tx) => tx.from === address || tx.receiver === address)
 		.filter((tx) => typeof tx.txHash !== 'string' || !seen.has(tx.txHash))
 
 	const rows: HistoryRow[] = [
 		...confirmed.map((tx) => ({ tx, pending: false })),
 		...pending.map((tx) => ({ tx, pending: true })),
 	]
-	rows.sort((a, b) => b.tx.timestamp - a.tx.timestamp)
+	// Urutkan menurut waktu BLOK. Transaksi masih tertunda belum punya blok,
+	// jadi ia diletakkan paling atas (paling baru).
+	const timeOf = (row: HistoryRow): number =>
+		row.pending ? Number.MAX_SAFE_INTEGER : (row.tx.metadata?.blockTimestamp ?? 0)
+	rows.sort((a, b) => timeOf(b) - timeOf(a))
 	return rows
 }
 

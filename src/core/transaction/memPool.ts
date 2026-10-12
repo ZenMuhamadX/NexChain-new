@@ -77,13 +77,13 @@ export class MemPool {
 	private async handleUserTransaction(
 		transaction: TxInterface,
 	): Promise<boolean> {
-		const userBalance = await getAccount(transaction.sender)
+		const userBalance = await getAccount(transaction.from!)
 		if (!userBalance) {
 			logToConsole('Insufficient user balance')
 			return false
 		}
 
-		const pendingBalance = await getPendingBalance(transaction.sender)
+		const pendingBalance = await getPendingBalance(transaction.from!)
 		const availableBalance =
 			userBalance.balance - (pendingBalance.pendingAmount || 0)
 
@@ -94,7 +94,7 @@ export class MemPool {
 
 		// Update pending balance
 		await this.updatePendingBalance(
-			transaction.sender,
+			transaction.from!,
 			pendingBalance.pendingAmount,
 			transaction,
 		)

@@ -1,5 +1,4 @@
 ﻿import { ec as EC } from 'elliptic'
-import { hashMessage } from './hashMessage'
 import { decodeV } from './chainId'
 
 const ec = new EC('secp256k1')
@@ -10,20 +9,25 @@ export interface sign {
 	s: string
 }
 
-// Fungsi untuk memulihkan public key dari data, v, r, dan s
+/**
+ * Pulihkan public key dari `(sighash, v, r, s)`.
+ *
+ * Menerima sighash 32 byte yang sudah dihitung — bukan string yang di-hash
+ * lagi di sini.
+ */
 export const recoverPublicKey = (
-	data: string,
+	sighash: Uint8Array,
 	sign: sign,
 ): { publicKey: string } => {
-	const dataHash = hashMessage(data)
+	if (!(sighash instanceof Uint8Array) || sighash.length !== 32) {
+		throw new Error('recoverPublicKey: sighash harus 32 byte')
+	}
 
 	// EIP-155: decode v (87/88) ke recovery param (0/1)
 	const recoveryParam = decodeV(sign.v)
 
-	// Memulihkan public key
-	const signature = { r: sign.r, s: sign.s }
 	const publicKey = ec
-		.recoverPubKey(dataHash, signature, recoveryParam)
+		.recoverPubKey(sighash, { r: sign.r, s: sign.s }, recoveryParam)
 		.encode('hex', true)
 
 	return { publicKey }

@@ -2,13 +2,13 @@ import { decodeFromBytes } from 'src/core/encoding/hex/bytes/decodeBytes'
 import { rocksHistory } from 'src/core/state/db/history'
 
 export const saveTxByAddress = async (
-	sender: string,
+	from: string,
 	receiver: string,
 	txHash: string,
 ): Promise<void> => {
 	try {
 		// Cek dan tambahkan txHash untuk pengirim
-		await addTxHashToAddress(sender, txHash)
+		await addTxHashToAddress(from, txHash)
 
 		// Cek dan tambahkan txHash untuk penerima
 		await addTxHashToAddress(receiver, txHash)

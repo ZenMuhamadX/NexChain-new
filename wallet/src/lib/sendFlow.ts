@@ -4,7 +4,7 @@ import { signTransaction } from 'src/crypto/signTransaction'
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { toNexu } from 'src/core/token/toNexu'
 import { isNexu } from 'src/core/token/isNexu'
-import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
+import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import type { comTxInterface } from 'src/types/compositeTransaction'
 import type { TxInterface } from 'src/types/transaction'
 import { fetchNextNonce, sendRawTransaction } from './rpc'
@@ -128,11 +128,10 @@ export const buildSignedTransaction = (
 		format: 'NXC',
 		sender,
 		amount: Number(form.amountNxc),
-		timestamp: generateTimestampz(),
 		fee: Number(form.feeNexu),
 	}
 	if (form.message && form.message.trim().length > 0) {
-		comTx.extraMessage = form.message.trim()
+		comTx.data = stringToHex(form.message.trim())
 	}
 
 	const unsigned = createUnsignedTransaction(comTx, nonce)
@@ -171,11 +170,10 @@ export const buildSignedTransactionAsync = async (
 		format: 'NXC',
 		sender,
 		amount: Number(form.amountNxc),
-		timestamp: generateTimestampz(),
 		fee: Number(form.feeNexu),
 	}
 	if (form.message && form.message.trim().length > 0) {
-		comTx.extraMessage = form.message.trim()
+		comTx.data = stringToHex(form.message.trim())
 	}
 
 	const unsigned = createUnsignedTransaction(comTx, nonce)

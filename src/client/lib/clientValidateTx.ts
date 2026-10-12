@@ -22,7 +22,7 @@ export const clientSideTxValidate = async (
 			error?.message || 'Invalid transaction amount',
 		)
 	}
-	// Binding address: signer hasil recover WAJIB == sender (anti-forge).
+	// Binding: `from` (hasil ecrecover) WAJIB konsisten dengan tanda tangan.
 	if (!(await validateTransactionSignature(transaction))) return false
 
 	if (!validateTransactionSenderReceiver(transaction)) return false
@@ -37,7 +37,7 @@ export const clientSideTxValidate = async (
 
 	if (
 		!(await clientHasSufficientBalance(
-			transaction.sender,
+			transaction.from!,
 			transaction.amount,
 			transaction.fee!,
 		))

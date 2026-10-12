@@ -111,10 +111,10 @@ export const History = ({
 								</thead>
 								<tbody>
 									{rows.map((row) => {
-										const outgoing = row.tx.sender === address
+										const outgoing = row.tx.from === address
 										const hash = row.tx.txHash ?? ''
 										return (
-											<tr key={hash || `${row.tx.timestamp}-${row.tx.receiver}`}>
+											<tr key={hash || row.tx.receiver}>
 												<td data-label="Transaksi">
 													<div className="hash-cell">
 														{hash ? <ExplorerHash hash={hash} pending={row.pending} /> : <span className="muted">—</span>}
@@ -129,7 +129,7 @@ export const History = ({
 												</td>
 												<td data-label="Jumlah" className="amount-cell"><AmountDisplay nexu={outgoing ? -row.tx.amount : row.tx.amount} size="table" detailLabel="⋯" ariaLabel="Lihat detail jumlah transaksi" /></td>
 												<td data-label="Biaya" className="muted-cell"><AmountDisplay nexu={row.tx.fee} size="table" detailLabel="⋯" ariaLabel="Lihat detail biaya transaksi" /></td>
-												<td data-label="Waktu" className="muted-cell">{formatTime(row.tx.timestamp)}</td>
+												<td data-label="Waktu" className="muted-cell">{row.tx.metadata?.blockTimestamp ? formatTime(row.tx.metadata.blockTimestamp) : '—'}</td>
 												<td data-label="Status">
 													<span className={`badge ${row.pending ? 'badge--pending' : 'badge--confirmed'}`}>
 														<span className="status-dot" />{row.pending ? 'Tertunda' : 'Terkonfirmasi'}

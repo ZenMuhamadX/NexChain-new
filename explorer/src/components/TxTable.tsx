@@ -10,8 +10,15 @@ import {
 } from '../lib/format'
 import { Unit } from './common/Unit'
 
-/** Badge status transaksi. */
-export function TxStatus({ status }: { status: HistoryEntry['status'] }) {
+/**
+ * Badge status transaksi — DITURUNKAN dari keanggotaan blok.
+ *
+ * Sebelumnya membaca field `status` di dalam transaksi, yang kini tidak ada:
+ * "terkonfirmasi" bukan properti transaksi, melainkan fakta rantai (transaksi
+ * ada di sebuah blok). Lihat `isTxExecuted` di node.
+ */
+export function TxStatus({ confirmed }: { confirmed: boolean }) {
+	const status = confirmed ? 'confirmed' : 'pending'
 	return <span className={`badge badge-${status}`}>{status}</span>
 }
 
@@ -45,7 +52,7 @@ export function TxTable({
 				<caption className="sr-only">
 					{compact
 						? 'Transactions — hash, amount, age and status'
-						: 'Transactions — hash, sender, receiver, amount, fee, age and status'}
+						: 'Transactions — hash, from, receiver, amount, fee, age and status'}
 				</caption>
 				<thead>
 					<tr>
@@ -85,7 +92,7 @@ export function TxTable({
 				</thead>
 				<tbody>
 					{rows.map((tx, index) => (
-						<tr key={tx.txHash ?? `${tx.sender}-${tx.timestamp}-${index}`}>
+						<tr key={tx.txHash ?? `${tx.from}-${tx.receiver}-${index}`}>
 							<td data-label="TxHash">
 								{tx.txHash ? (
 									<Link
@@ -104,10 +111,10 @@ export function TxTable({
 									<td data-label="From">
 										<Link
 											className="link mono"
-											to={`/address/${tx.sender}`}
-											title={tx.sender}
+											to={`/address/${tx.from ?? ''}`}
+											title={tx.from}
 										>
-											{truncateMiddle(tx.sender, 8, 6)}
+											{truncateMiddle(tx.from ?? '', 8, 6)}
 										</Link>
 									</td>
 									<td data-label="To">
@@ -131,14 +138,18 @@ export function TxTable({
 							) : null}
 							<td
 								data-label={timeMode === 'age' ? 'Age' : 'Date Time'}
-								title={formatDateTime(tx.timestamp)}
+								title={
+									tx.metadata ? formatDateTime(tx.metadata.blockTimestamp) : ''
+								}
 							>
-								{timeMode === 'age'
-									? timeAgo(tx.timestamp)
-									: formatDateTime(tx.timestamp)}
+								{tx.metadata
+									? timeMode === 'age'
+										? timeAgo(tx.metadata.blockTimestamp)
+										: formatDateTime(tx.metadata.blockTimestamp)
+									: '—'}
 							</td>
 							<td data-label="Status">
-								<TxStatus status={tx.status} />
+								<TxStatus confirmed={tx.metadata !== undefined} />
 							</td>
 							{showBlock ? (
 								<td data-label="Block" className="num">

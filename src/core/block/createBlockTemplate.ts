@@ -3,7 +3,6 @@ import { Block } from 'src/core/block/blockModel'
 import { getCurrentBlock } from './query/onChain/block/getCurrentBlock'
 import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
-import { createCoinbaseTx } from 'src/core/transaction/createCoinbaseTransaction'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { calculateTotalFees } from 'src/core/transaction/utils/totalFees'
 import { calculateTotalBlockReward } from 'src/core/consensus/calculateReward'
@@ -40,16 +39,6 @@ export const createBlockTemplate = async (
 		throw new Error('Latest block is undefined.')
 	}
 
-	// Tandai transaksi mempool sebagai terkonfirmasi SEBELUM masuk blok
-	// (flag ini ikut masuk preimage PoW dan divalidasi verifyStruct).
-	// Pemanggilan loop lama di mining.ts dipindahkan ke sini supaya satu
-	// transaksi yang lolos ke blok selalu berstatus konsisten.
-	for (const tx of transactions) {
-		tx.isValid = true
-		tx.isPending = false
-		tx.status = 'confirmed'
-	}
-
 	const height = latestBlock.block.height + 1
 	const timestamp = generateTimestampz()
 
@@ -64,12 +53,10 @@ export const createBlockTemplate = async (
 		totalTransactionFees,
 	)
 
-	// Coinbase PERTAMA dalam daftar: hadiah ikut ter-commit di merkleRoot &
-	// preimage PoW, dan kredit penambang terproses sebelum transaksi lain di
-	// blok yang sama (boleh membelanjakan hadiahnya langsung).
-	const coinbaseTx = createCoinbaseTx(walletMiner, totalReward, timestamp)
-	const allTransactions: TxInterface[] = [coinbaseTx, ...transactions]
-
+	// Coinbase BUKAN transaksi. Hadiah ditangani protokol — `processTransact`
+	// mengkreditnya SEBELUM transaksi blok diproses — dan ter-commit lewat
+	// `minerId` + `totalReward` + `coinbaseTransaction` di preimage PoW,
+	// bukan lagi secara insidental lewat pseudo-tx di daftar transaksi.
 	const difficulty = nextDifficulty(latestBlock)
 
 	return new Block({
@@ -85,7 +72,7 @@ export const createBlockTemplate = async (
 		height,
 		size: 0,
 		totalTransactionFees,
-		merkleRoot: createMerkleRoot(allTransactions),
+		merkleRoot: createMerkleRoot(transactions),
 		// minerId = alamat wallet penerima hadiah (== coinbase receiver),
 		// mengganti hash(IPv4+timestamp) lama yang tidak bisa diverifikasi.
 		minerId: walletMiner,
@@ -100,10 +87,10 @@ export const createBlockTemplate = async (
 		metadata: {
 			extraData: stringToHex('BlockChains by NexChain'),
 			gasPrice,
-			txCount: allTransactions.length,
+			txCount: transactions.length,
 			created_at: timestamp,
 		},
-		transactions: allTransactions,
+		transactions,
 		chainId: CHAIN_ID,
 	})
 }

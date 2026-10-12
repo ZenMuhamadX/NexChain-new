@@ -66,8 +66,12 @@ export class BlockChains {
 			await this.saveBlockToChain(block)
 
 			// Tidak lagi dipisah `transactionsToProcess` vs hadiah: satu
-			// pemanggilan memproses coinbase + transaksi pengguna.
-			await processTransact(block.block.transactions)
+			// pemanggilan memproses coinbase + transaksi pengguna. Blok
+			// diteruskan supaya `processTransact` bisa mencatat asal blok
+			// (tinggi/hash/timestamp) ke riwayat tiap transaksi — itulah
+			// sumber waktu transaksi, karena transaksi sendiri tidak lagi
+			// menyimpan timestamp.
+			await processTransact(block.block.transactions, block.block)
 
 			return { block, status: true }
 		} catch (error) {

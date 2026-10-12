@@ -1,19 +1,13 @@
-import { createTxnHash } from 'src/core/transaction/createTransactionHash'
 import { comTxInterface } from 'src/types/compositeTransaction'
 import { TxInterface } from 'src/types/transaction'
-import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { toNexu } from 'src/core/token/toNexu'
-
-/** Pesan default yang dibawa transaksi bila caller tidak mengirim extraMessage. */
-export const DEFAULT_EXTRA_MESSAGE =
-	'NexChains A Next Generation Blockchain for Everyone'
 
 /** Minimum amount setelah konversi format, dalam nexu. */
 export const MIN_AMOUNT_NEXU = 1
 
 export interface UnsignedTransactionResult {
 	status: boolean
-	/** Transaksi BELUM di-sign (`sign` masih placeholder kosong). */
+	/** Transaksi BELUM di-sign (`sign` masih placeholder nol). */
 	tx?: TxInterface
 	error?: string
 }
@@ -22,26 +16,36 @@ export interface UnsignedTransactionResult {
  * Bangun transaksi UNSIGNED — **fungsi murni**.
  *
  * Tidak ada I/O sama sekali: tidak ada RPC (nonce diterima sebagai argumen),
- * tidak ada filesystem, tidak ada wallet. Prasyaratnya hanya data transaksi
- * dan nonce yang sudah diambil pemanggil.
+ * tidak ada filesystem, tidak ada wallet.
  *
- * Dipisah dari `createTransaction` supaya wallet browser bisa menyusun
- * transaksi tanpa menarik `fs`/`path` (via `loadWallet`) ke dalam bundle.
- * Alur browser:
+ * Yang berubah dari versi lama:
  *
- *   nonce  = await getNonce(sender)            // I/O di sisi pemanggil
- *   tx     = createUnsignedTransaction(tx, nonce)  // murni (di sini)
- *   signed = signTransaction(tx, privateKey)       // murni
- *   await sendRaw(encodeTx(signed))                // I/O di sisi pemanggil
+ *   - `sender` TIDAK lagi ikut transaksi. Pengirim adalah hasil `ecrecover`
+ *     atas tanda tangan, jadi ia baru ada setelah `signTransaction` — dan
+ *     tidak pernah dikirim di wire. `comTxInterface.sender` tetap dipakai
+ *     pemanggil untuk mengambil nonce (itu alamat user sendiri), tapi bukan
+ *     bagian transaksi on-chain.
+ *   - `txHash` TIDAK lagi dihitung di sini. Ia turunan dari byte yang sudah
+ *     ditandatangani, jadi baru ada setelah `signTransaction`.
+ *   - `hexInput` dihapus — turunan, tidak pernah diverifikasi siapa pun.
+ *   - `timestamp` dihapus — waktu transaksi milik blok.
+ *   - `format` tidak ikut on-chain; ia hanya satuan masukan untuk konversi.
+ *   - `extraMessage` menjadi `data` opsional (bytes), tanpa nilai default.
+ *   - `status`/`isValid`/`isPending` dihapus — state siklus hidup diturunkan
+ *     dari fakta rantai, bukan disimpan di transaksi.
  *
- * `txHash` dihitung DI SINI (sudah termasuk `nonce`, belum termasuk `sign`,
- * karena `sign` justru menandatangani `txHash` tersebut).
+ * Alur pemanggil:
+ *
+ *   nonce  = await getNonce(sender)                    // I/O pemanggil
+ *   tx     = createUnsignedTransaction(input, nonce)   // murni (di sini)
+ *   signed = signTransaction(tx, privateKey)           // murni
+ *   await sendRaw(encodeTx(signed))                    // I/O pemanggil
  */
 export const createUnsignedTransaction = (
 	transaction: comTxInterface,
 	nonce: number,
 ): UnsignedTransactionResult => {
-	// Konversi amount ke Nexu jika formatnya adalah NXC
+	// Konversi amount ke nexu bila satuannya NXC.
 	const convertedAmount =
 		transaction.format === 'NXC'
 			? toNexu(transaction.amount)
@@ -54,32 +58,17 @@ export const createUnsignedTransaction = (
 		}
 	}
 
-	const completedTx: TxInterface = {
-		format: 'nexu',
-		amount: convertedAmount,
-		receiver: transaction.receiver,
-		sender: transaction.sender,
-		timestamp: transaction.timestamp,
-		fee: transaction.fee,
+	const tx: TxInterface = {
 		nonce,
-		isPending: true,
-		isValid: false,
-		extraMessage: transaction.extraMessage || DEFAULT_EXTRA_MESSAGE,
-		status: 'pending',
-		sign: { r: '', s: '', v: 0 },
+		fee: transaction.fee,
+		receiver: transaction.receiver,
+		amount: convertedAmount,
+		...(transaction.data === undefined ? {} : { data: transaction.data }),
+		// Placeholder berformat sah (64 hex) supaya kodek RLP bisa meng-encode
+		// transaksi yang belum ditandatangani tanpa melempar; `signTransaction`
+		// menggantinya dengan tanda tangan sungguhan.
+		sign: { v: 0, r: '0'.repeat(64), s: '0'.repeat(64) },
 	}
 
-	// Hash dulu (sudah termasuk nonce), baru hexInput — sama seperti urutan lama.
-	completedTx.txHash = createTxnHash(completedTx)
-	completedTx.hexInput = stringToHex(
-		JSON.stringify({
-			format: completedTx.format,
-			amount: completedTx.amount,
-			receiver: completedTx.receiver,
-			sender: completedTx.sender,
-			timestamp: completedTx.timestamp,
-		}),
-	)
-
-	return { status: true, tx: completedTx }
+	return { status: true, tx }
 }

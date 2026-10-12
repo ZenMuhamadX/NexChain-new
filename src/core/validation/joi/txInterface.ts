@@ -26,19 +26,27 @@ export const txInterfaceValidator = Joi.object({
 			'number.min': '"amount" must be at least 1 nexu',
 			'number.max': '"amount" must not exceed the supply cap (50.000.000 NXC)',
 		}),
-	format: Joi.string().valid('nexu').required(),
-	sender: Joi.string().required(),
+	// `sender` TIDAK ada lagi: pengirim kini turunan (`from`). Joi menolak
+	// key yang tidak dikenal secara bawaan, jadi transaksi yang masih membawa
+	// `sender` akan gagal di sini — bukan diabaikan diam-diam.
 	receiver: Joi.string().required(),
-	// Flag kontrak DIHAPUS dari transaksi baru (fitur smart contract
-	// dibuang) — tetap diterima (opsional) untuk data/klien lama.
-	isSenderContract: Joi.boolean().optional(),
-	isReceiverContract: Joi.boolean().optional(),
+	// Data arbitrer (hex). Menggantikan `extraMessage`; opsional, tanpa
+	// nilai default yang wajib dibawa setiap transaksi.
+	data: Joi.string().optional(),
 	sign: Joi.object({
 		r: Joi.string().required(),
 		s: Joi.string().required(),
 		v: Joi.number().required(),
 	}).required(),
-	timestamp: Joi.number().required(),
+	// Turunan `ecrecover` atas tanda tangan. WAJIB ada pada transaksi yang
+	// diterima node (diisi `decodeTx` / `signTransaction`) — karena itu
+	// `required()`, bukan `optional()`. Validator lain (`validateAddresses`,
+	// `validateAddressLengths`, ...) memakai non-null assertion dan
+	// mengandalkan jaminan dari baris ini.
+	from: Joi.string().required(),
+	// Turunan `sha256(payload bertipe)` — selalu ada pada transaksi yang
+	// diterima node (diisi `decodeTx`), dan diverifikasi ulang oleh
+	// `validateTransactionSignature`.
 	txHash: Joi.string().required(),
 	// Fee: bilangan bulat aman, ≥ 0, dan ≤ plafon suplai. `.unsafe(true)`
 	// yang dulu ada di sini berarti `fee: -1` dan `fee: 1e20` sama-sama lolos
@@ -46,9 +54,4 @@ export const txInterfaceValidator = Joi.object({
 	// di lapisan berikutnya.
 	fee: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
 	nonce: Joi.number().required().integer().min(0),
-	status: Joi.string().required(),
-	isValid: Joi.boolean().required(),
-	isPending: Joi.boolean().required(),
-	extraMessage: Joi.string().optional(),
-	hexInput: Joi.string().required(),
 })

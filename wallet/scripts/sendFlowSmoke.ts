@@ -122,7 +122,6 @@ const main = async (): Promise<void> => {
 				format: 'NXC',
 				sender: info.address,
 				amount: Number(form.amountNxc),
-				timestamp: Date.now(),
 				fee: Number(form.feeNexu),
 			},
 			0,
@@ -147,7 +146,7 @@ const main = async (): Promise<void> => {
 			)
 			ok(
 				/^[A-Za-z0-9+/]+={0,2}$/.test(encoded),
-				'alur: payload berupa base64 msgpack (bukan JSON telanjang)',
+				'alur: payload berupa base64 RLP (bukan JSON telanjang)',
 			)
 		}
 

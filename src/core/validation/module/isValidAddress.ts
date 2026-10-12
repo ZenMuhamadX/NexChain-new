@@ -11,7 +11,7 @@ import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 export const validateAddresses = (transaction: TxInterface): boolean => {
 	return (
 		validateRule(
-			isValidAddress(transaction.sender),
+			isValidAddress(transaction.from!),
 			'transactionValidator',
 			'Invalid transaction sender address',
 		) &&
