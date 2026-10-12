@@ -14,6 +14,7 @@
 		"check:wallet": "bun run scripts/walletVaultCheck.ts",
 		"check:cap": "bun run scripts/supplyCapCheck.ts",
 		"check:difficulty": "bun run scripts/difficultyRetargetCheck.ts",
+		"check:consensus": "bun run scripts/consensusRulesCheck.ts",
 		"check:pow": "bun run scripts/powParityCheck.ts",
 		"check:data": "bun run scripts/dataDirCheck.ts",
 		"pow:bench": "bun run scripts/powBench.ts",

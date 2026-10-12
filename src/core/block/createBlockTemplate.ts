@@ -5,10 +5,16 @@ import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { calculateTotalFees } from 'src/core/transaction/utils/totalFees'
-import { calculateTotalBlockReward } from 'src/core/consensus/calculateReward'
+import {
+	calculateTotalBlockReward,
+	GAS_PRICE_NEXU,
+} from 'src/core/consensus/calculateReward'
 import { clampDifficulty, retargetByTime } from 'src/core/consensus/difficulty'
-import { toNexu } from 'src/core/token/toNexu'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
+import {
+	getPreviousTimestamps,
+	medianTimePast,
+} from 'src/core/consensus/verify/module/verifyTimestamp'
 import { CHAIN_ID } from 'src/crypto/chainId'
 
 /**
@@ -40,12 +46,23 @@ export const createBlockTemplate = async (
 	}
 
 	const height = latestBlock.block.height + 1
-	const timestamp = generateTimestampz()
+
+	// Timestamp harus LEBIH BESAR dari median-time-past 11 blok sebelumnya
+	// (aturan konsensus `checkBlockTimestamp`) — kalau tidak, blok yang
+	// disusun node ini akan DITOLAK oleh commitBlock/verifyIntegrity saat
+	// kembali. Mining cepat di dev (beberapa blok per detik) membuat
+	// `Date.now()` bisa sama dengan atau lebih kecil dari tip; dalam kasus
+	// itu pakai `mtp + 1` sehingga setiap template tervalidasi MTP
+	// **oleh konstruksi**.
+	const now = generateTimestampz()
+	const previousTimestamps = await getPreviousTimestamps(height)
+	const mtp = medianTimePast(previousTimestamps)
+	const timestamp = now > mtp ? now : mtp + 1
 
 	// Hadiah blok + fee (fee dihitung dari transaksi pengguna; coinbase fee 0
 	// sehingga tidak perlu dihitung dua kali).
 	const blockReward = cutBlockReward(height)
-	const gasPrice = toNexu(0.00025)
+	const gasPrice = GAS_PRICE_NEXU
 	const totalTransactionFees = calculateTotalFees(transactions)
 	const totalReward = calculateTotalBlockReward(
 		blockReward,
