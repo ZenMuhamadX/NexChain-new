@@ -1,0 +1,41 @@
+{
+	"name": "nexchain-wallet",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"description": "NexChain Wallet — satu basis kode, banyak shell (dev/desktop).",
+	"main": "shells/desktop/electron/main.cjs",
+	"scripts": {
+		"dev": "vite --mode dev",
+		"build": "tsc --noEmit && vite build --mode dev",
+		"build:desktop": "tsc --noEmit && vite build --mode desktop",
+		"typecheck": "tsc --noEmit",
+		"preview": "vite preview",
+		"smoke": "bun scripts/sendFlowSmoke.ts",
+		"smoke:desktop": "electron scripts/desktopShellSmoke.cjs",
+		"smoke:portable": "node scripts/portableSmoke.cjs",
+		"smoke:packaged": "node scripts/packagedProbe.cjs",
+		"desktop": "bun run build:desktop && electron .",
+		"desktop:dev": "electron . --dev",
+		"desktop:pack": "bun run build:desktop && electron-builder --config electron-builder.config.cjs --dir",
+		"desktop:dist": "bun run build:desktop && electron-builder --config electron-builder.config.cjs",
+		"desktop:portable": "bun run build:desktop && electron-builder --config electron-builder.config.cjs --win portable",
+		"desktop:installer": "bun run build:desktop && electron-builder --config electron-builder.config.cjs --win nsis"
+	},
+	"dependencies": {
+		"buffer": "^6.0.3",
+		"qrcode": "^1.5.4",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.1",
+		"@types/qrcode": "^1.5.6",
+		"@types/react": "^19.0.0",
+		"@types/react-dom": "^19.0.0",
+		"electron": "44",
+		"electron-builder": "26",
+		"typescript": "^5.7.2",
+		"vite": "^6.0.5"
+	}
+}

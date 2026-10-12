@@ -1,8 +1,0 @@
-node_modules/
-dist/
-.env
-*.local
-.DS_Store
-
-# Keluaran harness verifikasi visual (dibuat ulang oleh `bun run preview:shots`)
-.preview-shots/
