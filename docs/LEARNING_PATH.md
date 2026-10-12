@@ -57,7 +57,9 @@ Baca dulu bentuk data sebelum logikanya.
 - `apps/miner/runMiner.ts` — library `runMiner` (bisa dipanggil dari skrip E2E).
 
 ## 10. Frontend (opsional)
-- `wallet-ui/` — dompet React (konsumsi `src/core` lewat alias).
+- `wallet/` — dompet React (konsumsi `src/core` lewat alias; satu sumber kode,
+  beberapa shell: `shells/dev` + `shells/desktop`).
+- `miner-ui/` — UI miner React (memanggil method miner lewat RPC).
 - `explorer/` — explorer blok (hanya impor tipe dari `src/types`).
 
 ## Tips

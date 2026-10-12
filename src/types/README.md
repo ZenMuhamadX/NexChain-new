@@ -13,5 +13,5 @@ Impor tipe dari sini; jangan menduplikasi definisi di modul lain.
 ## Hubungan
 
 Diimpor lintas `src/core`, `src/wallet`, `src/client`, dan frontend (`explorer`,
-`wallet-ui`). Mengubah tipe di sini berdampak ke banyak modul — selalu jalankan
-`bun run check` setelah mengubahnya.
+`miner-ui`, `wallet`). Mengubah tipe di sini berdampak ke banyak modul — selalu
+jalankan `bun run check` setelah mengubahnya.

@@ -10,9 +10,8 @@ build
 package-lock.json
 bun.lock
 !explorer/bun.lock
-!wallet-ui/bun.lock
+!wallet/bun.lock
 !miner-ui/bun.lock
-!wallet-ext/bun.lock
 
 # Data runtime — pola DI-JANGKAR ke root ("/nama"), supaya folder sumber yang
 # kebetulan bernama sama tidak ikut tersembunyi. Sebelumnya pola tanpa awal
@@ -21,7 +20,13 @@ bun.lock
 #                                    vaultCrypto, walletVault)
 #   config  -> explorer/src/config/env.ts (RPC_URL, diimpor 2 modul explorer)
 #   base    -> sumber bernama base/ di subfolder mana pun
-# Catatan: /wallet tetap mengabaikan wallet/main.json (berisi phrase).
+#
+# CATATAN PENTING — dua arti "wallet" di root:
+#   /wallet/main.json  = file mnemonic NODE (rahasia, harus diabaikan)
+#   wallet/            = package UI wallet (SUMBER, harus ter-track)
+# Karena itu `/wallet` TIDAK BISA dipakai lagi: ia akan menelan seluruh package
+# UI. Yang diabaikan sekarang hanya ISI dari store mnemonic node, dengan
+# mengecualikan (whitelist) package UI secara eksplisit.
 /base
 # Artefak LevelDB bisa muncul di bawah src/core/ bila node dijalankan dengan
 # cwd berbeda; jangan ikut ter-track.
@@ -30,7 +35,25 @@ src/core/base/
 /blocks
 /myWallet
 /MyBackup
-/wallet
+# Store mnemonic node: abaikan isinya, JANGAN package UI-nya.
+/wallet/*
+!/wallet/package.json
+!/wallet/bun.lock
+!/wallet/tsconfig.json
+!/wallet/vite.config.ts
+!/wallet/vite-env.d.ts
+!/wallet/.env.example
+!/wallet/electron-builder.config.cjs
+!/wallet/src/
+!/wallet/scripts/
+!/wallet/shells/
+!/wallet/README.md
+# Penyimpanan vault wallet desktop (Electron userData) bisa muncul di sini
+# saat seseorang menguji dengan data dir lokal; jangan ikut ter-track.
+wallet/shells/desktop/electron/*.local.json
+# Hasil kemas Electron (electron-builder) — ratusan MB, bisa dibuat ulang.
+wallet/release/
+wallet/release-*/
 /config
 /test.ts
 

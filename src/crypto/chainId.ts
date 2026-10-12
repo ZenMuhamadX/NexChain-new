@@ -12,7 +12,7 @@ const DEFAULT_CHAIN_ID = 26
 
 /**
  * Baca `NEX_CHAIN_ID` dari env Node/Bun (node RPC, CLI). `process` dijaga
- * typeof supaya bundler browser (wallet-ui) tetap aman — pola sama dengan
+ * typeof supaya bundler browser (paket `wallet/`) tetap aman — pola sama dengan
  * `client/rpc-client/lib/rpcClient.ts`. Di browser `process` tidak ada, jadi
  * kita jatuh ke default 26 (chain id devnet). Nilai ini harus sama di semua
  * komponen satu jaringan; untuk jaringan non-default, `NEX_CHAIN_ID` diset

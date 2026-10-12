@@ -47,9 +47,8 @@
 		"eslint.config.mjs",
 		"dist/**/*",
 		"explorer",
-		"wallet-ui",
+		"wallet",
 		"miner-ui",
-		"wallet-ext",
 		"testlvl.ts"
 	]
 }

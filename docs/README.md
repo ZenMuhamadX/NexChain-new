@@ -15,10 +15,14 @@ arsitektur *"inti terpisah + miner independen + frontend terpisah"*:
   domain tinggal di sini.
 - **App (`apps/`)** — titik jalan (*entry point*): `apps/node` (server RPC)
   dan `apps/miner` (miner eksternal mandiri).
-- **Frontend (`explorer/`, `wallet-ui/`)** — paket Vite/React independen yang
-  mengonsumsi modul inti lewat *alias* (tidak menduplikasi logika kripto/transaksi).
-- **`wallet-ext/`** — ekstensi browser. Menggunakan *vendor snapshot* dari inti
-  (dikelola terpisah, lihat catatan di bawah).
+- **Frontend (`explorer/`, `miner-ui/`, `wallet/`)** — paket Vite/React
+  independen yang mengonsumsi modul inti lewat *alias* (tidak menduplikasi
+  logika kripto/transaksi).
+- **`wallet/`** — dompet, **khusus desktop**. Satu direktori berisi satu
+  sumber kode (`src/`) dan beberapa *shell* (`shells/dev`, `shells/desktop`)
+  yang menyuntikkan backend penyimpanan, URL RPC, dan kelas perangkat. Lihat
+  [`wallet/README.md`](../wallet/README.md) dan bagian `wallet/` di
+  `AGENTS.md`. Ekstensi browser sudah dipensiunkan (`wallet-ext/` dihapus).
 
 > **Tidak ada jaringan P2P.** Antarmuka jaringan yang diimplementasikan adalah
 > HTTP JSON-RPC plus miner eksternal. Node tidak pernah menghitung PoW sendiri.
@@ -76,13 +80,25 @@ import { runMiner } from 'apps/miner/runMiner'
 ```
 
 Ini diselesaikan lewat `paths` di `tsconfig.json` root (`"*": ["./*"]`) dan
-melalui `ROOT_MODULES` di `wallet-ui/vite.config.ts`. Bila menambah modul baru
+melalui `ROOT_MODULES` di `wallet/vite.config.ts`. Bila menambah modul baru
 di bawah `src/`, langsung bisa diimpor secara bare — tidak perlu mengubah path.
 
-## Catatan `wallet-ext/`
+## Catatan `wallet/` — satu sumber, beberapa shell
 
-`wallet-ext/` tidak ikut direstrukturisasi karena memakai mekanisme *vendor
-snapshot*: ia menyalin subset kode inti ke `wallet-ext/src/vendor/` lewat
-`wallet-ext/scripts/snapshotVendor.ts`. Jangan ubah impor inti dari dalam
-`wallet-ext/` secara manual; perbarui *entry point* snapshot tersebut bila
-struktur inti berubah.
+`wallet/` hanya punya **satu** salinan kode (`src/`), dan setiap *shell* di
+`shells/` menyuntikkan tiga hal sebelum render:
+
+| Titik suntik | Berkas | Shell dev | Shell desktop |
+| ------------ | ------ | --------- | ------------- |
+| Backend vault | `src/lib/vaultStore.ts` | `VITE_VAULT_BACKEND=memory` | `installVaultKV()` backend berkas |
+| URL RPC | `src/lib/rpcUrl.ts` | ikut hostname / `localStorage` | `initRpcUrl()` dari bridge |
+| Kelas perangkat | `src/lib/deviceCrypto.ts` | heuristik navigator | `installDeviceClass('desktop')` |
+
+**Jangan** membuat *vendor snapshot*: `wallet/` dibangun di dalam repo ini,
+jadi ia mengalias `src/` root secara langsung. Snapshot (pola `wallet-ext/`
+yang sudah dihapus) berarti ada salinan kripto basi yang bisa menyimpang dari
+inti — justru itu yang ingin dihindari.
+
+> **Peringatan tabrakan nama:** `src/wallet/` (modul inti) dan `wallet/`
+> (paket UI, di root) adalah dua hal berbeda. Bereaksi terhadap keduanya
+> secara berbeda saat menelusuri kode.
