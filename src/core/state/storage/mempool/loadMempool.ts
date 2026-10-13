@@ -1,23 +1,25 @@
 ﻿import { TxInterface } from 'src/types/transaction'
 import { rocksMempool } from 'src/core/state/db/memPool'
+import { TX_KEY_RANGES } from './mempoolIndex'
 
 /**
- * Range key khusus transaksi di mempool:
+ * Baca entri mempool untuk PENYUSUNAN BLOK & TAMPILAN — dengan batas 100
+ * entri per rentang.
  *
- * - "0x"   .. "0y"   : format yang ditulis saveMempool/removeMempool
- *                      (`0x${txHash}`, dan txHash selalu diawali "TxC").
- * - "Tx-"  .. "Tx."  : format lama ("Tx-0x..."), dipertahankan agar data
- *                      lama yang belum terbaca tetap terambil.
+ * ## `limit: 100` HANYA heuristika inkusi/tampilan — bukan akuntansi
  *
- * Catatan perbaikan: range sebelumnya ("Tx-0x".."Tx-0y") TIDAK PERNAH cocok
- * dengan key yang ditulis saveMempool, sehingga mempool selalu terbaca kosong
- * dan transaksi tidak pernah masuk blok.
+ * Potongan 100 ini membatasi berapa tx yang ikut satu template blok
+ * (`work.ts` via `getValidTransactions`) dan berapa yang ditampilkan
+ * `nex_getMempool`. Transaksi yang terpotong TIDAK hilang: masih tersimpan
+ * penuh di mempool dan ikut blok berikutnya.
+ *
+ * ⚠️ JANGAN PERNAH memakai hasil fungsi ini untuk menghitung jumlah tx
+ * pending SESEORANG (ekspektasi nonce, `nex_getNextNonce`, reserve
+ * `pendingAmount`): potongan bersifat GLOBAL (urut key, bukan per-pengirim)
+ * sehingga hitungan bisa salah saat mempool ramai — silakan lihat cacat
+ * besarnya di catatan modul `mempoolIndex.ts`. Untuk akuntansi per-pengirim
+ * gunakan `countPendingBySender`.
  */
-const TX_KEY_RANGES = [
-	{ gte: '0x', lt: '0y' },
-	{ gte: 'Tx-', lt: 'Tx.' },
-]
-
 export const loadMempool = async (): Promise<TxInterface[]> => {
 	const transactions: TxInterface[] = []
 	const seen = new Set<string>()
@@ -28,7 +30,7 @@ export const loadMempool = async (): Promise<TxInterface[]> => {
 			lt: range.lt,
 			values: true,
 			keys: false,
-			limit: 100, // Membatasi jumlah item menjadi 100
+			limit: 100, // Batas inkusi template & tampilan — bukan akuntansi
 		})) {
 			const data = JSON.parse(value.toString()) as TxInterface
 			// hindari duplikat bila txHash sama

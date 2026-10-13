@@ -15,6 +15,7 @@ import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
 import { getPendingBalance } from 'src/core/transaction/getPendingBalance'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
+import { countPendingBySender } from 'src/core/state/storage/mempool/mempoolIndex'
 import { blockSummary } from 'src/types/block'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import { getWork, submitWork } from 'src/core/consensus/work'
@@ -191,13 +192,16 @@ rpc.addMethod('nex_getNonceAccount', async (address: string) => {
  *
  * Dihitung di server supaya wallet tidak perlu mengunduh seluruh mempool
  * hanya untuk menghitung transaksinya sendiri.
+ *
+ * P1: `pendingCount` diambil dari indeks per-pengirim (`countPendingBySender`),
+ * BUKAN `loadMempool().filter(...)` yang terpotong 100 entri global — kalau
+ * mempool ramai, angka palsu kecil membuat wallet mengulang nonce yang sama
+ * dan transaksinya ditolak (atau, pada validator, lolos ganda). Nilai kini
+ * identik dengan hasil `validateTransactionNonce`.
  */
 rpc.addMethod('nex_getNextNonce', async (address: string) => {
 	const account = await getAccount(address)
-	const mempool = await loadMempool().catch(() => [])
-	const pendingCount = Array.isArray(mempool)
-		? mempool.filter((tx: TxInterface) => tx.from === address).length
-		: 0
+	const pendingCount = await countPendingBySender(address)
 	return stringToHex(JSON.stringify((account?.nonce ?? 0) + pendingCount))
 })
 

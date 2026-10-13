@@ -92,7 +92,7 @@ export const processTransact = async (
 		// (crash/sisa race di antara `saveTxHistory` dan `removeMemPool`)
 		// tidak dijalankan dua kali — cukup dibersihkan dari mempool.
 		if (tx.txHash && (await isTxExecuted(tx.txHash))) {
-			removeMemPool(tx.txHash)
+			await removeMemPool(tx.txHash)
 			continue
 		}
 
@@ -101,7 +101,9 @@ export const processTransact = async (
 			await processReceiver(tx.receiver, tx.amount)
 			await saveTxByAddress(tx.from!, tx.receiver, tx.txHash!)
 			await saveTxHistory(tx.txHash!, withBlockMetadata(tx, block))
-			removeMemPool(tx.txHash!)
+			// Ditunggu: penghapusan kini menyertakan indeks per-pengirim
+			// (satu batch atomik) — lihat `removeMemPool`.
+			await removeMemPool(tx.txHash!)
 		} catch (error) {
 			loggingErr({
 				message: error instanceof Error ? error.message : 'Unknown error',
