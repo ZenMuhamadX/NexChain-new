@@ -30,7 +30,7 @@ import { CHAIN_ID } from 'src/crypto/chainId'
  * (= `prepareBlockForHashing(template)`), miner mencari nonce, node
  * memverifikasi ulang dan menyelesaikan blok.
  *
- * Difficulty memakai retarget adaptif target 30 detik (lihat
+ * Difficulty memakai retarget adaptif target 60 detik (lihat
  * `nexchain/miner/difficulty`) — mengganti `difficulty: 5` hardcode lama.
  */
 export const createBlockTemplate = async (
@@ -113,7 +113,8 @@ export const createBlockTemplate = async (
  *
  * Mengapa jarak grandparent→tip (lama) menyebabkan bug: nilai itu hanya
  * mencerminkan interval DUA blok LAMAU. Saat rantai idle (job terus
- * kadaluarsa, blok tak pernah diselesaikan) angkanya tetap ~target 30 detik,
+ * kadaluarsa, blok tak pernah diselesaikan) angkanya tetap ~target (30 detik
+ * kala itu),
  * sehingga difficulty mandek (mis. 27.5) dan tidak pernah turun — persis
  * gejala "expiry berturut-turut tanpa penurunan". `now - tip.timestamp`
  * mengukur umur tip: idle time ikut terhitung → actualMs tumbuh → difficulty
@@ -121,9 +122,9 @@ export const createBlockTemplate = async (
  *
  * - Tip genesis (`height <= 0`): jarak waktu belum terdefinisi → pertahankan
  *   difficulty tip (dibatasi [MIN, MAX]) — perilaku lama dipertahankan;
- * - selain itu `retargetByTime` menghitung koreksi log2 terhadap target 30
- *   detik, dibatasi asimetris (naik maks +2, turun maks -4), dikunci
- *   [MIN, MAX] dan dikuantisasi 0.25 bit.
+ * - selain itu `retargetByTime` menghitung koreksi log2 terhadap
+ *   `TARGET_BLOCK_TIME_MS` (kini 60 detik), dibatasi asimetris (naik maks +2,
+ *   turun maks -4), dikunci [MIN, MAX] dan dikuantisasi 0.25 bit.
  *
  * Catatan: `retargetByTime` dibatasi turun maks -4 PER PEMANGGILAN dari
  * `tip.difficulty`. Selama tip tidak bergerak (blok tak ter-commit) penurunan

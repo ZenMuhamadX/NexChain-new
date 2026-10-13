@@ -261,7 +261,7 @@ rpc.addMethod('nex_sendRawTransaction', async (data: string) => {
 // konsumen, dan keberadaannya menyiratkan node memegang kunci.
 
 // Mining (job eksternal) — node menyusun template + difficulty adaptif
-// target 30 detik; miner eksternal yang menghitung PoW lewat HTTP sehingga
+// target 60 detik; miner eksternal yang menghitung PoW lewat HTTP sehingga
 // RPC tetap hidup selama mining. Lihat nexchain/miner/work.ts.
 // Params getWork: {minerAddress} | [minerAddress] | minerAddress | kosong
 //   → {status, jobId, payload, difficulty, height, previousBlockHash, ...}

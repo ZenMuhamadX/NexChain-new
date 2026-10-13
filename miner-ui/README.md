@@ -49,7 +49,7 @@ node. Karena node memverifikasi ulang, miner tidak dapat memanipulasi rantai.
 ## Item kunci
 
 - **Hashrate browser** jauh di bawah miner native. Difficulty node adaptif
-  (target 30 detik), jadi miner browser yang berjalan **sendirian** akan
+  (target 60 detik), jadi miner browser yang berjalan **sendirian** akan
   menyeimbangkan difficulty ke levelnya sendiri. Bila ada miner cepat lain di
   jaringan yang sama, blok akan sering kalah cepat — `nex_submitWork` menjawab
   "Stale job" dan UI otomatis mengambil job baru (bukan error fatal).

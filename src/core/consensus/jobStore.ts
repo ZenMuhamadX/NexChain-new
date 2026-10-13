@@ -13,7 +13,7 @@ import { logToConsole } from 'src/logging/logging'
  * SAMA yang dikirimkannya (lihat `nexchain/miner/work.ts`).
  */
 
-/** Umur job:5 menit — jauh di atas target 30 detik, cukup untuk miner lambat. */
+/** Umur job:5 menit — jauh di atas target 60 detik, cukup untuk miner lambat. */
 export const JOB_TTL_MS = 5 * 60 * 1000
 
 /** Batas job hidup bersamaan (mencegah memori bocor bila miner banyak submit job tapi jarang menyelesaikan). */
