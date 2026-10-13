@@ -111,7 +111,16 @@ export const projectTotalIssued = async (block: Block): Promise<number> => {
 	return prev.totalIssued + issuanceOf(block)
 }
 
-export const setBlockState = async (block: Block) => {
+/**
+ * Siapkan objek `blockState` untuk blok ini — guard plafon suplai + proyeksi
+ * `totalIssued` — **tanpa menulis apa pun** (gagal-dulu).
+ *
+ * Dipisah dari tulisan supaya jalur commit (`saveBlock`) bisa menjalankan
+ * SEMUA guard lebih dulu, baru menulis blok secara atomik. Selama guard
+ * melempar, tidak satu byte pun masuk DB — bukan "setengah blok" seperti
+ * bila guard berada setelah put pertama.
+ */
+export const prepareBlockState = async (block: Block): Promise<blockState> => {
 	// ---- Guard plafon suplai (gagal-dulu) -------------------------------
 	// Dilempar, bukan dicatat: `saveBlock` mengubah throw menjadi `false`,
 	// `saveBlockToChain` mengangkatnya jadi error, dan `commitBlock`
@@ -122,7 +131,10 @@ export const setBlockState = async (block: Block) => {
 	// menolaknya tidak boleh membutuhkan I/O: selain tidak perlu membuka
 	// kunci penyimpanan, ini membuat titik penegakan ketiga ini bisa
 	// diuji langsung oleh `check:cap` tanpa menyentuh DB.
-	assertNexuCapped(block.block.blockReward, `setBlockState.blockReward@${block.block.height}`)
+	assertNexuCapped(
+		block.block.blockReward,
+		`setBlockState.blockReward@${block.block.height}`,
+	)
 
 	const totalIssued = await projectTotalIssued(block)
 	if (totalIssued > MAX_SUPPLY_NEXU) {
@@ -135,9 +147,12 @@ export const setBlockState = async (block: Block) => {
 	}
 	// Kedua nilai harus bilangan bulat aman dan ≤ plafon — kalau tidak,
 	// aritmetika `number` di titik ini sudah mulai membulatkan diam-diam.
-	assertNexuCapped(totalIssued, `setBlockState.totalIssued@${block.block.height}`)
+	assertNexuCapped(
+		totalIssued,
+		`setBlockState.totalIssued@${block.block.height}`,
+	)
 
-	const blockState: blockState = {
+	return {
 		currentBlockSize: block.block.size,
 		prevBlockHash: block.block.header.previousBlockHash,
 		currentBlockHash: block.block.header.hash,
@@ -147,6 +162,19 @@ export const setBlockState = async (block: Block) => {
 		blockReward: block.block.blockReward,
 		totalIssued,
 	}
+}
+
+/**
+ * Tulis `blockState` tunggal ke DB state (satu `put`, sync).
+ *
+ * Catatan jalur commit: `saveBlock` TIDAK memakai fungsi ini secara langsung
+ * — ia memakai `prepareBlockState` lalu menggabungkan tulisan state ke dalam
+ * SATU `batch` atomik bersama indeks `blockHeight:` (lihat `saveBlock`).
+ * Fungsi ini dipertahankan sebagai jalur tulis satu-tujuan (dipakai gate
+ * `check:cap` untuk menguji guard tanpa menyentuh batch).
+ */
+export const setBlockState = async (block: Block) => {
+	const blockState = await prepareBlockState(block)
 	const parseState = stringToHex(JSON.stringify(blockState))
 	await rocksState.put(`blockState`, parseState, {
 		sync: true,

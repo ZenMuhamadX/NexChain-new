@@ -17,6 +17,7 @@
 		"check:consensus": "bun run scripts/consensusRulesCheck.ts",
 		"check:rpc": "bun run scripts/rpcSecurityCheck.ts",
 		"check:txpolicy": "bun run scripts/txPolicyCheck.ts",
+		"check:storage": "bun run scripts/storageCheck.ts",
 		"check:pow": "bun run scripts/powParityCheck.ts",
 		"check:data": "bun run scripts/dataDirCheck.ts",
 		"pow:bench": "bun run scripts/powBench.ts",
