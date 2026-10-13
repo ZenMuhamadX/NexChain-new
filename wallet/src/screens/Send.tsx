@@ -2,12 +2,13 @@ import { useState } from 'react'
 import {
 	validateSendForm,
 	sendForm,
+	previewAutoFee,
 	hasSendErrors,
-	DEFAULT_FEE_NEXU,
 } from '../lib/sendFlow'
 import type { SendErrors, SendForm } from '../lib/sendFlow'
 import { errorMessage } from '../lib/format'
 import { explorerTxUrl } from '../lib/explorerUrl'
+import { fetchNextNonce } from '../lib/rpc'
 import { Icon } from '../ui/Icon'
 import { AmountDisplay } from '../ui/AmountDisplay'
 import { CopyButton } from '../ui/CopyButton'
@@ -35,13 +36,16 @@ export const Send = ({
 	const [form, setForm] = useState<SendForm>({
 		receiver: '',
 		amountNxc: '',
-		feeNexu: String(DEFAULT_FEE_NEXU),
 	})
 	const [message, setMessage] = useState('')
 	const [errors, setErrors] = useState<SendErrors>({})
 	const [touched, setTouched] = useState(false)
 	const [busy, setBusy] = useState(false)
+	/** true saat nonce + ukuran wire sedang diambil sebelum dialog tinjau. */
+	const [previewing, setPreviewing] = useState(false)
 	const [reviewOpen, setReviewOpen] = useState(false)
+	/** Fee hasil `previewAutoFee` — angka yang persis akan ditandatangani. */
+	const [feeNexu, setFeeNexu] = useState<number | null>(null)
 	const [result, setResult] = useState<SendResult | null>(null)
 	const update = (patch: Partial<SendForm>): void => {
 		const next = { ...form, ...patch }
@@ -49,13 +53,46 @@ export const Send = ({
 		if (touched) setErrors(validateSendForm(next, sender))
 	}
 
-	const requestReview = (event?: React.FormEvent): void => {
+	const closeReview = (): void => {
+		setReviewOpen(false)
+		setFeeNexu(null)
+	}
+
+	const requestReview = async (event?: React.FormEvent): Promise<void> => {
 		event?.preventDefault()
+		if (busy || previewing) return
 		setTouched(true)
 		const found = validateSendForm(form, sender)
 		setErrors(found)
 		if (hasSendErrors(found)) return
-		setReviewOpen(true)
+
+		// Tidak ada lagi input fee: biaya = floor dari ukuran wire transaksi,
+		// jadi angkanya hanya diketahui setelah transaksi punya nonce dan ukuran.
+		// Pratinjau dijalankan sebelum dialog dibuka supaya user melihat biaya
+		// PERSIS yang akan ia tandatangani, bukan perkiraan.
+		setPreviewing(true)
+		try {
+			const nonce = await fetchNextNonce(sender)
+			const preview = previewAutoFee(
+				{ ...form, message },
+				sender,
+				privateKey,
+				nonce,
+			)
+			if (!preview.ok || preview.fee === undefined) {
+				setResult({
+					ok: false,
+					text: preview.error ?? 'Gagal menghitung biaya jaringan.',
+				})
+				return
+			}
+			setFeeNexu(preview.fee)
+			setReviewOpen(true)
+		} catch (error) {
+			setResult({ ok: false, text: errorMessage(error) })
+		} finally {
+			setPreviewing(false)
+		}
 	}
 
 	const confirmSend = async (): Promise<void> => {
@@ -63,19 +100,26 @@ export const Send = ({
 		try {
 			const outcome = await sendForm({ ...form, message }, sender, privateKey)
 			if (outcome.ok) {
-				setResult({ ok: true, text: 'Transaction accepted by the network.', txHash: outcome.txHash })
-				setForm({ receiver: '', amountNxc: '', feeNexu: String(DEFAULT_FEE_NEXU) })
+				setResult({
+					ok: true,
+					text: 'Transaksi diterima jaringan. Saldo akan diperbarui setelah transaksi masuk blok.',
+					txHash: outcome.txHash,
+				})
+				setForm({ receiver: '', amountNxc: '' })
 				setMessage('')
 				setTouched(false)
 				setErrors({})
-				setReviewOpen(false)
+				closeReview()
 				onSent()
 			} else {
-				setReviewOpen(false)
-				setResult({ ok: false, text: outcome.error ?? 'Transaction was rejected.' })
+				closeReview()
+				setResult({
+					ok: false,
+					text: outcome.error ?? 'Transaksi ditolak jaringan.',
+				})
 			}
 		} catch (error) {
-			setReviewOpen(false)
+			closeReview()
 			setResult({ ok: false, text: errorMessage(error) })
 		} finally {
 			setBusy(false)
@@ -90,23 +134,47 @@ export const Send = ({
 				<div>
 					<p className="eyebrow">TRANSFER</p>
 					<h1>Kirim NXC</h1>
-					<p>Periksa semua detail sebelum menandatangani dan mengirim transaksi.</p>
+					<p>
+						Periksa semua detail sebelum menandatangani dan mengirim transaksi.
+					</p>
 				</div>
-				<div className="balance-chip"><span>Tersedia</span><strong><AmountDisplay nexu={balance} size="table" detailLabel="⋯" ariaLabel="Lihat detail saldo tersedia" /></strong></div>
+				<div className="balance-chip">
+					<span>Tersedia</span>
+					<strong>
+						<AmountDisplay
+							nexu={balance}
+							size="table"
+							detailLabel="⋯"
+							ariaLabel="Lihat detail saldo tersedia"
+						/>
+					</strong>
+				</div>
 			</div>
 
 			{result ? (
 				<Notice variant={result.ok ? 'ok' : 'error'}>
 					<div className="result-copy">
-						<strong>{result.ok ? 'Transaksi dikirim' : 'Transaksi gagal'}</strong>
+						<strong>
+							{result.ok ? 'Transaksi dikirim' : 'Transaksi gagal'}
+						</strong>
 						<span>{result.text}</span>
 						{result.txHash ? (
 							<div className="result-hash">
 								<code>{result.txHash}</code>
-								<CopyButton text={result.txHash} ariaLabel="Salin tx hash" variant="plain" />
+								<CopyButton
+									text={result.txHash}
+									ariaLabel="Salin tx hash"
+									variant="plain"
+								/>
 								{trackUrl ? (
-									<a className="text-button" href={trackUrl} target="_blank" rel="noopener noreferrer">
-										Lacak di Explorer <Icon name="arrowUpRight" size={13} aria-hidden="true" />
+									<a
+										className="text-button"
+										href={trackUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+									>
+										Lacak di Explorer{' '}
+										<Icon name="arrowUpRight" size={13} aria-hidden="true" />
 									</a>
 								) : null}
 							</div>
@@ -116,16 +184,36 @@ export const Send = ({
 			) : null}
 
 			<div className="send-layout">
-				<form className="card form-card" onSubmit={requestReview}>
+				<form
+					className="card form-card"
+					onSubmit={(event) => void requestReview(event)}
+				>
 					<div className="form-section">
 						<div className="form-section__heading">
 							<span className="step-number">01</span>
-							<div><h2>Penerima</h2><p>Masukkan alamat NexChain yang valid.</p></div>
+							<div>
+								<h2>Penerima</h2>
+								<p>Masukkan alamat NexChain yang valid.</p>
+							</div>
 						</div>
 						<div className="field">
-							<label className="label" htmlFor="receiver">Alamat penerima</label>
-							<input id="receiver" className="input mono" placeholder="NxC…" value={form.receiver} onChange={(event) => update({ receiver: event.target.value })} />
-							{touched && errors.receiver ? <p className="input-error">{errors.receiver}</p> : <p className="input-hint">Alamat diawali NxC atau NxS dan terdiri dari 43 karakter.</p>}
+							<label className="label" htmlFor="receiver">
+								Alamat penerima
+							</label>
+							<input
+								id="receiver"
+								className="input mono"
+								placeholder="NxC…"
+								value={form.receiver}
+								onChange={(event) => update({ receiver: event.target.value })}
+							/>
+							{touched && errors.receiver ? (
+								<p className="input-error">{errors.receiver}</p>
+							) : (
+								<p className="input-hint">
+									Alamat diawali NxC atau NxS dan terdiri dari 43 karakter.
+								</p>
+							)}
 						</div>
 					</div>
 
@@ -133,19 +221,39 @@ export const Send = ({
 					<div className="form-section">
 						<div className="form-section__heading">
 							<span className="step-number">02</span>
-							<div><h2>Jumlah</h2><p>Pilih jumlah dan biaya jaringan.</p></div>
+							<div>
+								<h2>Jumlah</h2>
+								<p>
+									Tentukan jumlah yang dikirim — biaya jaringan dihitung
+									otomatis.
+								</p>
+							</div>
 						</div>
-						<div className="form-grid form-grid--two">
-							<div className="field">
-								<label className="label" htmlFor="amount">Jumlah (NXC)</label>
-								<input id="amount" className="input" inputMode="decimal" placeholder="0.0" value={form.amountNxc} onChange={(event) => update({ amountNxc: event.target.value })} />
-								{touched && errors.amount ? <p className="input-error">{errors.amount}</p> : <p className="input-hint">Mendukung hingga 8 desimal.</p>}
-							</div>
-							<div className="field">
-								<label className="label" htmlFor="fee">Biaya jaringan (nexu)</label>
-								<input id="fee" className="input mono" inputMode="numeric" value={form.feeNexu} onChange={(event) => update({ feeNexu: event.target.value })} />
-								{touched && errors.fee ? <p className="input-error">{errors.fee}</p> : <p className="input-hint">Sekitar <AmountDisplay nexu={Number(form.feeNexu)} size="inline" detailLabel="Rincian" ariaLabel="Lihat detail biaya jaringan" />.</p>}
-							</div>
+						<div className="field">
+							<label className="label" htmlFor="amount">
+								Jumlah (NXC)
+							</label>
+							<input
+								id="amount"
+								className="input"
+								inputMode="decimal"
+								placeholder="0.0"
+								value={form.amountNxc}
+								onChange={(event) => update({ amountNxc: event.target.value })}
+							/>
+							{touched && errors.amount ? (
+								<p className="input-error">{errors.amount}</p>
+							) : null}
+							{touched && errors.fee ? (
+								<p className="input-error">{errors.fee}</p>
+							) : null}
+							{!touched || (!errors.amount && !errors.fee) ? (
+								<p className="input-hint">
+									Mendukung hingga 8 desimal. Biaya jaringan dihitung otomatis
+									dari ukuran transaksi (≈1 nexu per byte) dan dibayar ke
+									penambang.
+								</p>
+							) : null}
 						</div>
 					</div>
 
@@ -153,18 +261,42 @@ export const Send = ({
 					<div className="form-section">
 						<div className="form-section__heading">
 							<span className="step-number">03</span>
-							<div><h2>Catatan Publik (Opsional)</h2><p>Tambahkan pesan publik singkat ke transaksi.</p></div>
+							<div>
+								<h2>Catatan Publik (Opsional)</h2>
+								<p>Tambahkan pesan publik singkat ke transaksi.</p>
+							</div>
 						</div>
 						<div className="field">
-							<label className="label" htmlFor="message">Pesan</label>
-							<input id="message" className="input" maxLength={100} placeholder="Contoh: Pembayaran invoice…" value={message} onChange={(event) => setMessage(event.target.value)} />
+							<label className="label" htmlFor="message">
+								Pesan
+							</label>
+							<input
+								id="message"
+								className="input"
+								maxLength={100}
+								placeholder="Contoh: Pembayaran invoice…"
+								value={message}
+								onChange={(event) => setMessage(event.target.value)}
+							/>
 						</div>
 					</div>
 
 					<div className="form-actions">
-						<button type="button" className="button button--ghost" onClick={() => setTab('ringkasan')} disabled={busy}>Batal</button>
-						<button type="submit" className="button button--primary" disabled={busy}>
-							Tinjau transaksi <Icon name="arrowUpRight" size={15} aria-hidden="true" />
+						<button
+							type="button"
+							className="button button--ghost"
+							onClick={() => setTab('ringkasan')}
+							disabled={busy || previewing}
+						>
+							Batal
+						</button>
+						<button
+							type="submit"
+							className="button button--primary"
+							disabled={busy || previewing}
+						>
+							{previewing ? 'Menghitung biaya…' : 'Tinjau transaksi'}{' '}
+							<Icon name="arrowUpRight" size={15} aria-hidden="true" />
 						</button>
 					</div>
 				</form>
@@ -173,29 +305,85 @@ export const Send = ({
 					<p className="eyebrow">RINGKASAN TRANSFER</p>
 					<h2>Sebelum mengirim</h2>
 					<div className="summary-list">
-						<div><span>Saldo tersedia</span><strong><AmountDisplay nexu={balance} size="table" detailLabel="⋯" ariaLabel="Lihat detail saldo tersedia" /></strong></div>
-						<div><span>Jaringan</span><strong>NexChain</strong></div>
-						<div><span>Penandatanganan</span><strong>Perangkat lokal</strong></div>
+						<div>
+							<span>Saldo tersedia</span>
+							<strong>
+								<AmountDisplay
+									nexu={balance}
+									size="table"
+									detailLabel="⋯"
+									ariaLabel="Lihat detail saldo tersedia"
+								/>
+							</strong>
+						</div>
+						<div>
+							<span>Biaya jaringan</span>
+							<strong>Dihitung otomatis dari ukuran transaksi</strong>
+						</div>
+						<div>
+							<span>Jaringan</span>
+							<strong>NexChain</strong>
+						</div>
+						<div>
+							<span>Penandatanganan</span>
+							<strong>Perangkat lokal</strong>
+						</div>
 					</div>
-					<div className="safety-note"><Icon name="lock" size={15} aria-hidden="true" /><span>Private key digunakan secara lokal dan tidak pernah dikirim ke node RPC.</span></div>
+					<div className="safety-note">
+						<Icon name="lock" size={15} aria-hidden="true" />
+						<span>
+							Private key digunakan secara lokal dan tidak pernah dikirim ke
+							node RPC.
+						</span>
+					</div>
 				</aside>
 			</div>
 
 			<Modal
 				open={reviewOpen}
-				onClose={() => !busy && setReviewOpen(false)}
+				onClose={() => {
+					if (!busy) closeReview()
+				}}
 				title="Tinjau transaksi"
 				confirmLabel="Tandatangani & kirim"
 				confirmLoading={busy}
 				onConfirm={() => void confirmSend()}
 			>
 				<div className="review-list">
-					<div><span>Penerima</span><strong className="mono">{form.receiver}</strong></div>
-					<div><span>Jumlah</span><strong>{form.amountNxc} NXC</strong></div>
-					<div><span>Biaya jaringan</span><strong><AmountDisplay nexu={Number(form.feeNexu)} size="inline" detailLabel="Rincian" ariaLabel="Lihat detail biaya jaringan" /></strong></div>
-					{message.trim() ? <div><span>Pesan</span><strong>{message}</strong></div> : null}
+					<div>
+						<span>Penerima</span>
+						<strong className="mono">{form.receiver}</strong>
+					</div>
+					<div>
+						<span>Jumlah</span>
+						<strong>{form.amountNxc} NXC</strong>
+					</div>
+					<div>
+						<span>Biaya jaringan</span>
+						<strong>
+							{feeNexu === null ? (
+								'Dihitung otomatis'
+							) : (
+								<AmountDisplay
+									nexu={feeNexu}
+									size="inline"
+									detailLabel="Rincian"
+									ariaLabel="Lihat detail biaya jaringan"
+								/>
+							)}
+						</strong>
+					</div>
+					{message.trim() ? (
+						<div>
+							<span>Pesan</span>
+							<strong>{message}</strong>
+						</div>
+					) : null}
 				</div>
-				<Notice variant="warn">Transaksi tidak dapat dibatalkan setelah ditandatangani. Periksa alamat dan jumlah dengan teliti.</Notice>
+				<Notice variant="warn">
+					Transaksi tidak dapat dibatalkan setelah ditandatangani. Periksa
+					alamat dan jumlah dengan teliti.
+				</Notice>
 			</Modal>
 		</div>
 	)
