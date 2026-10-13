@@ -7,7 +7,9 @@
  *      berjalan di atas `buffer` npm (implementasi yang ikut ke bundle),
  *      sehingga crash `Buffer.from` ala bip39 di browser pasti terdeteksi.
  *   2. Vault Phase C penuh: create → lock → unlock (salah passphrase gagal).
- *   3. Alur kirim murni: validate → createUnsigned → sign → encodeTx.
+ *   3. Alur kirim murni dengan fee OTOMATIS: validate → build (fixed point
+ *      fee === ukuran wire) → sign → encodeTx, termasuk pratinjau fee,
+ *      lantai biaya minimum, dan skenario jumlah < biaya.
  *   4. Interop bip39 (akar bug runtime browser): module.exports bip39 menandai
  *      __esModule TANPA properti default, sehingga default-import pada jalur
  *      Vite menghasilkan undefined dan crash di SetupWallet. Guard memaksa
@@ -28,10 +30,14 @@ import { createMemoryKV } from 'src/client/wallet/kv'
 import { createWalletVault } from 'src/client/wallet/walletVault'
 import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
 import { validateMnemonic } from 'src/crypto/validateMnemonic'
-import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransaction'
-import { signTransaction } from 'src/crypto/signTransaction'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
-import { validateSendForm } from '../src/lib/sendFlow'
+import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
+import {
+	buildSignedTransaction,
+	previewAutoFee,
+	validateSendForm,
+	MIN_WIRE_FEE_NEXU,
+} from '../src/lib/sendFlow'
 import type { SendForm } from '../src/lib/sendFlow'
 
 let passed = 0
@@ -46,6 +52,9 @@ const ok = (condition: boolean, label: string): void => {
 		console.log(`FAIL ${label}`)
 	}
 }
+
+/** nexu → string NXC eksak 8 desimal (1 NXC = 10^8 nexu). */
+const nxcOf = (nexu: number): string => (nexu / 1e8).toFixed(8)
 
 const main = async (): Promise<void> => {
 	// --- 1. paksa Buffer npm (bukti jalur browser) ---
@@ -97,49 +106,90 @@ const main = async (): Promise<void> => {
 			'vault: unlock mengembalikan alamat sama',
 		)
 
-		// --- 3. alur kirim murni (tanpa I/O) ---
+		// --- 3. alur kirim murni (tanpa I/O) dengan fee otomatis ---
 		const receiver = 'NxC' + '0'.repeat(39) + '1'
 		const form: SendForm = {
 			receiver,
 			amountNxc: '1.5',
-			feeNexu: '5000',
 		}
 		const errors = validateSendForm(form, info.address)
 		ok(
 			Object.keys(errors).length === 0,
-			'sendFlow: form valid lolos validasi (mirror server)',
+			'sendFlow: form valid (TANPA input fee) lolos validasi',
 		)
 
-		const bad = validateSendForm(
-			{ ...form, feeNexu: '999999999999999999999999' },
+		// Alamat & aturan pengirim=penerima masih dijaga.
+		const badAddr = validateSendForm(
+			{ ...form, receiver: 'NxCabc' },
 			info.address,
 		)
-		ok(bad.fee !== undefined, 'sendFlow: fee > jumlah ditolak (aturan server)')
+		ok(badAddr.receiver !== undefined, 'sendFlow: alamat pendek ditolak')
+		const sameParty = validateSendForm(
+			{ ...form, receiver: info.address },
+			info.address,
+		)
+		ok(
+			sameParty.receiver !== undefined,
+			'sendFlow: pengirim = penerima ditolak',
+		)
 
-		const unsigned = createUnsignedTransaction(
-			{
-				receiver: form.receiver,
-				format: 'NXC',
-				sender: info.address,
-				amount: Number(form.amountNxc),
-				fee: Number(form.feeNexu),
-			},
+		// Aturan jumlah masih dijaga (parse string eksak, bukan Number()).
+		ok(
+			validateSendForm({ ...form, amountNxc: '0' }, info.address).amount !==
+				undefined,
+			'sendFlow: jumlah 0 ditolak',
+		)
+		ok(
+			validateSendForm({ ...form, amountNxc: '-1' }, info.address).amount !==
+				undefined,
+			'sendFlow: jumlah negatif ditolak',
+		)
+		ok(
+			validateSendForm({ ...form, amountNxc: '0.000000001' }, info.address)
+				.amount !== undefined,
+			'sendFlow: desimal sub-nexu ditolak (bukan kelipatan bulat 1 nexu)',
+		)
+
+		// Lantai biaya minimum: jumlah < ukuran wire terkecil → errors.fee.
+		const tooSmall = validateSendForm(
+			{ ...form, amountNxc: nxcOf(MIN_WIRE_FEE_NEXU - 1) },
+			info.address,
+		)
+		ok(
+			tooSmall.fee !== undefined,
+			'sendFlow: jumlah < lantai wire minimum ditolak (fee otomatis)',
+		)
+
+		// Bangun dengan fee OTOMATIS: fee === ukuran wire tx (fixed point).
+		const built = buildSignedTransaction(
+			form,
+			info.address,
+			derived.privateKey,
 			0,
 		)
 		ok(
-			unsigned.status && unsigned.tx !== undefined,
-			'alur: createUnsignedTransaction sukses',
+			built.ok && built.tx !== undefined && built.fee !== undefined,
+			'build: transaksi + fee otomatis terbentuk',
 		)
-
-		if (unsigned.tx) {
-			const signed = signTransaction(unsigned.tx, derived.privateKey)
+		if (built.tx && built.fee !== undefined) {
+			const wireSize = encodeTxPayload(built.tx).length
 			ok(
-				signed.sign.r.length > 0 &&
-					signed.sign.s.length > 0 &&
-					signed.sign.v > 0,
+				built.fee === wireSize,
+				`build: FIXED POINT — fee (${built.fee}) === ukuran wire (${wireSize})`,
+			)
+			ok(built.fee === built.tx.fee, 'build: BuildResult.fee === tx.fee')
+			ok(
+				built.fee >= MIN_WIRE_FEE_NEXU,
+				`build: fee (${built.fee}) ≥ lantai minimum (${MIN_WIRE_FEE_NEXU} nexu)`,
+			)
+
+			ok(
+				built.tx.sign.r.length > 0 &&
+					built.tx.sign.s.length > 0 &&
+					built.tx.sign.v > 0,
 				'alur: signTransaction menghasilkan r/s/v',
 			)
-			const encoded = encodeTx(signed)
+			const encoded = encodeTx(built.tx)
 			ok(
 				typeof encoded === 'string' && encoded.length > 0,
 				'alur: encodeTx menghasilkan base64',
@@ -149,6 +199,60 @@ const main = async (): Promise<void> => {
 				'alur: payload berupa base64 RLP (bukan JSON telanjang)',
 			)
 		}
+
+		// Pratinjau fee = angka PERSIS yang akan ditandatangani (deterministik).
+		const preview = previewAutoFee(form, info.address, derived.privateKey, 0)
+		ok(
+			preview.ok && preview.fee !== undefined,
+			'preview: previewAutoFee menghasilkan fee tanpa broadcast',
+		)
+		ok(
+			preview.fee === built.fee,
+			`preview: fee (${preview.fee}) === fee build (${built.fee})`,
+		)
+
+		// Data pesan ikut di wire → fee naik, TETAP fixed point.
+		const withMsg: SendForm = { ...form, message: 'halo dunia' }
+		const builtMsg = buildSignedTransaction(
+			withMsg,
+			info.address,
+			derived.privateKey,
+			0,
+		)
+		ok(
+			builtMsg.ok &&
+				builtMsg.tx !== undefined &&
+				builtMsg.fee === encodeTxPayload(builtMsg.tx).length,
+			'build: fee fixed point tetap terpenuhi dengan data pesan',
+		)
+		ok(
+			(builtMsg.fee ?? 0) > (built.fee ?? 0),
+			'build: pesan menaikkan fee (wire lebih besar)',
+		)
+
+		// Jumlah < fee otomatis → gagal dengan pesan yang menyebut angka.
+		const tiny = buildSignedTransaction(
+			{ ...form, amountNxc: nxcOf(MIN_WIRE_FEE_NEXU), message: 'halo dunia' },
+			info.address,
+			derived.privateKey,
+			0,
+		)
+		ok(
+			!tiny.ok &&
+				tiny.error !== undefined &&
+				tiny.error.includes('melebihi jumlah'),
+			'build: jumlah (96 nexu) < fee wire+pesan → error biaya > jumlah',
+		)
+		const tinyPreview = previewAutoFee(
+			{ ...form, amountNxc: nxcOf(MIN_WIRE_FEE_NEXU), message: 'halo dunia' },
+			info.address,
+			derived.privateKey,
+			0,
+		)
+		ok(
+			!tinyPreview.ok && tinyPreview.error !== undefined,
+			'preview: skenario jumlah < fee juga gagal di pratinjau',
+		)
 
 		// --- 4. interop bip39 — regresi crash browser (default-import) ---
 		//    Akar bug: bip39 v3 keluaran tsc menandai __esModule pada
