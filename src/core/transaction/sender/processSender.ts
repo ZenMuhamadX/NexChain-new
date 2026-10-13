@@ -42,7 +42,7 @@ export const processSender = async (
 	}
 	// Fee IKUT didebet: selama ini fee hanya DICEK di validasi tapi tidak
 	// pernah ditarik, sementara coinbase membayarkan total fee ke miner
-	// (reward + gasPrice + totalFees) — fee jadi tercetak dari nol tiap
+	// (hadiah blok + totalFees) — fee jadi tercetak dari nol tiap
 	// blok. Dengan debit `amount + fee`, modelnya jadi fee-transfer yang
 	// konsisten: pengirim −(amount+fee), penerima +amount, miner +fee.
 	const calculateBalance = oldData.balance - (amount + fee)

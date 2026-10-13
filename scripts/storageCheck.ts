@@ -246,7 +246,6 @@ const fixtureBlock = (hash: string, height: number, prev: string): Block =>
 		coinbaseTransaction: { amount: 500, receiver: MINER, extraData: '0x00' },
 		metadata: {
 			extraData: '0x00',
-			gasPrice: 0,
 			txCount: 0,
 			created_at: 1_700_000_000 + height,
 		},

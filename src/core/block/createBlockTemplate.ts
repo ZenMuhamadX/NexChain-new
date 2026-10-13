@@ -5,10 +5,7 @@ import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { calculateTotalFees } from 'src/core/transaction/utils/totalFees'
-import {
-	calculateTotalBlockReward,
-	GAS_PRICE_NEXU,
-} from 'src/core/consensus/calculateReward'
+import { calculateTotalBlockReward } from 'src/core/consensus/calculateReward'
 import { clampDifficulty, retargetByTime } from 'src/core/consensus/difficulty'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
 import {
@@ -60,13 +57,12 @@ export const createBlockTemplate = async (
 	const timestamp = now > mtp ? now : mtp + 1
 
 	// Hadiah blok + fee (fee dihitung dari transaksi pengguna; coinbase fee 0
-	// sehingga tidak perlu dihitung dua kali).
+	// sehingga tidak perlu dihitung dua kali). Tidak ada suku gasPrice lagi
+	// sejak P2 — satu-satunya pendapatan miner = hadiah + fee.
 	const blockReward = cutBlockReward(height)
-	const gasPrice = GAS_PRICE_NEXU
 	const totalTransactionFees = calculateTotalFees(transactions)
 	const totalReward = calculateTotalBlockReward(
 		blockReward,
-		gasPrice,
 		totalTransactionFees,
 	)
 
@@ -103,7 +99,6 @@ export const createBlockTemplate = async (
 		},
 		metadata: {
 			extraData: stringToHex('BlockChains by NexChain'),
-			gasPrice,
 			txCount: transactions.length,
 			created_at: timestamp,
 		},

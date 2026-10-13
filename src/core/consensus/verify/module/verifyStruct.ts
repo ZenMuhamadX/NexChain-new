@@ -42,9 +42,12 @@ export const verifyStruct = async (chains: Block) => {
 	})
 
 	// Define the schema for the metadata object
+	// (Field `gasPrice` DIHAPUS pada P2 bersama seluruh mekanisme gasPrice.)
+	// Joi default MENOLAK key tak dikenal → blok lama yang masih membawa
+	// `metadata.gasPrice` akan ditolak di sini — konsekuensi yang disengaja
+	// (reset rantai bagian dari P2).
 	const metadataSchema = Joi.object({
 		txCount: Joi.number().required(),
-		gasPrice: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
 		created_at: Joi.number().required(),
 		extraData: Joi.any().optional(), // Use .optional() if it's not required
 	})
@@ -67,9 +70,9 @@ export const verifyStruct = async (chains: Block) => {
 		merkleRoot: Joi.string().required(),
 		minerId: Joi.string().required(),
 		// totalReward = jumlah yang benar-benar dikreditkan ke coinbase
-		// (blockReward + gasPrice + totalTransactionFees). Batas plafon di
-		// sini + batas yang sama di totalIssued (Stage 3) memberi dua
-		// penegakan terpisah atas invariant yang sama.
+		// (blockReward + totalTransactionFees — tanpa gasPrice sejak P2).
+		// Batas plafon di sini + batas yang sama di totalIssued (Stage 3)
+		// memberi dua penegakan terpisah atas invariant yang sama.
 		totalReward: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
 		status: Joi.valid('confirmed', 'pending').required(),
 		// Dulu `Joi.any()` — menerima string apa pun, sehingga field yang

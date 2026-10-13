@@ -1,10 +1,7 @@
 import { Block } from 'src/core/block/blockModel'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
 import { calculateTotalFees } from 'src/core/transaction/utils/totalFees'
-import {
-	calculateTotalBlockReward,
-	GAS_PRICE_NEXU,
-} from 'src/core/consensus/calculateReward'
+import { calculateTotalBlockReward } from 'src/core/consensus/calculateReward'
 
 /**
  * Verifikasi **hadiah & fee blok** — aturan konsensus, bukan sekadar
@@ -12,8 +9,8 @@ import {
  *
  * Semua nilai DIREHITUNG dari fungsi deterministik yang sama dengan
  * `createBlockTemplate` (`cutBlockReward`, `calculateTotalFees`,
- * `calculateTotalBlockReward`, `GAS_PRICE_NEXU`) — TIDAK PERNAH mempercayai
- * field blok. Karena kedua sisi menjalankan operasi IEEE-754 yang persis sama
+ * `calculateTotalBlockReward`) — TIDAK PERNAH mempercayai field blok.
+ * Karena kedua sisi menjalankan operasi IEEE-754 yang persis sama
  * atas input yang sama, perbandingan `===` ketat benar: tidak ada epsilon,
  * tidak ada pembulatan (nilai yang berbeda sedikit pun = blok curang).
  *
@@ -21,6 +18,12 @@ import {
  * `blockReward`/`totalReward` sendiri, menggeser `coinbaseTransaction`
  * ke alamat lain, atau memalsukan `totalTransactionFees` — semua itu akan
  * terkredit lewat `processTransact` bila lolos.
+ *
+ * Catatan P2: pemeriksaan `metadata.gasPrice` DIHAPUS bersama field itu
+ * sendiri (tidak ada lagi "nxc dari udara" di luar hadiah + fee).
+ * Metadata kini TIDAK diverifikasi di sini — strukturnya dijaga
+ * `verifyStruct` (Joi menolak key tak dikenal, jadi metadata lama yang
+ * masih memuat gasPrice akan ditolak di sana).
  *
  * @param block blok yang akan diperiksa
  * @returns `null` bila valid, atau alasan singkat bila tidak.
@@ -31,11 +34,11 @@ export const verifyBlockReward = (block: Block): string | null => {
 	// reward-nya dibakar ke alamat void, dan identitasnya dikunci oleh
 	// `GENESIS_HASH` + `assertGenesisValid` (re-solve bila konstanta berubah).
 	// Angka reward genesis (`GENESIS_REWARD_NEX`) sengaja berbeda dari
-	// `cutBlockReward(0)` dan gasPrice-nya 0 — tidak boleh dijadikan acuan
-	// aturan hadiah blok biasa.
+	// aturan `cutBlockReward` — tidak boleh dijadikan acuan aturan blok
+	// biasa.
 	if (block.block.height === 0) return null
 
-	// 1. blockReward === cutBlockReward(height) — jadwal hadiah, tanpa
+	// 1. blockReward === cutBlockReward(height) — jadwal halving, tanpa
 	//    perubahan matematika: hanya membandingkan ulang.
 	const expectedBlockReward = cutBlockReward(block.block.height)
 	if (block.block.blockReward !== expectedBlockReward) {
@@ -48,19 +51,20 @@ export const verifyBlockReward = (block: Block): string | null => {
 		return `totalTransactionFees ${block.block.totalTransactionFees} != ${expectedFees}`
 	}
 
-	// 3. metadata.gasPrice === konstanta. Metadata hilang pada height > 0
-	//    = gagal (template selalu menulisnya; hilang berarti blok bukan
-	//    hasil penyusunan yang sah / sudah dimanipulasi).
-	const gasPrice = block.block.metadata?.gasPrice
-	if (gasPrice !== GAS_PRICE_NEXU) {
-		return `gasPrice ${gasPrice} != ${GAS_PRICE_NEXU}`
+	// 3. Metadata HARUS ada pada height > 0 (template selalu menulisnya;
+	//    hilang berarti blok bukan hasil penyusunan yang sah / sudah
+	//    dimanipulasi). Isinya (txCount/created_at/extraData) tidak lagi
+	//    memengaruhi konsensus hadiah sejak penghapusan gasPrice — struktur
+	//    metadata dijaga Joi di `verifyStruct`.
+	if (!block.block.metadata) {
+		return 'metadata hilang pada height > 0'
 	}
 
-	// 4. totalReward === blockReward + gasPrice + fees (ketiganya hasil
-	//    recompute di atas — bukan field blok yang dipercaya).
+	// 4. totalReward === blockReward + fees (keduanya hasil recompute di
+	//    atas — bukan field blok yang dipercaya). Tidak ada suku gasPrice
+	//    lagi sejak P2.
 	const expectedTotalReward = calculateTotalBlockReward(
 		expectedBlockReward,
-		GAS_PRICE_NEXU,
 		expectedFees,
 	)
 	if (block.block.totalReward !== expectedTotalReward) {

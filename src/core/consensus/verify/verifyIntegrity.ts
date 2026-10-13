@@ -23,7 +23,7 @@ import { GENESIS_HASH } from 'src/core/block/genesis'
  *   3. `verifyPow`     — hash memenuhi difficulty tersimpan di header;
  *   4. `verifyBlockHash` — hash = SHA-256(preimage ‖ nonce);
  *   5. `verifyMerkleRoot` — merkle cocok dengan transaksi (kecuali genesis);
- *   6. `verifyBlockReward` — hadiah/fee/gasPrice/coinbase direhitung dari
+ *   6. `verifyBlockReward` — hadiah/fee/coinbase direhitung dari
  *      fungsi deterministik (kecuali genesis, lihat pengecualian di bawah);
  *   7. `checkBlockTimestamp` — timestamp > median-time-past 11 blok
  *      sebelumnya dan tidak lebih dari 2 jam ke depan;

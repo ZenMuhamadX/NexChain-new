@@ -20,12 +20,8 @@ import {
 } from 'src/core/token/constants'
 import { parseNxc } from 'src/core/token/parseNxc'
 import { formatNxc, formatNxcWithUnit } from 'src/core/token/formatNxc'
-import {
-	assertNexuCapped,
-	isNexuCapped,
-} from 'src/core/token/isNexuCapped'
+import { assertNexuCapped, isNexuCapped } from 'src/core/token/isNexuCapped'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
-import { toNexu } from 'src/core/token/toNexu'
 
 let okCount = 0
 let failCount = 0
@@ -83,26 +79,29 @@ console.log('STAGE 1 — parseNxc: konversi eksak (tanpa float):')
 
 // --- Pemetaan seluruh konstanta jadwal reward/fee ke satuan 8 desimal ---
 ok('1 NXC = 100_000_000 nexu', parseNxc('1') === 100_000_000)
-ok('500 NXC (genesis reward)', parseNxc('500') === 50_000_000_000)
-ok('50 NXC (block reward)', parseNxc('50') === 5_000_000_000)
-ok('0.00025 NXC (gasPrice) = 25_000', parseNxc('0.00025') === 25_000)
-ok('0.001 NXC (min reward) = 100_000', parseNxc('0.001') === 100_000)
-ok('0.00099998 NXC (reduction) = 99_998', parseNxc('0.00099998') === 99_998)
+ok(
+	'12.5 NXC (hadiah epoch-0) = 1_250_000_000',
+	parseNxc('12.5') === 1_250_000_000,
+)
+ok('6.25 NXC (hadiah epoch-1) = 625_000_000', parseNxc('6.25') === 625_000_000)
+ok('0 NXC (hadiah genesis sejak P2) = 0', parseNxc('0') === 0)
 ok('0.5 NXC = 50_000_000', parseNxc('0.5') === 50_000_000)
 ok('1 nexu (desimal minimum) = 1', parseNxc('0.00000001') === 1)
 ok('10 nexu dari "0.000000100"', parseNxc('0.000000100') === 10)
 ok('plafon penuh 50_000_000 NXC', parseNxc('50000000') === MAX_SUPPLY_NEXU)
 
 // --- Input number (literal di kode harus round-trip eksak) ---
-ok('parseNxc(500) === 50_000_000_000', parseNxc(500) === 50_000_000_000)
-ok('parseNxc(0.00025) === 25_000', parseNxc(0.00025) === 25_000)
-ok('parseNxc(0.00099998) === 99_998', parseNxc(0.00099998) === 99_998)
+ok('parseNxc(12.5) === 1_250_000_000', parseNxc(12.5) === 1_250_000_000)
+ok('parseNxc(6.25) === 625_000_000', parseNxc(6.25) === 625_000_000)
 ok('parseNxc(0.001) === 100_000', parseNxc(0.001) === 100_000)
 ok('parseNxc(50) === 5_000_000_000', parseNxc(50) === 5_000_000_000)
 ok('parseNxc(0.5) === 50_000_000', parseNxc(0.5) === 50_000_000)
 
 // --- Bentuk eksponensial: String(1e-8) === "1e-8" ---
-ok('parseNxc("1e-8") === 1 (bentuk eksponensial diterima)', parseNxc('1e-8') === 1)
+ok(
+	'parseNxc("1e-8") === 1 (bentuk eksponensial diterima)',
+	parseNxc('1e-8') === 1,
+)
 ok('parseNxc(1e-8) === 1', parseNxc(1e-8) === 1)
 ok('parseNxc("1E-7") === 10', parseNxc('1E-7') === 10)
 
@@ -124,11 +123,23 @@ ok('parseNxc(Infinity) DITOLAK', caught(() => parseNxc(Infinity)) !== null)
 ok('parseNxc("") DITOLAK', caught(() => parseNxc('')) !== null)
 ok('parseNxc(" ") DITOLAK', caught(() => parseNxc(' ')) !== null)
 ok('parseNxc("abc") DITOLAK', caught(() => parseNxc('abc')) !== null)
-ok('parseNxc("1,5") DITOLAK (pemisah ribuan)', caught(() => parseNxc('1,5')) !== null)
+ok(
+	'parseNxc("1,5") DITOLAK (pemisah ribuan)',
+	caught(() => parseNxc('1,5')) !== null,
+)
 ok('parseNxc("0x10") DITOLAK', caught(() => parseNxc('0x10')) !== null)
-ok('parseNxc(".5") DITOLAK (tidak kanonik)', caught(() => parseNxc('.5')) !== null)
-ok('parseNxc("5.") DITOLAK (tidak kanonik)', caught(() => parseNxc('5.')) !== null)
-ok('parseNxc("007") DITOLAK (nol depan)', caught(() => parseNxc('007')) !== null)
+ok(
+	'parseNxc(".5") DITOLAK (tidak kanonik)',
+	caught(() => parseNxc('.5')) !== null,
+)
+ok(
+	'parseNxc("5.") DITOLAK (tidak kanonik)',
+	caught(() => parseNxc('5.')) !== null,
+)
+ok(
+	'parseNxc("007") DITOLAK (nol depan)',
+	caught(() => parseNxc('007')) !== null,
+)
 ok(
 	'100 juta NXC (di atas plafon) → nexu tidak aman sehingga DITOLAK',
 	caught(() => parseNxc('100000000')) !== null,
@@ -212,10 +223,7 @@ ok(
 	'formatNxc dengan maxDecimals=6 memotong ke "0.00025"',
 	formatNxc(25_000, 6) === '0.00025',
 )
-ok(
-	'formatNxc menolak non-bulat',
-	caught(() => formatNxc(1.5)) !== null,
-)
+ok('formatNxc menolak non-bulat', caught(() => formatNxc(1.5)) !== null)
 ok(
 	'formatNxc menolak unsafe',
 	caught(() => formatNxc(Number.MAX_SAFE_INTEGER + 1)) !== null,
@@ -231,7 +239,10 @@ ok('negatif DITOLAK', isNexuCapped(-1) === false)
 ok('pecahan DITOLAK', isNexuCapped(1.5) === false)
 ok('NaN DITOLAK', isNexuCapped(NaN) === false)
 ok('Infinity DITOLAK', isNexuCapped(Infinity) === false)
-ok('unsafe integer DITOLAK', isNexuCapped(Number.MAX_SAFE_INTEGER + 2) === false)
+ok(
+	'unsafe integer DITOLAK',
+	isNexuCapped(Number.MAX_SAFE_INTEGER + 2) === false,
+)
 ok('1e20 DITOLAK', isNexuCapped(1e20) === false)
 
 ok(
@@ -249,25 +260,23 @@ ok(
 
 console.log('STAGE 3 — jadwal reward vs plafon suplai (simulasi):')
 
-// Konstanta gasPrice yang sama dengan `createBlockTemplate` — sengaja
-// ditulis eksak lewat toNexu agar tes ini ikut memverifikasi pemetaan.
-const GAS_PRICE_NEXU = toNexu(0.00025)
-ok('gasPrice = 25_000 nexu (0.00025 NXC)', GAS_PRICE_NEXU === 25_000)
-
-// Pemetaan jadwal reward ke satuan 8 desimal.
+// Pemetaan jadwal halving ke satuan 8 desimal — nilai KONSENSUS.
 ok(
-	'cutBlockReward(1) = 5_000_000_000 (50 NXC)',
-	cutBlockReward(1) === 5_000_000_000,
-)
-ok('cutBlockReward(19) belum berkurang', cutBlockReward(19) === 5_000_000_000)
-ok(
-	'cutBlockReward(20) = 4_999_900_002 (reduksi pertama)',
-	cutBlockReward(20) === 4_999_900_002,
+	'cutBlockReward(1) = 1_250_000_000 (12.5 NXC)',
+	cutBlockReward(1) === 1_250_000_000,
 )
 ok(
-	'semua reward bilangan bulat aman & positif pada 10 ribu blok pertama',
+	'cutBlockReward(19) belum berkurang (epoch 0)',
+	cutBlockReward(19) === 1_250_000_000,
+)
+ok(
+	'cutBlockReward(2_000_001) = 625_000_000 (halving pertama, 6.25 NXC)',
+	cutBlockReward(2_000_001) === 625_000_000,
+)
+ok(
+	'semua reward bilangan bulat aman & ≥ 0 pada 10 ribu blok pertama',
 	Array.from({ length: 10_000 }, (_, i) => cutBlockReward(i + 1)).every(
-		(r) => Number.isSafeInteger(r) && r > 0,
+		(r) => Number.isSafeInteger(r) && r >= 0,
 	),
 )
 
@@ -277,10 +286,9 @@ ok(
  *
  * Kenapa ini layak diuji: plafon adalah hard invariant yang dijaga per
  * blok, jadi yang perlu dipastikan adalah jadwal reward itu sendiri
- * menghasilkan akumulasi yang tetap berada di bawahnya. `cutBlockReward`
- * berhenti turun di 0.001 NXC (bukan 0), sehingga rantai tetap mencetak
- * 0.00125 NXC/blok selamanya — akumulasinya tidak pernah benar-benar
- * berhenti, hanya melambat.
+ * menghasilkan akumulasi yang tetap berada di bawahnya. Simulasi di sini
+ * mengitari epoch 0 (2 juta blok pertama); Σ SELURUH epoch secara
+ * closed-form dibuktikan di `check:consensus` (RULE 2b).
  *
  * Setiap penjumlahan memakai dua bilangan bulat < 2^53 dengan hasil juga
  * < 2^53, sehingga penjumlahan float DIJAMIN eksak (tidak ada penumpukan
@@ -290,7 +298,7 @@ const SIM_BLOCKS = 2_000_000
 let simulatedIssued = 0
 let safeIntegerAll = true
 for (let height = 1; height <= SIM_BLOCKS; height++) {
-	simulatedIssued += cutBlockReward(height) + GAS_PRICE_NEXU
+	simulatedIssued += cutBlockReward(height)
 	if (!Number.isSafeInteger(simulatedIssued)) safeIntegerAll = false
 }
 
@@ -309,18 +317,12 @@ ok(
 	simulatedIssued <= MAX_SUPPLY_NEXU,
 )
 
-// Setelah mencapai lantai, reward berhenti di 0.001 NXC + gasPrice
-// 0.00025 NXC = 0.00125 NXC per blok dan TIDAK pernah turun ke 0.
-// Berapa blok lagi sampai plafon?
-const floorRateNexu = toNexu(0.001) + GAS_PRICE_NEXU
-const blocksToCap = (MAX_SUPPLY_NEXU - simulatedIssued) / floorRateNexu
-console.log(
-	`    sisa plafon ${(MAX_SUPPLY_NEXU - simulatedIssued).toLocaleString('en-US')} nexu ` +
-		`-> ${Math.floor(blocksToCap).toLocaleString('en-US')} blok lagi pada laju lantai`,
-)
+// Epoch-0 saja sudah mencetak 25 juta NXC (setengah plafon) — tiap epoch
+// berikutnya menyusut separuhnya sehingga totalnya terbatas (closed-form
+// terbukti di check:consensus: Σ = 49.999.999,78 NXC ≤ plafon).
 ok(
-	'butuh > 10 miliar blok lagi untuk menyentuh plafon (±10 ribu tahun @30s/blok)',
-	blocksToCap > 10_000_000_000,
+	'epoch-0 penuh = 25.000.000 NXC (setengah plafon, persis 2 juta blok × 12.5)',
+	simulatedIssued === 25_000_000 * 100_000_000,
 )
 ok(
 	'plafon lebih dulu dari batas aman `number` (5e15 < 9,007e15)',

@@ -86,17 +86,33 @@ try {
 } catch (error) {
 	unitError = error instanceof Error ? error : new Error(String(error))
 }
-ok('assertUnitConstants() lolos untuk nilai proyek', unitError === null, messageOf(unitError) ?? '')
+ok(
+	'assertUnitConstants() lolos untuk nilai proyek',
+	unitError === null,
+	messageOf(unitError) ?? '',
+)
 
 ok('NXC_DECIMALS === 8', NXC_DECIMALS === 8, `got=${NXC_DECIMALS}`)
-ok('NEXU_PER_NXC === 100_000_000', NEXU_PER_NXC === 100_000_000, `got=${NEXU_PER_NXC}`)
-ok('MAX_SUPPLY_NXC === 50_000_000', MAX_SUPPLY_NXC === 50_000_000, `got=${MAX_SUPPLY_NXC}`)
+ok(
+	'NEXU_PER_NXC === 100_000_000',
+	NEXU_PER_NXC === 100_000_000,
+	`got=${NEXU_PER_NXC}`,
+)
+ok(
+	'MAX_SUPPLY_NXC === 50_000_000',
+	MAX_SUPPLY_NXC === 50_000_000,
+	`got=${MAX_SUPPLY_NXC}`,
+)
 ok(
 	'MAX_SUPPLY_NEXU === MAX_SUPPLY_NXC × NEXU_PER_NXC',
 	MAX_SUPPLY_NEXU === MAX_SUPPLY_NXC * NEXU_PER_NXC,
 	`got=${MAX_SUPPLY_NEXU}`,
 )
-ok('MAX_SUPPLY_NEXU === 5e15', MAX_SUPPLY_NEXU === 5_000_000_000_000_000, `got=${MAX_SUPPLY_NEXU}`)
+ok(
+	'MAX_SUPPLY_NEXU === 5e15',
+	MAX_SUPPLY_NEXU === 5_000_000_000_000_000,
+	`got=${MAX_SUPPLY_NEXU}`,
+)
 ok(
 	'plafon lebih rendah dari batas aman `number` (guard cap lebih dulu)',
 	MAX_SUPPLY_NEXU < Number.MAX_SAFE_INTEGER,
@@ -126,7 +142,9 @@ ok(
 	caught(() => assertNexuCapped(-1, 'gate')) !== null,
 )
 
-console.log('STAGE 4 — skrip Joi: .unsafe dibuang, .max(MAX_SUPPLY_NEXU) dipasang:')
+console.log(
+	'STAGE 4 — skrip Joi: .unsafe dibuang, .max(MAX_SUPPLY_NEXU) dipasang:',
+)
 
 /**
  * Objek transaksi minimum yang memenuhi seluruh field WAJIB
@@ -168,39 +186,38 @@ const joiPass = (label: string, validator: JoiLike, value: unknown): void => {
 
 // Arah "menerima" — memastikan pencabutan `.unsafe(true)` TIDAK membuat
 // nilai normal (desimal pecahan, angka besar yang masih aman) ikut tertolak.
-joiPass('txValidator: amount = 1 nexu', txInterfaceValidator, structurallyValidTx())
+joiPass(
+	'txValidator: amount = 1 nexu',
+	txInterfaceValidator,
+	structurallyValidTx(),
+)
 joiPass(
 	'txValidator: amount = 1 NXC (1e8, masih batas aman)',
 	txInterfaceValidator,
 	{ ...structurallyValidTx(), amount: 100_000_000 },
 )
-joiPass(
-	'txValidator: amount = plafon persis',
-	txInterfaceValidator,
-	{ ...structurallyValidTx(), amount: MAX_SUPPLY_NEXU },
-)
+joiPass('txValidator: amount = plafon persis', txInterfaceValidator, {
+	...structurallyValidTx(),
+	amount: MAX_SUPPLY_NEXU,
+})
 
 // Arah "menolak" — inilah yang dulu lolos berkat `.unsafe(true)`.
-joiOk(
-	'txValidator: amount = plafon + 1',
-	txInterfaceValidator,
-	{ ...structurallyValidTx(), amount: MAX_SUPPLY_NEXU + 1 },
-)
-joiOk(
-	'txValidator: amount = 1e20 (unsafe integer)',
-	txInterfaceValidator,
-	{ ...structurallyValidTx(), amount: 1e20 },
-)
-joiOk(
-	'txValidator: amount = Infinity',
-	txInterfaceValidator,
-	{ ...structurallyValidTx(), amount: Infinity },
-)
-joiOk(
-	'txValidator: fee = plafon + 1',
-	txInterfaceValidator,
-	{ ...structurallyValidTx(), fee: MAX_SUPPLY_NEXU + 1 },
-)
+joiOk('txValidator: amount = plafon + 1', txInterfaceValidator, {
+	...structurallyValidTx(),
+	amount: MAX_SUPPLY_NEXU + 1,
+})
+joiOk('txValidator: amount = 1e20 (unsafe integer)', txInterfaceValidator, {
+	...structurallyValidTx(),
+	amount: 1e20,
+})
+joiOk('txValidator: amount = Infinity', txInterfaceValidator, {
+	...structurallyValidTx(),
+	amount: Infinity,
+})
+joiOk('txValidator: fee = plafon + 1', txInterfaceValidator, {
+	...structurallyValidTx(),
+	fee: MAX_SUPPLY_NEXU + 1,
+})
 joiOk('txValidator: fee negatif', txInterfaceValidator, {
 	...structurallyValidTx(),
 	fee: -1,
@@ -218,12 +235,15 @@ const structurallyValidAccount = (): Record<string, unknown> => ({
 	nonce: 0,
 	isContract: false,
 })
-joiPass('accountValidator: balance = 0', nexAccountValidator, structurallyValidAccount())
-joiOk(
-	'accountValidator: balance = plafon + 1',
+joiPass(
+	'accountValidator: balance = 0',
 	nexAccountValidator,
-	{ ...structurallyValidAccount(), balance: MAX_SUPPLY_NEXU + 1 },
+	structurallyValidAccount(),
 )
+joiOk('accountValidator: balance = plafon + 1', nexAccountValidator, {
+	...structurallyValidAccount(),
+	balance: MAX_SUPPLY_NEXU + 1,
+})
 joiOk(
 	'accountValidator: balance = 1e20 (unsafe integer)',
 	nexAccountValidator,
@@ -238,11 +258,15 @@ console.log('STAGE 5 — setBlockState (penegakan ketiga, sebelum I/O):')
  *
  * Gunanya untuk menguji URUTAN, bukan sekadar "melempar". Bila seseorang
  * memindahkan guard `blockReward` ke bawah `projectTotalIssued`, fungsi
- * akan melaju ke `issuanceOf(block)` yang membaca `block.block.totalReward`
- * (tidak ada -> `undefined`) lalu melempar dengan konteks
- * `setBlockState.totalIssued@...` — konteks yang BERBEDA. Karena itu tes
- * di bawah memeriksa konteks `blockReward` dan bukan hanya fakta bahwa ada
- * error, sehingga guard yang salah urutan tetap terdeteksi.
+ * melaju membaca DB dulu, lalu `setBlockState` melempar dengan konteks /
+ * pesan yang BERBEDA (`Plafon suplai terlampaui: totalIssued=…` dari
+ * guard plafon, atau konteks `setBlockState.totalIssued@…`) — bukan
+ * `setBlockState.blockReward@…` + "rentang aman" yang diperiksa tes di
+ * bawah. Karena itu tes memeriksa konteks errornya dan bukan hanya fakta
+ * bahwa ada error, sehingga guard yang salah urutan tetap terdeteksi.
+ * (`issuanceOf` membaca `block.block.blockReward` — field yang memang
+ * ada di stub — jadi tidak ada jalur "undefined → NaN" yang menutupi
+ * salah urutan.)
  */
 const stubBlock = (blockReward: number): Block =>
 	({ block: { height: 1, blockReward } }) as unknown as Block
@@ -263,8 +287,14 @@ const expectSetBlockStateReject = async (
 	)
 }
 
-await expectSetBlockStateReject('setBlockState: blockReward = plafon + 1', MAX_SUPPLY_NEXU + 1)
-await expectSetBlockStateReject('setBlockState: blockReward = 1e20 (unsafe integer)', 1e20)
+await expectSetBlockStateReject(
+	'setBlockState: blockReward = plafon + 1',
+	MAX_SUPPLY_NEXU + 1,
+)
+await expectSetBlockStateReject(
+	'setBlockState: blockReward = 1e20 (unsafe integer)',
+	1e20,
+)
 await expectSetBlockStateReject('setBlockState: blockReward negatif', -1)
 await expectSetBlockStateReject('setBlockState: blockReward = NaN', Number.NaN)
 
@@ -301,40 +331,32 @@ const expectReject = async (
 	)
 }
 
-await expectReject(
-	'putAccount: balance = plafon+1',
-	() => putAccount(ADDR, balanceWith(MAX_SUPPLY_NEXU + 1)),
+await expectReject('putAccount: balance = plafon+1', () =>
+	putAccount(ADDR, balanceWith(MAX_SUPPLY_NEXU + 1)),
 )
-await expectReject(
-	'putAccount: balance negatif',
-	() => putAccount(ADDR, balanceWith(-1)),
+await expectReject('putAccount: balance negatif', () =>
+	putAccount(ADDR, balanceWith(-1)),
 )
-await expectReject(
-	'putAccount: balance unsafe (1e20)',
-	() => putAccount(ADDR, balanceWith(1e20)),
+await expectReject('putAccount: balance unsafe (1e20)', () =>
+	putAccount(ADDR, balanceWith(1e20)),
 )
-await expectReject(
-	'putAccount: balance NaN',
-	() => putAccount(ADDR, balanceWith(Number.NaN)),
+await expectReject('putAccount: balance NaN', () =>
+	putAccount(ADDR, balanceWith(Number.NaN)),
 )
 
 console.log('STAGE 3 — setPendingBalance (reserve mempool):')
 
-await expectReject(
-	'setPendingBalance: pendingAmount = plafon+1',
-	() =>
-		setPendingBalance({
-			address: ADDR,
-			pendingAmount: MAX_SUPPLY_NEXU + 1,
-		}),
+await expectReject('setPendingBalance: pendingAmount = plafon+1', () =>
+	setPendingBalance({
+		address: ADDR,
+		pendingAmount: MAX_SUPPLY_NEXU + 1,
+	}),
 )
-await expectReject(
-	'setPendingBalance: pendingAmount negatif',
-	() => setPendingBalance({ address: ADDR, pendingAmount: -1 }),
+await expectReject('setPendingBalance: pendingAmount negatif', () =>
+	setPendingBalance({ address: ADDR, pendingAmount: -1 }),
 )
-await expectReject(
-	'setPendingBalance: pendingAmount unsafe (1e20)',
-	() => setPendingBalance({ address: ADDR, pendingAmount: 1e20 }),
+await expectReject('setPendingBalance: pendingAmount unsafe (1e20)', () =>
+	setPendingBalance({ address: ADDR, pendingAmount: 1e20 }),
 )
 
 console.log('')

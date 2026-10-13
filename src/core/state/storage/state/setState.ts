@@ -15,7 +15,7 @@ export interface blockState {
 	lastUpdated: number
 	currentBlockSize: number
 	/**
-	 * Akumulasi seluruh `totalReward` sejak genesis — DASAR PENEGAKAN
+	 * Akumulasi seluruh `blockReward` sejak genesis — DASAR PENEGAKAN
 	 * PLAFON SUPLAI 50 juta NXC.
 	 *
 	 * ====================================================================
@@ -27,33 +27,34 @@ export interface blockState {
 	 * DB tiap blok. Kounter berjalan di state membuat pemeriksaan O(1).
 	 *
 	 * ====================================================================
-	 * SIFAT: BATAS ATAS YANG KONSERVATIF
+	 * SIFAT: PENCETAKAN PERSIS (bukan lagi perkiraan konservatif)
 	 * ====================================================================
-	 * Inkremen memakai `block.block.totalReward`
-	 * (= `blockReward + gasPrice + totalTransactionFees`), yaitu jumlah yang
-	 * benar-benar dikreditkan ke akun coinbase.
+	 * Sejak P2 inkremen memakai `block.block.blockReward` SAJA:
 	 *
-	 * Sebagian nilainya BUKAN pencetakan baru: `totalTransactionFees` adalah
-	 * transfer dari pengirim ke penambang (pengirim sudah didebit
-	 * `amount + fee`). Jadi akumulasi ini ≥ pertambahan suplai sebenarnya:
+	 *   - `gasPrice` dihapus — dulu ia "nxc dari udara" di luar jadwal;
+	 *   - `totalTransactionFees` TIDAK dihitung: fee adalah TRANSFER dari
+	 *     pengirim ke penambang (pengirim sudah didebit `amount + fee`),
+	 *     bukan pencetakan baru. Kredit − debit per blok tepat
+	 *     `blockReward`, jadi kounter ini = suplai riil yang beredar.
 	 *
-	 *     Σ totalReward  ≥  Σ (blockReward + gasPrice)  =  Δ suplai riil
-	 *
-	 * Konservatif ke arah AMAN: penegakan bisa menghentikan rantai lebih
-	 * awal, tapi tidak pernah mengizinkan suplai melewati plafon. Agar
-	 * pengecekan ini tercapai lebih dulu, fee-nya harus menyentuh ~25 juta
-	 * NXC (ratusan juta transaksi) — di luar jangkauan rantai mana pun.
+	 * Dengan jadwal halving baru: Σ blockReward (closed-form, lihat
+	 * `distributeBlockReward.ts`) = 4_999_999_978_000_000 nexu
+	 * (49_999_999.78 NXC) + genesis 0 (GENESIS_REWARD_NEX = 0 sejak P2)
+	 * = di bawah plafon 50 juta NXC. Guard di `prepareBlockState` karena
+	 * itu menjadi tripwire terhadap BUG jadwal — bukan mekanisme yang
+	 * dipacu fee.
 	 */
 	totalIssued: number
 }
 
 /**
- * Kontribusi satu blok ke `totalIssued`.
+ * Kontribusi satu blok ke `totalIssued` — `blockReward` murni.
  *
- * `totalReward` adalah jumlah coinbase — field yang selalu ada (genesis
- * pun mengisinya) dan tidak bergantung pada `metadata` opsional.
+ * Bukan `totalReward` (blockReward + fee): fee tidak menambah suplai.
+ * Field ini selalu ada (genesis pun mengisinya) dan tidak bergantung pada
+ * `metadata` opsional.
  */
-const issuanceOf = (block: Block): number => block.block.totalReward
+const issuanceOf = (block: Block): number => block.block.blockReward
 
 /**
  * `key` `blockState` belum ada = rantai masih kosong (posisi awal 0).

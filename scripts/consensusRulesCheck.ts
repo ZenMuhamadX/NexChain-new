@@ -11,11 +11,15 @@
  *      pemulihan (`txFrom`, validasi signature) menerima dua bentuk untuk
  *      satu fakta yang sama.
  *   2. **Hadiah/fee blok** — `verifyBlockReward` direhitung penuh dari
- *      `cutBlockReward`/`calculateTotalFees`/`GAS_PRICE_NEXU`/
- *      `calculateTotalBlockReward`; field blok TIDAK dipercaya. Setiap
+ *      `cutBlockReward`/`calculateTotalFees`/`calculateTotalBlockReward`
+ *      (tanpa gasPrice sejak P2); field blok TIDAK dipercaya. Setiap
  *      field yang dimanipulasi (totalReward, blockReward, coinbase,
- *      receiver, fees, gasPrice) harus menghasilkan penolakan, dan genesis
+ *      receiver, fees) harus menghasilkan penolakan, dan genesis
  *      tetap exempt.
+ *   2b. **Jadwal halving** — boundary epoch (halving pertama tepat di
+ *      blok 2_000_001), sifat monotone non-naik, reward epoch raksasa = 0,
+ *      dan Σ closed-form seluruh jadwal + genesis ≤ plafon 50 juta NXC
+ *      (dibuktikan dengan angka, bukan opini).
  *   3. **Timestamp MTP-11 + batas masa depan** — `checkBlockTimestamp`
  *      menolak timestamp `<=` median 11 blok sebelumnya dan timestamp
  *      lebih dari 2 jam ke depan; daftar kosong = hanya cek masa depan
@@ -32,13 +36,15 @@ import { verifySignature } from 'src/crypto/verifySignature'
 import { txSighash } from 'src/core/encoding/rlp/txCodec'
 import { TxInterface } from 'src/types/transaction'
 import { Block } from 'src/core/block/blockModel'
-import { buildGenesisBlock } from 'src/core/block/genesis'
-import { cutBlockReward } from 'src/core/block/distributeBlockReward'
 import { calculateTotalFees } from 'src/core/transaction/utils/totalFees'
+import { calculateTotalBlockReward } from 'src/core/consensus/calculateReward'
 import {
-	calculateTotalBlockReward,
-	GAS_PRICE_NEXU,
-} from 'src/core/consensus/calculateReward'
+	cutBlockReward,
+	INITIAL_REWARD_NEXU,
+	HALVING_INTERVAL,
+} from 'src/core/block/distributeBlockReward'
+import { buildGenesisBlock, GENESIS_REWARD_NEX } from 'src/core/block/genesis'
+import { MAX_SUPPLY_NEXU } from 'src/core/token/constants'
 import { verifyBlockReward } from 'src/core/consensus/verify/module/verifyReward'
 import {
 	checkBlockTimestamp,
@@ -205,23 +211,14 @@ const makeRewardBlock = (): Block =>
 		chainId: CHAIN_ID,
 		status: 'confirmed',
 		blockReward: cutBlockReward(HEIGHT),
-		totalReward: calculateTotalBlockReward(
-			cutBlockReward(HEIGHT),
-			GAS_PRICE_NEXU,
-			FEE,
-		),
+		totalReward: calculateTotalBlockReward(cutBlockReward(HEIGHT), FEE),
 		coinbaseTransaction: {
-			amount: calculateTotalBlockReward(
-				cutBlockReward(HEIGHT),
-				GAS_PRICE_NEXU,
-				FEE,
-			),
+			amount: calculateTotalBlockReward(cutBlockReward(HEIGHT), FEE),
 			receiver: MINER,
 			extraData: stringToHex('Block reward'),
 		},
 		metadata: {
 			txCount: 1,
-			gasPrice: GAS_PRICE_NEXU,
 			created_at: 1_760_000_000_000,
 			extraData: stringToHex('fixture'),
 		},
@@ -271,12 +268,121 @@ expectRewardReject('coinbase.receiver != minerId', (b) => {
 expectRewardReject('totalTransactionFees off-by-one', (b) => {
 	b.block.totalTransactionFees += 1
 })
-expectRewardReject('metadata.gasPrice off-by-one', (b) => {
-	b.block.metadata!.gasPrice += 1
-})
+// Field `gasPrice` dihapus dari metadata pada P2 — karenanya mutasi yang
+// dulu diuji di sini (metadata.gasPrice ± 1) tidak ada lagi. Sisa field
+// metadata (txCount/created_at/extraData) tidak memengaruhi konsensus
+// hadiah; strukturnya dijaga Joi `verifyStruct` (menolak key tak dikenal,
+// jadi blok lama ber-gasPrice tetap tertolak di sana).
 expectRewardReject('metadata hilang pada height > 0', (b) => {
 	delete b.block.metadata
 })
+
+// ---------------------------------------------------------------------------
+// 2b. Jadwal halving — boundary, monotone, epoch raksasa, Σ ≤ plafon
+// ---------------------------------------------------------------------------
+
+console.log('RULE 2b — jadwal halving hadiah blok:')
+
+// Konstanta jadwal harus persis yang disepakati (angka KONSENSUS).
+ok(
+	'INITIAL_REWARD_NEXU === 1_250_000_000 (12.5 NXC)',
+	INITIAL_REWARD_NEXU === 1_250_000_000,
+	`got=${INITIAL_REWARD_NEXU}`,
+)
+ok(
+	'HALVING_INTERVAL === 2_000_000',
+	HALVING_INTERVAL === 2_000_000,
+	`got=${HALVING_INTERVAL}`,
+)
+
+// Boundary epoch — halving PERTAMA tepat di blok 2_000_001.
+const boundaryCases: Array<[number, number]> = [
+	[1, 1_250_000_000],
+	[1_999_999, 1_250_000_000],
+	[2_000_000, 1_250_000_000],
+	[2_000_001, 625_000_000],
+	[3_999_999, 625_000_000],
+	[4_000_000, 625_000_000],
+	[4_000_001, 312_500_000],
+]
+for (const [height, expected] of boundaryCases) {
+	ok(
+		`cutBlockReward(${height}) === ${expected}`,
+		cutBlockReward(height) === expected,
+		`got=${cutBlockReward(height)}`,
+	)
+}
+
+// Genesis di luar jadwal (reward genesis punya konstanta sendiri).
+ok(
+	'cutBlockReward(0) === 0 (height < 1 di luar jadwal, genesis exempt)',
+	cutBlockReward(0) === 0,
+	`got=${cutBlockReward(0)}`,
+)
+
+// Monotone non-naik: hadiah tidak pernah naik saat height bertambah.
+let monotone = true
+let prevReward = cutBlockReward(1)
+const monotonePoints = [
+	1, 2, 19, 20, 21, 999, 1_999_999, 2_000_000, 2_000_001, 2_000_002, 3_999_999,
+	4_000_001, 6_000_001, 10_000_001, 100_000_001,
+]
+for (const h of monotonePoints) {
+	const r = cutBlockReward(h)
+	if (r > prevReward) {
+		monotone = false
+		break
+	}
+	prevReward = r
+}
+ok('hadiah monotone non-naik di lintasan boundary', monotone)
+
+// Epoch raksasa → 0 (sub-satoshi-style: di bawah 1 nexu dibuang, bukan 1).
+ok(
+	'epoch raksasa (blok 100_000_001, epoch 49) === 0',
+	cutBlockReward(100_000_001) === 0,
+	`got=${cutBlockReward(100_000_001)}`,
+)
+ok(
+	'height Number.MAX_SAFE_INTEGER tetap 0 (tanpa overflow aneh)',
+	cutBlockReward(Number.MAX_SAFE_INTEGER) === 0,
+	`got=${cutBlockReward(Number.MAX_SAFE_INTEGER)}`,
+)
+
+// Σ closed-form seluruh jadwal + genesis — DIBUKTIKAN DENGAN ANGKA.
+// Σ = Σ_epoch H · ⌊R0 / 2^epoch⌋ (berhenti saat reward 0), dijumlah
+// dengan BigInt supaya tidak ada pembulatan diam-diam.
+const scheduleSigma = (() => {
+	let sum = 0n
+	const h = BigInt(HALVING_INTERVAL)
+	const r0 = BigInt(INITIAL_REWARD_NEXU)
+	let epoch = 0n
+	for (;;) {
+		const reward = r0 / 2n ** epoch
+		if (reward < 1n) break
+		sum += h * reward
+		epoch += 1n
+	}
+	return sum
+})()
+const genesisIssued = BigInt(GENESIS_REWARD_NEX) * 100_000_000n // NXC → nexu
+const maxSupply = BigInt(MAX_SUPPLY_NEXU)
+const sigmaTotal = scheduleSigma + genesisIssued
+
+ok(
+	`Σ jadwal closed-form === 4_999_999_978_000_000 nexu (49,999,999.78 NXC), got=${scheduleSigma}`,
+	scheduleSigma === 4_999_999_978_000_000n,
+)
+ok(
+	`Σ jadwal + genesis (${genesisIssued} nexu) ≤ MAX_SUPPLY_NEXU (${maxSupply})`,
+	sigmaTotal <= maxSupply,
+	`Σ=${sigmaTotal}`,
+)
+ok(
+	'GENESIS_REWARD_NEX === 0 (premined ke alamat burn, Σ + genesis tetap di bawah plafon)',
+	GENESIS_REWARD_NEX === 0,
+	`got=${GENESIS_REWARD_NEX}`,
+)
 
 // ---------------------------------------------------------------------------
 // 3. Timestamp MTP-11 + batas masa depan

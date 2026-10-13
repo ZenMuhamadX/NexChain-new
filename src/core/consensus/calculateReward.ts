@@ -1,25 +1,27 @@
-import { toNexu } from 'src/core/token/toNexu'
-
 /**
- * Gas price baku per blok, dalam nexu — **satu** sumber kebenaran untuk
- * template (`createBlockTemplate`) dan verifikasi konsensus
- * (`verify/module/verifyReward`).
+ * Total hadiah blok yang dikreditkan ke coinbase (nexu).
  *
- * Nilainya persis literal yang dulu inline di template:
- * `toNexu(0.00025)` → `25_000` nexu tepat (konversi `parseNxc` murni
- * string, tanpa IEEE-754 — lihat `toNexu`).
+ * ====================================================================
+ * PENGHAPUSAN gasPrice (audit P2)
+ * ====================================================================
+ * Sebelumnya fungsi ini `reward + gasPrice + totalTxFees` dengan
+ * `GAS_PRICE_NEXU = 25_000` nexu per blok — "nxc dari udara": nilai itu
+ * tidak berasal dari fee pengguna, dicetak protokol begitu saja, dan
+ * harus dijaga kemunculannya di tiga tempat (template, verifier,
+ * metadata). Kini hanya ada SATU sumber pendapatan miner yang sah:
+ * hadiah blok (`cutBlockReward`) + fee transaksi (`calculateTotalFees`).
  *
- * Jangan diubah tanpa perubahan konsensus yang disengaja: `verifyReward`
- * membandingkan `metadata.gasPrice` blok terhadap konstanta ini dengan `===`,
- * sehingga template dan verifier MUSTAHIL berbeda selama keduanya mengimpor
- * nilai yang sama.
+ * Fee tetap mengalir penuh ke miner — model fee-transfer-nya tidak
+ * berubah: pengirim didebit `amount + fee`, penerima `+amount`, miner
+ * `+fee` (lihat `processSender`).
+ *
+ * Dipakai identik oleh `createBlockTemplate` (menyusun) dan
+ * `verifyReward` (menghitung ulang) — perbandingan `===` ketat tanpa
+ * epsilon, karena kedua sisi menjalankan operasi yang sama.
  */
-export const GAS_PRICE_NEXU = toNexu(0.00025)
-
 export const calculateTotalBlockReward = (
 	reward: number,
-	gasPrice: number,
 	totalTxFees: number,
 ) => {
-	return reward + gasPrice + totalTxFees
+	return reward + totalTxFees
 }
