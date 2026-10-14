@@ -15,6 +15,7 @@ import { assertUnitConstants } from 'src/core/token/constants'
 import { DATA_DIR } from 'src/core/state/db/dataDir'
 import { checkBindAndAuth, hasConfiguredCredentials } from 'src/rpc/authLogic'
 import { startP2P } from 'src/p2p/node'
+import { recoverJournal } from 'src/core/state/journal/store'
 
 // Verifikasi konstanta satuan SEBELUM menyentuh apa pun.
 //
@@ -62,6 +63,22 @@ app.listen(PORT, HOST, async () => {
 	// Tampilkan lokasi data saat boot: operator harus bisa tahu di mana rantai
 	// disimpan tanpa harus membaca kode (lihat src/core/state/db/dataDir.ts).
 	logToConsole(`Data dir: ${DATA_DIR}`)
+
+	// ---- UNDO JOURNAL: recovery crash-consistency ------------------------
+	// Rollback semua blok yang commit-nya tidak selesai (journal:<h> ada
+	// tetapi blockState tertinggal di bawah h). Dijalankan SEBELUM genesis
+	// dibaca/diverifikasi supaya tidak ada pembaca yang melihat blok
+	// setengah. FAIL-CLOSED: bila recovery gagal, node berhenti daripada
+	// menambang di atas state yang mungkin rusak.
+	try {
+		await recoverJournal()
+	} catch (error) {
+		console.error(
+			'Journal recovery gagal — node berhenti supaya tidak menulis di ' +
+				`atas state tak-konsisten: ${error instanceof Error ? error.message : error}`,
+		)
+		process.exit(1)
+	}
 
 	// Auto-genesis (standar Bitcoin — hardcoded di kode):
 	//   - rantai kosong → tulis blok genesis KONSTANTA (coinbase ke burned

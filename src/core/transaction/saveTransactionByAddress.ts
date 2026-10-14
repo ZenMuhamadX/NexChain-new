@@ -1,11 +1,19 @@
 import { decodeFromBytes } from 'src/core/encoding/hex/bytes/decodeBytes'
 import { rocksHistory } from 'src/core/state/db/history'
+import {
+	assertJournalAllows,
+	isJournalGuardError,
+} from 'src/core/state/journal/guard'
 
 export const saveTxByAddress = async (
 	from: string,
 	receiver: string,
 	txHash: string,
 ): Promise<void> => {
+	// Journal guard (fail-closed): di LUAR try — kedua kunci indeks alamat
+	// WAJIB terenumerasi. Guard error dilempar-ulang oleh catch di bawah.
+	assertJournalAllows('history', `address:${from}`)
+	assertJournalAllows('history', `address:${receiver}`)
 	try {
 		// Cek dan tambahkan txHash untuk pengirim
 		await addTxHashToAddress(from, txHash)
@@ -13,6 +21,7 @@ export const saveTxByAddress = async (
 		// Cek dan tambahkan txHash untuk penerima
 		await addTxHashToAddress(receiver, txHash)
 	} catch (error) {
+		if (isJournalGuardError(error)) throw error
 		console.error('Error indexing transaction:', error)
 	}
 }
@@ -47,6 +56,7 @@ const addTxHashToAddress = async (
 		// Simpan array yang diperbarui kembali ke LevelDB
 		await rocksHistory.put(`address:${address}`, JSON.stringify(newTxHashes))
 	} catch (error) {
+		if (isJournalGuardError(error)) throw error
 		console.error(`Error adding txHash to address ${address}:`, error)
 	}
 }

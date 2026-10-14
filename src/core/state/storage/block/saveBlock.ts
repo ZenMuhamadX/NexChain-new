@@ -4,6 +4,10 @@ import { rocksState } from 'src/core/state/db/state'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { prepareBlockState } from '../state/setState'
 import { writeBlockHash } from './writeBlockHash'
+import {
+	assertJournalAllows,
+	isJournalGuardError,
+} from 'src/core/state/journal/guard'
 
 /**
  * Simpan blok hasil commit — jalur tulis semua-atau-tidak-sama-sekali.
@@ -46,6 +50,12 @@ export const saveBlock = async (blockData: Block): Promise<boolean> => {
 		const blockHash = blockData.block.header.hash
 		const blockHeight = blockData.block.height
 
+		// Journal guard (fail-closed): dua kunci state batch WAJIB
+		// terenumerasi. Di dalam try, tetapi catch di bawah melempar-ulang
+		// JournalGuardError sehingga commit benar-benar dibatalkan.
+		assertJournalAllows('state', 'blockState')
+		assertJournalAllows('state', `blockHeight:${blockHeight}`)
+
 		// (1) Guard dulu, nol tulis.
 		const blockState = await prepareBlockState(blockData)
 
@@ -66,6 +76,10 @@ export const saveBlock = async (blockData: Block): Promise<boolean> => {
 		)
 		return true
 	} catch (error) {
+		// Pelanggaran guard journal TIDAK boleh ditelan menjadi `false`:
+		// ia sinyal bug enumerasi yang harus membatalkan commit dan
+		// memicu rollback (lihat `commitBlock`).
+		if (isJournalGuardError(error)) throw error
 		// Tangani error jika proses penyimpanan gagal
 		console.error('Error saving block:', error)
 		return false

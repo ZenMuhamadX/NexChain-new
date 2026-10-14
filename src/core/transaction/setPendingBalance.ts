@@ -1,5 +1,6 @@
 import { rocksState } from 'src/core/state/db/state'
 import { assertNexuCapped } from 'src/core/token/isNexuCapped'
+import { assertJournalAllows } from 'src/core/state/journal/guard'
 
 /**
  * Fungsi untuk menyimpan pending balance ke database
@@ -25,6 +26,10 @@ export const setPendingBalance = async (data: pendingBalance): Promise<any> => {
 		data.pendingAmount,
 		`setPendingBalance(${data.address}).pendingAmount`,
 	)
+
+	// Journal guard (fail-closed): di LUAR try, karena catch di bawah hanya
+	// `console.error` lalu kembali normal.
+	assertJournalAllows('state', `pendingBalance:${data.address}`)
 
 	try {
 		const pendingBalanceData: pendingBalance = {
