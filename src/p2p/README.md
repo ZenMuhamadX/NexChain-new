@@ -34,7 +34,7 @@ mengikuti kebijakan RPC.
 | `transport/server.ts`        | `Bun.listen` (inbound) + `Bun.connect` (outbound).                                |
 | `peers/banList.ts`           | Daftar ban berbasis alamat, kedaluwarsa otomatis.                                 |
 | `peers/peerManager.ts`       | Siklus hidup peer: handshake, ping/pong, ban, reconnect, maxPeers.                |
-| `validation/connectBlock.ts` | Validasi blok asing + cek rantai ke tip, lalu `commitBlock`.                      |
+| `validation/connectBlock.ts` | Validasi blok asing + jalur cabang (branch pool → reorg), lalu `commitBlock`.         |
 | `sync/syncManager.ts`        | Protokol `getblocks`/`inv`/`getdata`/`block`/`tx`; menandai status sync.          |
 | `broadcastGate.ts`           | Menekan siaran ganda saat memproses item masuk.                                   |
 | `node.ts`                    | Orkestrator: `startP2P()`. Satu-satunya tempat semua dirangkai.                   |
@@ -87,25 +87,57 @@ membacanya TANPA mengimpor `src/p2p/` (aturan lapisan tetap utuh).
   di-commit. Hanya pembuatan job baru (`nex_getWork`) yang ditahan.
 - Cek dari klien: `nex_getSyncStatus` → `{ phase, syncing, localHeight,
   targetHeight, updatedAt }` (JSON polos, `phase ∈
-  idle|syncing|assumed|synced`).
+  idle|syncing|assumed|synced|forked`). Fase **`forked`** menahan mining selama
+  reorg (lihat bagian berikut); ia sengaja menimpa `synced` karena tip lokal
+  memang sedang berubah, lalu ditutup oleh `markSynced()`.
+
+## Reorg (satu rantai, fork choice berbasis kerja)
+
+Reorg **didukung** (M2). Aturan pemilihan cabang mengikuti Bitcoin: kerja
+kumulatif terbanyak (`Σ 2^difficulty`), bukan tinggi terpanjang.
+
+- **`connectBlock` punya dua jalur.** Blok yang tepat melanjutkan tip
+  (`height == tip+1` dan `previousBlockHash == tip.hash`) **di-commit langsung**.
+  Blok lain diverifikasi terhadap **induknya** — timestamp diukur dari rantai
+  nenek moyang induk, difficulty dihitung dari induk (lokal ATAU blok pooled) —
+  lalu **diparkir di branch pool**. Induk yang belum tiba = orphan; PoW/hash/
+  merkle/hadiah sudah lolos, difficulty diukur ulang saat replay.
+- **Satu titik deteksi (R-2).** Semua cabang masuk lewat
+  `onCompetingTip(hash)` di `src/core/consensus/reorg/reorg.ts`. Bila cabangnya
+  tersambung ke rantai lokal DAN lebih berat → fase `forked` → rollback lewat
+  undo journal → tx dari blok yang dibalik dikembalikan ke mempool → replay
+  cabang pemenang **senyap** (`commitBlock` tidak menyiarkan) → `synced`.
+- **Batas kedalaman** `MAX_REORG_DEPTH` (128, sama dengan kedalaman journal):
+  cabang yang bercabang lebih dalam DITOLAK dengan pesan jelas.
+- **`invalidateFrom(height)` (R-1).** Saat tip berubah, semua state turunan
+  ber-key height/hash ≥ titik cabang (untuk sekarang: branch pool) dibuang dari
+  satu tempat — bukan tersebar.
+- **Selalu senyap saat replay** supaya kita tidak menggosipkan ulang blok yang
+  baru saja diterima. Blok lokal yang kalah TIDAK di-commit ulang (dicek
+  duplikat).
+- **`src/core/consensus/reorg/`** (`forkChoice`, `branchPool`, `ancestry`,
+  `reorg`) murni di sisi core; `src/p2p/` hanya memanggilnya. Pool in-memory
+  (bukan LevelDB) supaya tak ada store ke-7 yang harus di-rollback.
 
 ## Aturan keamanan yang penting
 
-- **`connectBlock` menolak blok yang tidak menempel ke tip** (`height == tip+1`
-  dan `previousBlockHash == tip.hash`). Karena itu rantai-palsu-yang-lebih-panjang
-  mustahil diterima — reorg memang belum didukung.
+- **`connectBlock` menerima blok yang tidak menempel ke tip HANYA sebagai
+  kandidat cabang** yang lebih berat (lihat "Reorg" di atas). Rantai-palsu yang
+  tidak lebih berat cukup diparkir, tidak pernah mengganti tip.
 - **Blok yang sudah ada tidak pernah di-commit ulang.** `commitBlock` menjalankan
   `processTransact`; meng-commit ulang akan mengkredit saldo dua kali.
-- **Pelanggaran konsensus = fatal** (PoW/hash/struktur/merkle/hadiah/timestamp)
-  → peer di-ban. **Ketidakcocokan tip = non-fatal** (mungkin hanya balapan),
-  cukup diabaikan.
+- **Pelanggaran konsensus = fatal** (PoW/hash/struktur/merkle/hadiah/timestamp/
+  difficulty) → peer di-ban. **Tip-link mismatch / duplikat = non-fatal**
+  (mungkin hanya balapan), cukup diabaikan.
 - Semua validasi blok memakai ulang modul `src/core/consensus/verify/module/*`
   — aturan yang sama dengan jalur mining, bukan salinan kedua.
 
 ## Uji
 
 - `bun run check:p2p` — gerbang offline (framing, pesan, config, handshake, ban,
-  status sync/IBD, dan arah dependensi `core ↛ p2p`).
+  status sync/IBD termasuk fase `forked`, dan arah dependensi `core ↛ p2p`).
+- `bun run check:reorg` — gerbang reorg (fork choice, branch pool, penelusuran
+  nenek moyang, reorg penuh lewat LevelDB nyata, batas kedalaman, `invalidateFrom`).
 - `bun run p2p:smoke` — tiga node localhost; node kedua harus menyusul tinggi
   rantai dan menerima relay tx, dan node ketiga (peer mati) harus menolak
   `nex_getWork` lalu membukanya lewat katup pengaman.

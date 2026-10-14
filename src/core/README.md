@@ -10,7 +10,7 @@ jalan di sini**; semuanya dijalankan lewat `apps/node`. Dulu berada di `nexchain
 | `block/`              | Struktur & pembuatan blok: `blockModel.ts`, `genesis.ts`, `createBlockTemplate.ts`, `isChainValid.ts`, `prepareBlock.ts`, `query/`. |
 | `blockchain/`         | Orkestrasi rantai: `blockchain.ts`.                                       |
 | `transaction/`        | Siklus tx: `processTransaction`, `createCoinbaseTransaction`, `memPool`, `isTxExecuted`, `sender/`, `receiver/`, `utils/`. Hash & skema wire tinggal di `encoding/rlp/txCodec.ts`. |
-| `consensus/`          | PoW: `difficulty.ts`, `Pow.ts`, `work.ts`, `verify/` (verifyIntegrity, verifyPow, verifyMerkleRoot, verifyStruct, module/). |
+| `consensus/`          | PoW: `difficulty.ts`, `Pow.ts`, `work.ts`, `verify/` (verifyIntegrity, verifyPow, verifyMerkleRoot, verifyStruct, module/), dan `reorg/` (fork choice, branch pool, penelusuran nenek moyang, eksekusi reorg). |
 | `state/`              | Persistensi: `db/` (akses leveldb) + `storage/` (block / state / mempool) + `journal/` (undo journal: WAL per blok, guard fail-closed, rollback & recovery). |
 | `encoding/`           | `hex/`, `rlp/` (codec wire transaksi), `lib/` (format, ukuran, timestamp), `sha256.ts`, `keccak256.ts`.   |
 | `token/`              | Nexucoin: nexu ↔ NxC, formatting.                                         |
@@ -32,6 +32,16 @@ guard journal aktif: menulis kunci yang tak terenumerasi → `JournalGuardError`
 `journal:<h>` dengan `h > blockState.currentBlockHeight`, sehingga crash di
 tengah commit tidak pernah meninggalkan blok setengah. Record juga menjadi
 fondasi rollback reorg (M2). Lihat `src/core/state/journal/README.md`.
+
+## Reorg (M2)
+
+`consensus/reorg/` mengganti tip bila ada cabang yang LEBIH BERAT (kerja
+kumulatif `Σ 2^difficulty`, bukan tinggi). Blok asing non-tip diverifikasi
+terhadap indeknya lalu diparkir di **branch pool in-memory**; `connectBlock`
+(P2P) memanggil `reevaluateBranches()` → `onCompetingTip` (satu titik deteksi,
+R-2). Bila cabang menang: rollback lewat undo journal, tx yatim dikembalikan ke
+mempool (opsi B), cabang diputar ulang **senyap**, dan `invalidateFrom` (R-1)
+membuang state turunan basi. Lihat `src/core/consensus/reorg/README.md`.
 
 ## Catatan gaya
 

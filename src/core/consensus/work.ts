@@ -158,11 +158,10 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 	try {
 		// Gerbang IBD: JANGAN menyusun template di atas rantai yang masih
 		// tertinggal. Tanpa ini, node yang baru menyambung ke jaringan bisa
-		// menambang di atas tip lokal yang basi → rantai bercabang yang TIDAK
-		// bisa di-reorg (reorg belum didukung, lihat `src/p2p/`). Gerbang hanya
-		// menyala saat P2P menandai "syncing"; node tunggal (P2P mati) dan node
-		// yang sudah menyusul tidak pernah terpengaruh — lihat
-		// `src/core/events/syncState.ts`.
+		// menambang di atas tip lokal yang basi. Gerbang hanya menyala saat P2P
+		// menandai "syncing" ATAU "forked" (reorg sedang berjalan — M2); node
+		// tunggal (P2P mati) dan node yang sudah menyusul tidak pernah
+		// terpengaruh — lihat `src/core/events/syncState.ts`.
 		//
 		// CATATAN: hanya `nex_getWork` yang digerbang. `nex_submitWork` dan
 		// `connectBlock` TIDAK — kerja yang sudah dihitung miner tetap bisa
