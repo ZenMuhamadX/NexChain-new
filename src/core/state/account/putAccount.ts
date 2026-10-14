@@ -5,6 +5,7 @@ import { rocksState } from 'src/core/state/db/state'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { HexString } from 'src/types/block'
 import { assertNexuCapped } from 'src/core/token/isNexuCapped'
+import { assertJournalAllows } from 'src/core/state/journal/guard'
 
 /**
  * Updates the balance for a given address in RocksDB.
@@ -28,6 +29,11 @@ export const putAccount = async (
 	// guard yang jelas, bukan `TypeError: Cannot read properties of undefined`
 	// yang bocor dari lapisan di atas.
 	assertNexuCapped(balance?.balance, `putAccount(${address}).balance`)
+
+	// Journal guard (fail-closed): alamat saldo WAJIB terenumerasi di
+	// touch-set blok yang sedang di-commit. Di LUAR try supaya
+	// `handleUnexpectedError` (yang menelan error) tidak menelannya.
+	assertJournalAllows('state', address)
 
 	try {
 		// Validate input

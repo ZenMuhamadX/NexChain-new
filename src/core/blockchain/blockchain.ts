@@ -19,6 +19,16 @@ import { logToConsole } from 'src/logging/logging'
 import { loggingDebug } from 'src/logging/debug'
 import { projectTotalIssued } from 'src/core/state/storage/state/setState'
 import { MAX_SUPPLY_NEXU, NEXU_PER_NXC } from 'src/core/token/constants'
+import {
+	beginJournalContext,
+	endJournalContext,
+} from 'src/core/state/journal/guard'
+import {
+	prepareJournalRecord,
+	pruneJournal,
+	rollbackBlock,
+	writeJournalRecord,
+} from 'src/core/state/journal/store'
 
 export class BlockChains {
 	constructor() {
@@ -38,10 +48,15 @@ export class BlockChains {
 	 *   3. verifikasi PLAFON SUPLAI — `totalIssued` proyektif belum melewati
 	 *      50 juta NXC. Dilakukan di sini (sebelum menulis apa pun) supaya
 	 *      penolakan bersih, bukan setengah-blok di DB;
-	 *   4. simpan blok ke DB (hash/height/state) — nilai return `saveBlock`
+	 *   4. **undo journal (WAL)** — enumerasi touch-set, snapshot nilai lama,
+	 *      lalu tulis `journal:<h>` dengan `sync:true` SEBELUM tulisan state
+	 *      apa pun. Sejak titik ini guard journal aktif: menulis kunci yang
+	 *      tak terenumerasi → throw (fail-closed) → blok dibatalkan +
+	 *      rollback best-effort (boot recovery sebagai jaring pengaman);
+	 *   5. simpan blok ke DB (hash/height/state) — nilai return `saveBlock`
 	 *      kini DIPERIKSA (dulu diabaikan: blok bisa gagal tersimpan tapi
 	 *      hadiah & transaksi tetap diproses);
-	 *   5. proses SELURUH transaksi blok lewat `processTransact` — termasuk
+	 *   6. proses SELURUH transaksi blok lewat `processTransact` — termasuk
 	 *      transaksi coinbase, sehingga hadiah blok terkredit melalui
 	 *      pipeline transaksi yang sama (pengganti `giveReward`/`putAccount`
 	 *      langsung) dan ikut terindex di riwayat alamat.
@@ -51,6 +66,9 @@ export class BlockChains {
 	public async commitBlock(
 		block: Block,
 	): Promise<{ status: boolean; block: Block | undefined }> {
+		// Tinggi blok yang WAL-nya sudah tertulis; `null` = belum ada tulisan
+		// journal, jadi tidak ada yang perlu di-rollback bila gagal.
+		let journalHeight: number | null = null
 		try {
 			if (!verifyMerkleRoot(block.block.transactions, block.block.merkleRoot)) {
 				throw new Error('Merkle root verification failed.')
@@ -122,6 +140,16 @@ export class BlockChains {
 				)
 			}
 
+			// ---- UNDO JOURNAL (WAL, sebelum tulisan state apa pun) --------
+			// Enumerasi semua kunci yang akan disentuh + snapshot nilai
+			// lamanya, lalu tulis `journal:<h>` (sync). Guard dinyalakan
+			// SETELAH WAL aman di disk; semua tulisan state/history/block
+			// berikutnya dicek keanggotaannya.
+			const { record, touch } = await prepareJournalRecord(block)
+			await writeJournalRecord(record)
+			journalHeight = record.height
+			beginJournalContext(touch)
+
 			await this.saveBlockToChain(block)
 
 			// Tidak lagi dipisah `transactionsToProcess` vs hadiah: satu
@@ -132,8 +160,31 @@ export class BlockChains {
 			// menyimpan timestamp.
 			await processTransact(block.block.transactions, block.block)
 
+			endJournalContext()
+
+			// Journal blok ini kini "terpakai"; pangkas yang lebih tua dari
+			// MAX_REORG_DEPTH supaya store tidak tumbuh tanpa batas.
+			await pruneJournal(block.block.height)
+
 			return { block, status: true }
 		} catch (error) {
+			endJournalContext()
+
+			// Best-effort rollback: bila WAL sudah tertulis tetapi commit
+			// gagal di tengah (mis. guard menolak kunci tak terdaftar, atau
+			// storage error), kembalikan state persis ke sebelum blok ini.
+			// Boot recovery tetap jaring pengaman bila proses mati di sini.
+			if (journalHeight !== null) {
+				try {
+					await rollbackBlock(journalHeight)
+				} catch (rollbackError) {
+					console.error(
+						'Journal rollback gagal (boot recovery akan menanganinya):',
+						rollbackError,
+					)
+				}
+			}
+
 			loggingErr({
 				message: error instanceof Error ? error.message : 'Unknown error',
 				context: 'BlockChains',

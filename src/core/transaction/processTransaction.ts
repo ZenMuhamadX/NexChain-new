@@ -9,6 +9,7 @@ import { saveTxByAddress } from 'src/core/transaction/saveTransactionByAddress'
 import { createCoinbaseRecord } from 'src/core/transaction/createCoinbaseTransaction'
 import { isTxExecuted } from './isTxExecuted'
 import { blockStruct } from 'src/types/block'
+import { isJournalGuardError } from 'src/core/state/journal/guard'
 
 /**
  * Lampirkan asal blok ke entri riwayat.
@@ -59,6 +60,7 @@ const applyBlockReward = async (block: blockStruct): Promise<void> => {
 		await saveTxByAddress(record.from!, record.receiver, record.txHash!)
 		await saveTxHistory(record.txHash!, withBlockMetadata(record, block))
 	} catch (error) {
+		if (isJournalGuardError(error)) throw error
 		loggingErr({
 			message: error instanceof Error ? error.message : 'Unknown error',
 			stack: new Error().stack!,
@@ -105,6 +107,7 @@ export const processTransact = async (
 			// (satu batch atomik) — lihat `removeMemPool`.
 			await removeMemPool(tx.txHash!)
 		} catch (error) {
+			if (isJournalGuardError(error)) throw error
 			loggingErr({
 				message: error instanceof Error ? error.message : 'Unknown error',
 				stack: new Error().stack!,
