@@ -65,6 +65,7 @@ import {
 	getSyncStatus,
 	isSyncing,
 	markAssumed,
+	markForked,
 	markSynced,
 	markSyncing,
 	resetSyncState,
@@ -736,6 +737,38 @@ await run('resetSyncState → idle lagi', () => {
 	resetSyncState()
 	assert(getSyncStatus().phase === 'idle', 'reset harus kembali idle')
 	assert(isSyncing() === false, 'reset → tidak syncing')
+})
+
+// Fase `forked` (M2 — reorg): menahan mining selama tip diganti. Berbeda dari
+// `synced`, ia SENGAJA menimpa fase apa pun; ditutup oleh `markSynced()`.
+
+await run('markForked → menahan mining (isSyncing true)', () => {
+	resetSyncState()
+	markForked({ localHeight: 4 })
+	const s = getSyncStatus()
+	assert(s.phase === 'forked', `fase harus forked, dapat ${s.phase}`)
+	assert(isSyncing() === true, 'forked harus menahan mining')
+	assert(s.syncing === true, 'syncing flag harus true saat forked')
+	assert(s.localHeight === 4, 'meta forked tercatat')
+})
+
+await run('markForked menimpa synced (bukan latch)', () => {
+	resetSyncState()
+	markSynced({ localHeight: 10 })
+	markForked({ localHeight: 10 })
+	assert(
+		getSyncStatus().phase === 'forked',
+		'forked harus menimpa synced — tip memang berubah',
+	)
+	assert(isSyncing() === true, 'forked harus menahan mining walau sudah synced')
+})
+
+await run('markForked selesai → markSynced membuka mining', () => {
+	resetSyncState()
+	markForked()
+	markSynced({ localHeight: 6 })
+	assert(getSyncStatus().phase === 'synced', 'setelah reorg harus synced')
+	assert(isSyncing() === false, 'mining dibuka setelah reorg')
 })
 
 // ---------------------------------------------------------------------------

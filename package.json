@@ -20,6 +20,7 @@
 		"check:txpolicy": "bun run scripts/txPolicyCheck.ts",
 		"check:storage": "bun run scripts/storageCheck.ts",
 		"check:journal": "bun run scripts/journalCheck.ts",
+		"check:reorg": "bun run scripts/reorgCheck.ts",
 		"check:pow": "bun run scripts/powParityCheck.ts",
 		"check:data": "bun run scripts/dataDirCheck.ts",
 		"pow:bench": "bun run scripts/powBench.ts",
