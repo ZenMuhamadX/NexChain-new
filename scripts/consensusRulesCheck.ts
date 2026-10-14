@@ -51,6 +51,7 @@ import {
 	MTP_WINDOW,
 	MAX_FUTURE_DRIFT_MS,
 } from 'src/core/consensus/verify/module/verifyTimestamp'
+import { TARGET_BLOCK_TIME_MS } from 'src/core/consensus/difficulty'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { CHAIN_ID } from 'src/crypto/chainId'
 
@@ -402,8 +403,8 @@ const fifteenPrev = Array.from(
 const mtp11 = NOW - 6_000
 ok('MTP_WINDOW === 11', MTP_WINDOW === 11, `got=${MTP_WINDOW}`)
 ok(
-	'batas masa depan === 2 jam',
-	MAX_FUTURE_DRIFT_MS === 2 * 60 * 60 * 1000,
+	'batas masa depan === 2x target blok',
+	MAX_FUTURE_DRIFT_MS === 2 * TARGET_BLOCK_TIME_MS,
 	`got=${MAX_FUTURE_DRIFT_MS}`,
 )
 ok(
@@ -419,11 +420,11 @@ ok(
 
 // Daftar kosong: hanya cek masa depan yang berjalan (genesis-safe).
 ok(
-	'ts == now + 2h diterima (daftar kosong)',
+	'ts == now + 2x target diterima (daftar kosong)',
 	checkBlockTimestamp(NOW + MAX_FUTURE_DRIFT_MS, [], NOW) === null,
 )
 ok(
-	'ts == now + 2h + 1 DITOLAK',
+	'ts == now + 2x target + 1 DITOLAK',
 	checkBlockTimestamp(NOW + MAX_FUTURE_DRIFT_MS + 1, [], NOW) !== null,
 	checkBlockTimestamp(NOW + MAX_FUTURE_DRIFT_MS + 1, [], NOW) ?? '(lolos)',
 )

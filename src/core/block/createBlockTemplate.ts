@@ -6,7 +6,7 @@ import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { calculateTotalFees } from 'src/core/transaction/utils/totalFees'
 import { calculateTotalBlockReward } from 'src/core/consensus/calculateReward'
-import { clampDifficulty, retargetByTime } from 'src/core/consensus/difficulty'
+import { expectedDifficulty } from 'src/core/consensus/difficulty'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
 import {
 	getPreviousTimestamps,
@@ -30,8 +30,9 @@ import { CHAIN_ID } from 'src/crypto/chainId'
  * (= `prepareBlockForHashing(template)`), miner mencari nonce, node
  * memverifikasi ulang dan menyelesaikan blok.
  *
- * Difficulty memakai retarget adaptif target 60 detik (lihat
- * `nexchain/miner/difficulty`) — mengganti `difficulty: 5` hardcode lama.
+ * Difficulty dihitung deterministik dari data rantai lewat `expectedDifficulty`
+ * (target blok 60 detik) — menggantikan retarget berbasis jam dinding dan
+ * `difficulty: 5` hardcode lama.
  */
 export const createBlockTemplate = async (
 	transactions: TxInterface[],
@@ -70,7 +71,17 @@ export const createBlockTemplate = async (
 	// mengkreditnya SEBELUM transaksi blok diproses — dan ter-commit lewat
 	// `minerId` + `totalReward` + `coinbaseTransaction` di preimage PoW,
 	// bukan lagi secara insidental lewat pseudo-tx di daftar transaksi.
-	const difficulty = nextDifficulty(latestBlock)
+	// Difficulty dihitung DETERMINISTIK dari data rantai setelah `timestamp`
+	// ditetapkan: `expectedDifficulty(parent.difficulty, parent.timestamp,
+	// timestamp, parent.height)`. Validator menghitung ulang rumus yang sama
+	// dan MENOLAK blok bila `header.difficulty` berbeda — jadi template ini
+	// tervalidasi oleh konstruksi (lihat `verifyTimestamp` untuk batas gap).
+	const difficulty = expectedDifficulty(
+		latestBlock.block.header.difficulty,
+		latestBlock.block.header.timestamp,
+		timestamp,
+		latestBlock.block.height,
+	)
 
 	return new Block({
 		header: {
@@ -105,38 +116,4 @@ export const createBlockTemplate = async (
 		transactions,
 		chainId: CHAIN_ID,
 	})
-}
-
-/**
- * Retarget difficulty: berbasis WAKTU sejak tip hingga template dibuat —
- * `now - tip.timestamp` (bukan jarak tip vs orangtuanya).
- *
- * Mengapa jarak grandparent→tip (lama) menyebabkan bug: nilai itu hanya
- * mencerminkan interval DUA blok LAMAU. Saat rantai idle (job terus
- * kadaluarsa, blok tak pernah diselesaikan) angkanya tetap ~target (30 detik
- * kala itu),
- * sehingga difficulty mandek (mis. 27.5) dan tidak pernah turun — persis
- * gejala "expiry berturut-turut tanpa penurunan". `now - tip.timestamp`
- * mengukur umur tip: idle time ikut terhitung → actualMs tumbuh → difficulty
- * turun.
- *
- * - Tip genesis (`height <= 0`): jarak waktu belum terdefinisi → pertahankan
- *   difficulty tip (dibatasi [MIN, MAX]) — perilaku lama dipertahankan;
- * - selain itu `retargetByTime` menghitung koreksi log2 terhadap
- *   `TARGET_BLOCK_TIME_MS` (kini 60 detik), dibatasi asimetris (naik maks +2,
- *   turun maks -4), dikunci [MIN, MAX] dan dikuantisasi 0.25 bit.
- *
- * Catatan: `retargetByTime` dibatasi turun maks -4 PER PEMANGGILAN dari
- * `tip.difficulty`. Selama tip tidak bergerak (blok tak ter-commit) penurunan
- * dari template saja bisa mandek di `tip - 4`. Untuk itulah jalur expiry
- * `cleanupExpiredJobs` (basis kumulatif dari job expired) melengkapi ini
- * hingga benar-benar menyentuh floor — lihat `nexchain/miner/work.ts`.
- *
- * Data lama ber-skema lama (difficulty angka kecil) otomatis naik bertahap
- * ke rentang normal lewat clamp — tanpa syarat khusus "blok lama".
- */
-const nextDifficulty = (tip: Block): number => {
-	const parentBits = tip.block.header.difficulty
-	if (tip.block.height <= 0) return clampDifficulty(parentBits)
-	return retargetByTime(parentBits, tip.block.header.timestamp)
 }

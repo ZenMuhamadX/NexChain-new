@@ -1,17 +1,16 @@
 /**
- * Gerbang regresi "difficulty retarget berbasis waktu (opsi A)".
+ * Gerbang regresi "difficulty retarget deterministik (M0)".
  *
- * Target blok kini 60 detik (`TARGET_BLOCK_TIME_MS`) — gerbang ini harus
- * bergerak BERSAMA konstanta itu: angka "target" di bawah diimpor dari
- * modul, bukan ditulis literal, supaya tidak pernah usang diam-diam.
+ * Target blok 60 detik (`TARGET_BLOCK_TIME_MS`) — gerbang ini bergerak
+ * BERSAMA konstanta itu: angka "target" diimpor dari modul, bukan ditulis
+ * literal, supaya tidak pernah usang diam-diam.
  *
- * Bug yang dicegah: `createBlockTemplate` dulu memakai jarak
- * grandparent→tip sebagai `actualMs`. Saat rantai idle (job terus kadaluarsa
- * dan blok tak pernah ter-commit) jarak itu tetap ~target (kala itu 30
- * detik) sehingga
- * difficulty mandek (mis. 27.5) dan tidak pernah turun — padahal expiry
- * terjadi berulang. Opsi A menggantinya dengan `now - tip.timestamp` dan
- * menambah jalur expiry kumulatif (`cleanupExpiredJobs`).
+ * Model saat ini: `expectedDifficulty(parentBits, parentTs, blockTs,
+ * parentHeight)` — murni fungsi data rantai, jadi SEMUA node menghitung angka
+ * yang sama untuk blok yang sama (determinisme = mekanisme sinkronisasi).
+ * Ini menggantikan retarget berbasis jam dinding (`retargetByTime`) dan jalur
+ * expiry kumulatif (`cleanupExpiredJobs`) yang membuat angka berbeda antar node
+ * dan mandek saat idle.
  *
  * Seluruhnya murni: tidak ada RPC, tidak ada DB (job disimpan di memori),
  * tidak ada side effect — aman dijalankan kapan pun tanpa node hidup.
@@ -19,17 +18,17 @@
  * Jalankan:  bun run check:difficulty
  *
  * Yang dipastikan:
- *   - retargetByTime: durasi == target -> tanpa koreksi
- *   - retargetByTime: kelipatan target (>= atau < 1) -> log2 lalu dikuantisasi 0.25
- *   - retargetByTime: idle panjang -> jatuh ke floor 8 bit
- *   - retargetByTime: blok sangat cepat -> naik tapi dijepit ceiling 48 bit
- *   - retargetByTime: jarak <= 0 / non-finite -> flat (guard, tanpa koreksi)
- *   - cleanupExpiredJobs: job hidup tidak disentuh, tidak ada -> undefined
- *   - cleanupExpiredJobs: basis job expired TERBARU, job dihapus setelahnya
- *   - cleanupExpiredJobs: penurunan kumulatif per expiry hingga floor 8
+ *   - gap == target -> tanpa koreksi
+ *   - gap == 2x target -> -1 bit (batas atas cabang halus)
+ *   - gap > 2x target -> pemulihan borongan `-(ceil(gap/T)-1)`, dijepit -8
+ *   - gap < target -> naik, dijepit +2 (max rise)
+ *   - idle raksasa -> floor MIN; blok sangat cepat -> ceiling MAX
+ *   - parentHeight <= 0 / gap <= 0 / non-finite -> flat (guard)
+ *   - determinisme: dua panggilan dengan argumen sama -> hasil sama
+ *   - pruneExpiredJobs: job hidup utuh, job kadaluarsa dibuang + dihitung
  */
 import {
-	retargetByTime,
+	expectedDifficulty,
 	MIN_DIFFICULTY_BITS,
 	MAX_DIFFICULTY_BITS,
 	TARGET_BLOCK_TIME_MS,
@@ -37,7 +36,7 @@ import {
 import {
 	createJob,
 	getJob,
-	cleanupExpiredJobs,
+	pruneExpiredJobs,
 	JOB_TTL_MS,
 } from 'src/core/consensus/jobStore'
 import { Block } from 'src/core/block/blockModel'
@@ -54,55 +53,90 @@ const ok = (name: string, cond: boolean, extra = '') => {
 	}
 }
 
-// ============ 1. retargetByTime (murni, tanpa I/O) ============
+// ============ 1. expectedDifficulty (murni, tanpa I/O) ============
 const BASE = 27.5 // difficulty nyata yang diamati user saat idle
 const T0 = 1_700_000_000_000 // anchor waktu acak — tidak bergantung Date.now()
+const H = 100 // tinggi induk (>= 1 supaya retarget berlaku)
+const T = TARGET_BLOCK_TIME_MS
 
-console.log('retargetByTime:')
+console.log('expectedDifficulty:')
 
-// Durasi == target -> langkah 0, difficulty tidak berubah.
-const atTarget = TARGET_BLOCK_TIME_MS
+// gap == target -> langkah 0, difficulty tidak berubah.
 ok(
-	`${atTarget / 1000}s (target) -> tetap 27.5`,
-	retargetByTime(BASE, T0, T0 + atTarget) === BASE,
+	`${T / 1000}s (target) -> tetap 27.5`,
+	expectedDifficulty(BASE, T0, T0 + T, H) === BASE,
 )
 
-// 2x target (120 detik) -> log2(0.5) = -1 bit persis.
-ok('120s (2x target) -> 26.5', retargetByTime(BASE, T0, T0 + 120_000) === 26.5)
+// gap == 2x target -> log2(0.5) = -1 bit persis (batas atas cabang halus).
+ok('2x target -> 26.5', expectedDifficulty(BASE, T0, T0 + 2 * T, H) === 26.5)
 
-// 5x target (300 detik) -> log2(0.2) = -2.32 -> 25.18 -> kuantisasi 0.25 -> 25.25.
-const r300 = retargetByTime(BASE, T0, T0 + 300_000)
-ok('300s -> 25.25 (kuantisasi 0.25)', r300 === 25.25, `got ${r300}`)
-
-// 0.5x target (30 detik) -> log2(2) = +1 bit.
-ok('30s (0.5x target) -> 28.5', retargetByTime(BASE, T0, T0 + 30_000) === 28.5)
-
-// Idle panjang: langkah di-clamp -4 lalu dijepit floor -> 9-4=5 -> 8.
-const rFloor = retargetByTime(9, T0, T0 + 1_000_000_000)
+// gap > 2x target -> pemulihan BORONGAN: -(ceil(gap/T)-1). 5x -> -4.
 ok(
-	`idle panjang -> floor ${MIN_DIFFICULTY_BITS}`,
-	rFloor === MIN_DIFFICULTY_BITS,
-	`got ${rFloor}`,
+	'5x target -> 23.5 (borongan -4)',
+	expectedDifficulty(BASE, T0, T0 + 5 * T, H) === 23.5,
 )
+
+// 10x target -> -min(9, 8) = -8 (dijepit MAX_STALL_FALL_BITS).
+ok(
+	'10x target -> 19.5 (borongan -8, jepit)',
+	expectedDifficulty(BASE, T0, T0 + 10 * T, H) === 19.5,
+)
+
+// gap == 0.5x target -> log2(2) = +1 bit.
+ok('0.5x target -> 28.5', expectedDifficulty(BASE, T0, T0 + T / 2, H) === 28.5)
 
 // Blok sangat cepat (1 detik): langkah di-clamp +2 -> 47+2=49 -> ceiling 48.
-const rCeil = retargetByTime(47, T0, T0 + 1_000)
+const rCeil = expectedDifficulty(47, T0, T0 + 1_000, H)
 ok(
 	`sangat cepat -> ceiling ${MAX_DIFFICULTY_BITS}`,
 	rCeil === MAX_DIFFICULTY_BITS,
 	`got ${rCeil}`,
 )
 
-// Guard: jarak waktu negatif (kemunduran jam) -> flat, bukan koreksi.
-ok('jarak negatif -> flat 27.5', retargetByTime(BASE, T0 + 5_000, T0) === BASE)
+// Idle raksasa: langkah di-clamp -8 lalu dijepit floor -> 9-8=1 -> 8.
+const rFloor = expectedDifficulty(9, T0, T0 + 1_000_000_000, H)
+ok(
+	`idle raksasa -> floor ${MIN_DIFFICULTY_BITS}`,
+	rFloor === MIN_DIFFICULTY_BITS,
+	`got ${rFloor}`,
+)
+
+// Guard: tinggi induk 0 (blok pertama di atas genesis) -> flat.
+ok(
+	'parentHeight 0 -> flat 27.5',
+	expectedDifficulty(BASE, T0, T0 + 10 * T, 0) === BASE,
+)
+
+// Guard: jarak waktu negatif (timestamp mundur) -> flat, bukan koreksi.
+ok(
+	'gap <= 0 -> flat 27.5',
+	expectedDifficulty(BASE, T0 + 5_000, T0, H) === BASE,
+)
 
 // Guard: timestamp non-finite -> flat, bukan NaN/Infinity.
-ok('timestamp non-finite -> flat 20', retargetByTime(20, Number.NaN, T0) === 20)
+ok(
+	'timestamp non-finite -> flat 20',
+	expectedDifficulty(20, Number.NaN, T0, H) === 20,
+)
 
-// ============ 2. cleanupExpiredJobs (job kadaluarsa) ============
-console.log('cleanupExpiredJobs:')
+// Determinisme: argumen identik -> hasil identik (inti model ini).
+ok(
+	'deterministik (dua panggilan sama)',
+	expectedDifficulty(BASE, T0, T0 + 3 * T, H) ===
+		expectedDifficulty(BASE, T0, T0 + 3 * T, H),
+)
 
-// jobStore hanya butuh field ini; `block` tidak disentuh oleh jalur cleanup.
+// Quirk batas cabang (didokumentasikan): gap = 2T -> -1, gap = 2T+1 -> -2.
+ok(
+	'batas cabang: gap=2T -> -1, gap=2T+1 -> -2',
+	expectedDifficulty(BASE, T0, T0 + 2 * T, H) === 26.5 &&
+		expectedDifficulty(BASE, T0, T0 + 2 * T + 1, H) === 25.5,
+)
+
+// ============ 2. pruneExpiredJobs (prune memori murni) ============
+console.log('pruneExpiredJobs:')
+
+// jobStore hanya butuh field ini; `block` tidak disentuh oleh jalur prune.
 const blockStub = {} as Block
 const mkJob = (difficulty: number) =>
 	createJob({
@@ -114,60 +148,20 @@ const mkJob = (difficulty: number) =>
 		minerAddress: 'NxC000000000000000000000000000000000000001',
 	})
 
-// --- A. tidak ada yang kadaluarsa -> undefined, job hidup tetap tersimpan ---
+// --- A. tidak ada yang kadaluarsa -> 0 dibuang, job hidup tetap tersimpan ---
 const live = mkJob(20)
-ok(
-	'tidak ada job kadaluarsa -> undefined',
-	cleanupExpiredJobs(Date.now() - 30_000, Date.now()) === undefined,
-)
+ok('tidak ada job kadaluarsa -> 0', pruneExpiredJobs(Date.now()) === 0)
 ok('job hidup TIDAK disentuh', getJob(live.jobId) !== undefined)
 
-// --- B. paksa expiry: basis = job expired TERBARU (27.5, bukan 20) ---
-// actualMs = (now + TTL + 60s) - (now - 300s) = 660.000ms; langkah
-// log2(60/660) ≈ -3.46 (di dalam clamp -4, jadi utuh) -> 24.04 -> kuantisasi
-// -> 24. Bila basisnya job tertua (20) hasilnya 16.5, jadi angka 24
-// membuktikan pemilihan "terbaru".
+// --- B. paksa expiry: job dibuang dan dihitung ---
 const exp = mkJob(27.5)
-const lastTs = Date.now() - 300_000
-const target = Date.now() + JOB_TTL_MS + 60_000
-const rExp = cleanupExpiredJobs(lastTs, target)
+const pruned = pruneExpiredJobs(Date.now() + JOB_TTL_MS + 60_000)
+ok('job kadaluarsa dihitung & dibuang', pruned >= 1, `got ${pruned}`)
+ok('job kadaluarsa hilang', getJob(exp.jobId) === undefined)
+ok('job hidup ikut terhapus (map bersih)', getJob(live.jobId) === undefined)
 ok(
-	'expiry -> retarget dari job TERBARU (27.5 -> 24)',
-	rExp === 24,
-	`got ${rExp}`,
-)
-ok('job kadaluarsa dihapus', getJob(exp.jobId) === undefined)
-ok('job ikut terhapus (map bersih)', getJob(live.jobId) === undefined)
-ok(
-	'pemanggilan ulang tanpa job sisa -> undefined',
-	cleanupExpiredJobs(lastTs, target) === undefined,
-)
-
-// --- C. penurunan kumulatif per expiry hingga floor 8 ---
-// Ini inti opsi A: tiap expiry turun ~3.46 bit dari titik terakhir, sehingga
-// tidak pernah mandek selama blok tak pernah ter-commit, sampai mentok floor.
-const seen: number[] = []
-let cursor = 24
-for (let i = 0; i < 7; i++) {
-	mkJob(cursor)
-	const next = cleanupExpiredJobs(
-		Date.now() - 300_000,
-		Date.now() + JOB_TTL_MS + 60_000,
-	)
-	if (next === undefined) break
-	seen.push(next)
-	cursor = next
-}
-ok(
-	`penurunan kumulatif per expiry (${seen.join(' -> ')})`,
-	seen.length === 7 &&
-		seen[0] === 20.5 &&
-		seen[1] === 17 &&
-		seen[2] === 13.5 &&
-		seen[3] === 10 &&
-		seen[4] === MIN_DIFFICULTY_BITS &&
-		seen[5] === MIN_DIFFICULTY_BITS &&
-		seen[6] === MIN_DIFFICULTY_BITS,
+	'pemanggilan ulang tanpa job sisa -> 0',
+	pruneExpiredJobs(Date.now() + JOB_TTL_MS + 60_000) === 0,
 )
 
 console.log(`\n  ============ ${pass} OK / ${fail} FAIL ============`)

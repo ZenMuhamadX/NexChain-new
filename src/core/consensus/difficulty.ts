@@ -6,13 +6,17 @@
  * tepat 5 digit "0" (setara prefix "00000" pada skema lama); difficulty 20.5
  * = 5 digit "0" + nibble berikutnya < 8.
  *
- * Retarget dihitung per blok oleh NODE ketika menyusun template
- * (`createBlockTemplate` → `calcNextDifficulty`), disimpan di
- * `header.difficulty`, lalu diverifikasi ulang oleh semua pihak lewat
- * `meetsDifficulty` (verify/module/verifyPow).
+ * `header.difficulty` IKUT preimage PoW (lihat `prepareBlockForHashing`), dan
+ * angka yang diperbolehkan dihitung ULANG oleh setiap validator lewat
+ * `expectedDifficulty` — BUKAN dipercaya dari header. Semua node memakai
+ * fungsi murni yang sama sehingga hasilnya identik; determinisme inilah
+ * mekanisme "sinkronisasi"-nya (tidak ada nilai difficulty yang dikirim).
+ *
+ * `meetsDifficulty` tetap satu-satunya definisi "kerja cukup" (dipakai miner
+ * & node).
  *
  * Modul ini SENGAJA murni (tanpa impor DB / model / logging) supaya aman
- * diimpor proses miner eksternal — lihat `client/miner/runMiner.ts`.
+ * diimpor proses miner eksternal — lihat `apps/miner/`.
  */
 
 /** Target jarak antar blok (ms). Inilah yang dikejar retarget. */
@@ -45,6 +49,15 @@ export const MAX_DIFFICULTY_BITS = 48
  */
 export const MAX_RISE_BITS = 2
 export const MAX_FALL_BITS = 4
+
+/**
+ * Batas penurunan **borongan** saat rantai menganggur lama (`gap > 2×TARGET`).
+ * Berbeda dari `MAX_FALL_BITS` (koreksi halus per blok), ini langkah
+ * pemulihan: blok jujur setelah idle panjang langsung turun banyak bit agar
+ * rantai segera kembali mendekati target. Dipakai HANYA oleh
+ * `expectedDifficulty`; nilainya boleh disetel 8–12 (kalibrasi devnet).
+ */
+export const MAX_STALL_FALL_BITS = 8
 
 /** Langkah kuantisasi difficulty (bit) supaya nilai deterministik & ringkas. */
 const QUANTUM_BITS = 0.25
@@ -92,59 +105,53 @@ export const meetsDifficulty = (hash: string, bits: number): boolean => {
 }
 
 /**
- * Retarget per blok: `next = current + log2(target / actual)`.
+ * Difficulty yang DIPERBOLEHKAN untuk blok `height = parentHeight + 1`,
+ * dihitung HANYA dari data rantai (deterministik) — menggantikan retarget
+ * berbasis jam dinding node (`now - tip.timestamp`) yang membuat tiap node
+ * bisa menghitung angka berbeda untuk blok yang sama.
  *
- * - `actualMs` tidak valid (undefined / <= 0, mis. timestamp kembar) →
- *   difficulty tidak berubah;
- * - koreksi dibatasi ±`MAX_RISE_BITS`/`MAX_FALL_BITS` per blok (asimetris,
- *   lihat catatan di konstanta tersebut);
- * - hasil dikunci ke [MIN, MAX] dan kuantisasi 0.25 bit.
+ * `gap = blockTimestampMs - parentTimestampMs` — KEDUA timestamp terikat PoW
+ * (keduanya ikut preimage), jadi penambang tidak bisa mengarang jarak tanpa
+ * mengulang kerja:
+ *   - `parentHeight <= 0` (blok pertama di atas genesis) atau `gap <= 0`
+ *     (timestamp kembar/mundur) → difficulty tidak berubah;
+ *   - `gap <= 2×TARGET` → koreksi halus `log2(TARGET/gap)`, dijepit
+ *     `[-MAX_FALL_BITS, +MAX_RISE_BITS]`;
+ *   - `gap > 2×TARGET` → pemulihan borongan `-min(ceil(gap/TARGET) - 1,
+ *     MAX_STALL_FALL_BITS)` (idle panjang turun agresif, bukan hanya 4 bit).
  *
- * Nilai disimpan apa adanya di `header.difficulty` — verifikasi rantai memakai
- * nilai tersimpan (meetsDifficulty), BUKAN menghitung ulang retarget, sehingga
- * data rantai lama yang ber-skema lama tetap bisa divalidasi.
+ * Hasil selalu lewat `clampDifficulty` (kuantisasi 0.25 bit, kunci
+ * [MIN, MAX]). Karena murni, `createBlockTemplate` dan semua validator
+ * (`commitBlock`, `connectBlock`, `verifyChainIntegrity`) memakai fungsi yang
+ * SAMA → angka identik di seluruh node.
+ *
+ * @param parentBits        difficulty blok induk (`parent.difficulty`)
+ * @param parentTimestampMs timestamp blok induk (epoch ms)
+ * @param blockTimestampMs  timestamp blok yang dinilai (epoch ms)
+ * @param parentHeight      tinggi blok induk
  */
-export const calcNextDifficulty = (
-	currentBits: number,
-	actualMs: number | undefined,
+export const expectedDifficulty = (
+	parentBits: number,
+	parentTimestampMs: number,
+	blockTimestampMs: number,
+	parentHeight: number,
 ): number => {
-	const current = clampDifficulty(currentBits)
-	if (actualMs === undefined || !Number.isFinite(actualMs) || actualMs <= 0) {
-		return current
-	}
-	const step = Math.log2(TARGET_BLOCK_TIME_MS / actualMs)
-	const clampedStep =
-		step > 0 ? Math.min(MAX_RISE_BITS, step) : Math.max(-MAX_FALL_BITS, step)
-	return clampDifficulty(current + clampedStep)
-}
+	const current = clampDifficulty(parentBits)
+	if (!Number.isFinite(parentHeight) || parentHeight <= 0) return current
 
-/**
- * Retarget berbasis WAKTU sejak blok terakhir (tip) hingga `nowMs`.
- *
- * `calcNextDifficulty` menerima jarak antar-dua-blok (grandparent → tip).
- * Nilai itu hanya mencerminkan interval DUA blok LAMAU — saat rantai idle
- * (miner tidak menyelesaikan blok / job terus kadaluarsa) ia tetap ~target
- * sehingga difficulty mandek (mis. 27.5) dan tidak pernah turun. Fungsi ini
- * memakai `nowMs - lastBlockTimestampMs`: seberapa lama tip sudah berumur.
- * Idle time ikut terhitung → actualMs tumbuh → difficulty turun ke arah
- * floor, walau blok belum pernah ter-commit.
- *
- * Guard: jarak waktu belum terdefinisi (kemunduran jam / `lastBlockTimestampMs`
- * non-finite) → `clampDifficulty(current)` tanpa koreksi. Selain itu seluruh
- * aturan langkah (asimetris +2/-4), kunci [MIN, MAX] dan kuantisasi 0.25
- * diwarisi dari `calcNextDifficulty`.
- *
- * Nilai hasilnya disimpan di `header.difficulty` dan diverifikasi tersimpan
- * (meetsDifficulty) — BUKAN dihitung ulang oleh pihak lain, jadi perubahan
- * formula ini tidak memutus kompatibilitas data rantai lama.
- */
-export const retargetByTime = (
-	currentBits: number,
-	lastBlockTimestampMs: number,
-	nowMs: number = Date.now(),
-): number => {
-	const current = clampDifficulty(currentBits)
-	const actualMs = nowMs - lastBlockTimestampMs
-	if (!Number.isFinite(actualMs) || actualMs <= 0) return current
-	return calcNextDifficulty(current, actualMs)
+	const gap = blockTimestampMs - parentTimestampMs
+	if (!Number.isFinite(gap) || gap <= 0) return current
+
+	if (gap <= 2 * TARGET_BLOCK_TIME_MS) {
+		const step = Math.log2(TARGET_BLOCK_TIME_MS / gap)
+		const clampedStep =
+			step > 0 ? Math.min(MAX_RISE_BITS, step) : Math.max(-MAX_FALL_BITS, step)
+		return clampDifficulty(current + clampedStep)
+	}
+
+	const stallStep = -Math.min(
+		Math.ceil(gap / TARGET_BLOCK_TIME_MS) - 1,
+		MAX_STALL_FALL_BITS,
+	)
+	return clampDifficulty(current + stallStep)
 }

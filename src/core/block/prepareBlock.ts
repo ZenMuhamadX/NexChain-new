@@ -6,6 +6,13 @@ export const prepareBlockForHashing = ({ block }: Block): string => {
 		timestamp: block.header.timestamp,
 		version: block.header.version,
 		hashingAlgorithm: block.header.hashingAlgorithm,
+		// `difficulty` IKUT preimage (keputusan M0, seperti `nBits` di header
+		// Bitcoin): identitas blok mengikat difficulty-nya, sehingga penambang
+		// tak bisa mengklaim difficulty rendah setelah menyelesaikan PoW.
+		// Ini PERLU tetapi TIDAK CUKUP — yang menutup celah "mine at floor"
+		// adalah penegakan ulang `expectedDifficulty` di validator
+		// (commitBlock/connectBlock/verifyChainIntegrity).
+		difficulty: block.header.difficulty,
 		height: block.height,
 		merkleRoot: block.merkleRoot,
 		chainId: block.chainId,
