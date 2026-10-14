@@ -1,11 +1,22 @@
 import { Block } from 'src/core/block/blockModel'
 import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByHeight'
+import { TARGET_BLOCK_TIME_MS } from 'src/core/consensus/difficulty'
 
 /** Jendela median-time-past (Bitcoin: 11 blok sebelumnya). */
 export const MTP_WINDOW = 11
 
-/** Batas timestamp ke depan: 2 jam dari sekarang (ms). */
-export const MAX_FUTURE_DRIFT_MS = 2 * 60 * 60 * 1000
+/**
+ * Batas timestamp ke depan: **2× target blok (~2 menit)** dari `nowMs`.
+ *
+ * Penyimpangan sadar dari Bitcoin (2 jam): retarget kita berjalan **per blok
+ * (windowless)**, sedangkan Bitcoin berjendela 2016 blok. Dengan retarget per
+ * blok, penambang bisa "mengarang jarak" waktu untuk memaksa difficulty turun;
+ * memperketat batas masa depan ke 2 menit membatasi gap palsu maksimum ~1 bit
+ * (tidak signifikan), SEMENTARA stall asli tetap terdeteksi — blok jujur
+ * setelah idle panjang punya `blockTs - parentTs` = lama diam NYATA (induk
+ * memang tua) dan validator menghitung gap literal yang sama.
+ */
+export const MAX_FUTURE_DRIFT_MS = 2 * TARGET_BLOCK_TIME_MS
 
 /**
  * Median-time-past sejumlah timestamp — aturan yang SAMA untuk verifikasi
@@ -31,9 +42,9 @@ export const medianTimePast = (timestamps: number[]): number => {
  *      oleh penambang yang bisa memilih waktu; aturan yang sama dipakai
  *      `createBlockTemplate`, sehingga blok yang disusun node tervalidasi
  *      oleh konstruksi (mining cepat di dev tidak menolak dirinya sendiri);
- *   2. `timestamp` tidak boleh lebih dari 2 jam ke depan dari `nowMs` —
- *      membatasi penambang yang menyetel jam ke masa depan untuk
- *      memanipulasi retarget difficulty.
+ *   2. `timestamp` tidak boleh lebih dari `MAX_FUTURE_DRIFT_MS` (2× target
+ *      blok) ke depan dari `nowMs` — membatasi penambang yang menyetel jam
+ *      ke masa depan untuk memanipulasi retarget difficulty.
  *
  * Daftar `previousTimestamps` KOSONG = hanya cek masa depan yang berjalan —
  * genesis-safe (height 0 tidak punya parent).

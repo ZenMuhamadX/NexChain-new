@@ -18,8 +18,8 @@
  *      tulis tercatat; hasil commit terbaca utuh lewat jalur baca nyata
  *      (`getBlockState` + `getCurrentBlock`).
  *
- * Regresi TTL/retarget job TIDAK diduplikasi di sini — `check:difficulty`
- * sudah menguji `cleanupExpiredJobs` secara menyeluruh.
+ * Regresi TTL/prune job TIDAK diduplikasi di sini — `check:difficulty`
+ * sudah menguji `pruneExpiredJobs` secara menyeluruh.
  *
  * Bagian jobId murni (impor statis). Bagian saveBlock memakai `NEX_DATA_DIR`
  * sementara (LevelDB nyata dibuang setelahnya) — modul DB diimpor SESUDAH

@@ -3,8 +3,8 @@
  *
  * Blok dari peer TIDAK pernah dipercaya: setiap aspek diverifikasi ulang
  * dengan aturan konsensus yang sama dengan blok lokal (struktur Joi, PoW,
- * hash blok, merkle root, hadiah, timestamp), ditambah dua pemeriksaan yang
- * khas jalur P2P:
+ * hash blok, merkle root, hadiah, timestamp, difficulty retarget), ditambah
+ * dua pemeriksaan yang khas jalur P2P:
  *
  *   - **duplikat** — blok yang sudah ada tidak boleh di-commit ulang,
  *     karena `commitBlock` menjalankan `processTransact` lagi dan akan
@@ -32,6 +32,7 @@ import {
 	checkBlockTimestamp,
 	getPreviousTimestamps,
 } from 'src/core/consensus/verify/module/verifyTimestamp'
+import { expectedDifficulty } from 'src/core/consensus/difficulty'
 import { getCurrentBlock } from 'src/core/block/query/onChain/block/getCurrentBlock'
 import { GENESIS_HASH } from 'src/core/block/genesis'
 import { CHAIN_ID } from 'src/crypto/chainId'
@@ -149,6 +150,24 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 	}
 	if (block.block.header.previousBlockHash !== tip.block.header.hash) {
 		return reject('previousBlockHash tidak cocok dengan tip', false)
+	}
+
+	// 10b. Difficulty: DIHITUNG ULANG dari data rantai (deterministik) —
+	//      angka di header TIDAK dipercaya. Karena blok sudah dipastikan
+	//      menempel ke tip (height+1 & prevHash cocok), tip = induknya.
+	//      Beda = pelanggaran konsensus (layak ban), sama seperti PoW palsu.
+	const expected = expectedDifficulty(
+		tip.block.header.difficulty,
+		tip.block.header.timestamp,
+		block.block.header.timestamp,
+		tip.block.height,
+	)
+	if (block.block.header.difficulty !== expected) {
+		return reject(
+			`difficulty ${block.block.header.difficulty} != expected ${expected} ` +
+				`(height ${block.block.height})`,
+			true,
+		)
 	}
 
 	// 11. Commit. Gagal simpan = gangguan storage/suplai, bukan pelanggaran
