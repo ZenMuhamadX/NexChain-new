@@ -208,7 +208,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 	 * baru saat reconnect) benar-benar lebih tinggi dari tinggi lokal kita.
 	 * Memakai klaim untuk MENAHAN gerbang selalu aman (kebalikannya yang
 	 * berbahaya), jadi reconnect ke node yang jauh lebih maju menutup gerbang
-	 * lagi alih-alih menambang fork yang tak bisa di-reorg.
+	 * lagi alih-alih menambang di atas tip basi (kerja sia-sia + memicu reorg).
 	 */
 	const beginOrContinueSync = async (targetHeight?: number): Promise<void> => {
 		const previous = getSyncStatus().phase

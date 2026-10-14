@@ -10,9 +10,30 @@ import { expectedDifficulty } from 'src/core/consensus/difficulty'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
 import {
 	getPreviousTimestamps,
+	MTP_WINDOW,
 	medianTimePast,
 } from 'src/core/consensus/verify/module/verifyTimestamp'
+import { resolveBlock } from 'src/core/consensus/reorg/ancestry'
 import { CHAIN_ID } from 'src/crypto/chainId'
+
+/**
+ * Timestamp kronologis (tua→baru) dari `parent` dan leluhurnya, maksimal
+ * `MTP_WINDOW` — dipakai saat membangun blok di atas induk NON-tip (cabang).
+ * Menelusuri `previousBlockHash` (pool-aware) supaya jendela MTP benar walau
+ * sebagian leluhur masih di branch pool.
+ */
+const collectAncestorTimestamps = async (parent: Block): Promise<number[]> => {
+	const out: number[] = []
+	let current: Block | undefined = parent
+	let count = 0
+	while (current !== undefined && count < MTP_WINDOW) {
+		out.push(current.block.header.timestamp)
+		count++
+		const prev: string = current.block.header.previousBlockHash
+		current = prev ? await resolveBlock(prev) : undefined
+	}
+	return out.reverse()
+}
 
 /**
  * Susun **template blok** berikutnya: field konten lengkap (tinggi, hadiah,
@@ -33,12 +54,21 @@ import { CHAIN_ID } from 'src/crypto/chainId'
  * Difficulty dihitung deterministik dari data rantai lewat `expectedDifficulty`
  * (target blok 60 detik) — menggantikan retarget berbasis jam dinding dan
  * `difficulty: 5` hardcode lama.
+ *
+ * @param transactions transaksi pengguna yang akan dimasukkan
+ * @param walletMiner  alamat penerima hadiah (== coinbase receiver)
+ * @param parent       opsional — paksa induk blok. Bila diisi, template
+ *                     dibangun di atas blok ini (bukan tip lokal) dan jendela
+ *                     MTP ditelusuri dari rantai nenek moyang `parent`.
+ *                     Dipakai untuk membangun CABANG bersaing di gate reorg;
+ *                     jalur produksi (mining) tidak mengisinya.
  */
 export const createBlockTemplate = async (
 	transactions: TxInterface[],
 	walletMiner: string,
+	parent?: Block,
 ): Promise<Block> => {
-	const latestBlock = (await getCurrentBlock('json')) as Block
+	const latestBlock = parent ?? ((await getCurrentBlock('json')) as Block)
 	if (!latestBlock) {
 		throw new Error('Latest block is undefined.')
 	}
@@ -53,7 +83,10 @@ export const createBlockTemplate = async (
 	// itu pakai `mtp + 1` sehingga setiap template tervalidasi MTP
 	// **oleh konstruksi**.
 	const now = generateTimestampz()
-	const previousTimestamps = await getPreviousTimestamps(height)
+	const previousTimestamps =
+		parent === undefined
+			? await getPreviousTimestamps(height)
+			: await collectAncestorTimestamps(parent)
 	const mtp = medianTimePast(previousTimestamps)
 	const timestamp = now > mtp ? now : mtp + 1
 

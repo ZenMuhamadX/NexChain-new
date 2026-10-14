@@ -12,11 +12,17 @@
  * Begitu node menyatakan dirinya sudah menyusul rantai, ia TIDAK pernah
  * kembali "syncing" selama proses hidup. Alasannya:
  *
- *   - Reorg belum didukung (lihat `src/p2p/validation/connectBlock.ts`):
- *     blok baru selalu menempel ke tip, jadi setelah menyusul, kemajuan
- *     berikutnya datang lewat gossip push — bukan IBD lagi.
  *   - Tanpa latch, setiap blok baru yang diumumkan peer akan menyalakan
  *     kembali gerbang `nex_getWork`, sehingga miner terputus-putus.
+ *
+ * ## Fase `forked` (M2 — reorg)
+ *
+ * Saat tip lokal akan diganti cabang yang LEBIH BERAT, mining ditahan lagi
+ * lewat fase `forked` (lihat `src/core/consensus/reorg/`). Berbeda dari latch
+ * `synced`, fase ini SENGAJA menimpa `synced` — rantai kita memang sedang
+ * berubah — dan `isSyncing()` mengembalikan `true` untuknya, sehingga tidak
+ * ada miner yang membangun di atas tip yang sudah tak berlaku. Setelah reorg
+ * selesai, pemanggil menandai `synced` kembali.
  *
  * ## Default AMAN
  *
@@ -28,12 +34,12 @@
  */
 
 /** Fase sinkronisasi. `idle` = P2P tidak aktif / belum ada kabar. */
-export type SyncPhase = 'idle' | 'syncing' | 'assumed' | 'synced'
+export type SyncPhase = 'idle' | 'syncing' | 'assumed' | 'synced' | 'forked'
 
 /** Potret status sync untuk konsumsi RPC/diagnostik. */
 export interface SyncStatus {
 	phase: SyncPhase
-	/** Pintasan `phase === 'syncing'` agar pemanggil tidak perlu memetakan. */
+	/** Pintasan gerbang mining: `phase === 'syncing' || phase === 'forked'`. */
 	syncing: boolean
 	/** Tinggi rantai lokal terakhir yang dilaporkan P2P (0 bila belum). */
 	localHeight: number
@@ -66,15 +72,19 @@ const applyMeta = (meta?: SyncMeta): void => {
 }
 
 /**
- * Apakah node sedang mengejar rantai peer. Dipakai `nex_getWork` untuk
- * menahan mining. `false` bila P2P mati / belum pernah menandai syncing.
+ * Apakah node sedang menahan mining karena rantai belum final.
+ *
+ * `true` untuk `syncing` (mengejar peer) DAN `forked` (sedang mengganti tip
+ * dengan cabang yang lebih berat). `nex_getWork` memakai ini sebagai gerbang.
+ * `false` bila P2P mati / belum pernah menandai syncing.
  */
-export const isSyncing = (): boolean => phase === 'syncing'
+export const isSyncing = (): boolean =>
+	phase === 'syncing' || phase === 'forked'
 
 /** Potret status sync (salinan, tidak bisa memutasi state internal). */
 export const getSyncStatus = (): SyncStatus => ({
 	phase,
-	syncing: phase === 'syncing',
+	syncing: phase === 'syncing' || phase === 'forked',
 	localHeight,
 	targetHeight,
 	updatedAt,
@@ -116,6 +126,20 @@ export const markAssumed = (meta?: SyncMeta): void => {
  */
 export const markSynced = (meta?: SyncMeta): void => {
 	phase = 'synced'
+	applyMeta(meta)
+	updatedAt = Date.now()
+}
+
+/**
+ * Tandai node sedang MENGGANTI tip (reorg) ke cabang yang lebih berat.
+ *
+ * Berbeda dari `markSyncing` (yang menahan diri bila sudah `synced`), fase
+ * `forked` SENGAJA menimpa fase apa pun: tip lokal memang sedang berubah, jadi
+ * mining harus berhenti sampai reorg selesai. Pemanggil menutupnya dengan
+ * `markSynced()` setelah selesai (lihat `src/core/consensus/reorg/reorg.ts`).
+ */
+export const markForked = (meta?: SyncMeta): void => {
+	phase = 'forked'
 	applyMeta(meta)
 	updatedAt = Date.now()
 }
