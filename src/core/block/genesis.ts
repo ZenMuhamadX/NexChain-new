@@ -66,10 +66,12 @@ export const GENESIS_MESSAGE = 'NexChain Devnet Genesis — Bitcoin-style PoW'
  *     500 → 0 (Σ jadwal + genesis 500 akan melampaui plafon 50 juta NXC);
  *     `blockReward`/`totalReward`/`coinbaseTransaction.amount` ikut preimage,
  *     jadi nonce & hash di-re-solve.
+ *   - M0 difficulty: `difficulty` kini IKUT preimage PoW (sebelumnya di luar),
+ *     sehingga preimage genesis berubah → nonce & hash di-re-solve.
  */
-export const GENESIS_NONCE = 1554740
+export const GENESIS_NONCE = 1219569
 export const GENESIS_HASH =
-	'000005f85820b4d6d257c65613d9d7c941162b5a3da2028c27b1924b3fd744cf'
+	'00000f7117e28ab1237b19406c6ad9dc120f3597c25436409d1c6f227e4e0b09'
 
 /**
  * Susun blok genesis sesuai konstanta. Murni & deterministik — tidak

@@ -1,7 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { Block } from 'src/core/block/blockModel'
-import { retargetByTime } from './difficulty'
-import { logToConsole } from 'src/logging/logging'
 
 /**
  * Penyimpanan job mining **di memori node** (satu-satunya sumber kebenaran;
@@ -36,10 +34,23 @@ export interface MiningJob {
 
 const jobs = new Map<string, MiningJob>()
 
-const pruneExpired = (now: number): void => {
+/**
+ * Buang semua job kadaluarsa; kembalikan jumlah yang dibuang.
+ *
+ * Sejak M0 difficulty TIDAK lagi diturunkan dari jalur expiry — retarget kini
+ * deterministik lewat `expectedDifficulty` (berbasis timestamp blok, lihat
+ * `difficulty.ts`). Fungsi ini murni untuk memori: membebaskan slot `MAX_JOBS`
+ * sebelum job baru dibuat.
+ */
+export const pruneExpiredJobs = (nowMs: number = Date.now()): number => {
+	let pruned = 0
 	for (const [id, job] of jobs) {
-		if (job.expiresAt <= now) jobs.delete(id)
+		if (job.expiresAt <= nowMs) {
+			jobs.delete(id)
+			pruned++
+		}
 	}
+	return pruned
 }
 
 /**
@@ -100,7 +111,7 @@ export const createJob = (
 	data: Omit<MiningJob, 'jobId' | 'createdAt' | 'expiresAt'>,
 ): MiningJob => {
 	const now = Date.now()
-	pruneExpired(now)
+	pruneExpiredJobs(now)
 	// Map mempertahankan urutan insert → key pertama = job tertua.
 	while (jobs.size >= MAX_JOBS) {
 		const oldest = jobs.keys().next().value
@@ -130,51 +141,4 @@ export const getJob = (jobId: string): MiningJob | undefined => {
 
 export const deleteJob = (jobId: string): void => {
 	jobs.delete(jobId)
-}
-
-/**
- * Buang semua job kadaluarsa **dan** hitung retarget SATU KALI dari
- * difficulty job kadaluarsa TERBARU (`createdAt` terbesar).
- *
- * Kenapa basisnya job expired (kumulatif), bukan tip:
- * retarget berbasis tip hanya bisa turun maks `-MAX_FALL_BITS` (-4) per
- * pemanggilan, dan basisnya selalu `tip.difficulty`. Selama blok tidak pernah
- * ter-commit, tip tidak bergerak → difficulty mandek di `tip - 4` dan tak
- * pernah menyentuh floor (bisa jauh di atasnya). Dengan mengambil difficulty
- * job expired TERBARU sebagai basis, tiap expiry turun dari titik terakhir →
- * penurunan kumulatif `-4` per siklus hingga floor 8, walau blok tak pernah
- * ter-commit sekalipun.
- *
- * Job yang masih hidup TIDAK disentuh (hanya yang `expiresAt <= nowMs`).
- * `nowMs` bisa diinjeksi untuk pengujian.
- *
- * @param lastBlockTimestampMs timestamp tip (epoch ms) — dasar `actualMs`.
- * @param nowMs waktu sekarang (epoch ms), default `Date.now()`.
- * @returns difficulty hasil retarget, atau `undefined` bila tidak ada job
- *          kadaluarsa (tidak ada retarget jalur expiry).
- */
-export const cleanupExpiredJobs = (
-	lastBlockTimestampMs: number,
-	nowMs: number = Date.now(),
-): number | undefined => {
-	// Map mempertahankan urutan insert; job expired TERBARU = createdAt
-	// terbesar (bila seri, yang belakangan disisipkan menang).
-	let newestExpired: MiningJob | undefined
-	for (const [id, job] of jobs) {
-		if (job.expiresAt > nowMs) continue
-		jobs.delete(id)
-		if (!newestExpired || job.createdAt >= newestExpired.createdAt) {
-			newestExpired = job
-		}
-	}
-	if (!newestExpired) return undefined
-
-	const from = newestExpired.difficulty
-	const to = retargetByTime(from, lastBlockTimestampMs, nowMs)
-	logToConsole(
-		`Retarget expiry: actual ${nowMs - lastBlockTimestampMs}ms, ` +
-			`delta ${to - from >= 0 ? '+' : ''}${to - from}, ` +
-			`${from} → ${to} bits, reason=expiry`,
-	)
-	return to
 }

@@ -12,10 +12,11 @@ import {
 	checkBlockTimestamp,
 	getPreviousTimestamps,
 } from 'src/core/consensus/verify/module/verifyTimestamp'
+import { expectedDifficulty } from 'src/core/consensus/difficulty'
+import { getBlockByHeight } from '../block/query/onChain/block/getBlockByHeight'
 import { processTransact } from 'src/core/transaction/processTransaction'
 import { logToConsole } from 'src/logging/logging'
 import { loggingDebug } from 'src/logging/debug'
-import { getCurrentBlock } from '../block/query/onChain/block/getCurrentBlock'
 import { projectTotalIssued } from 'src/core/state/storage/state/setState'
 import { MAX_SUPPLY_NEXU, NEXU_PER_NXC } from 'src/core/token/constants'
 
@@ -76,6 +77,34 @@ export class BlockChains {
 				throw new Error(
 					`Block timestamp verification failed: ${timestampReason}`,
 				)
+			}
+
+			// ---- DIFFICULTY (retarget deterministik, DIHITUNG ULANG) -------
+			// Angka di `header.difficulty` TIDAK dipercaya: ia dihitung ulang
+			// dari data rantai induk lewat fungsi murni `expectedDifficulty`.
+			// Blok dengan difficulty palsu (mis. 8 padahal seharusnya 24)
+			// ditolak di sini — inilah yang menutup celah "mine at floor".
+			// Genesis (height 0) dikecualikan: ditulis lewat jalur bootstrap,
+			// bukan commitBlock.
+			if (block.block.height > 0) {
+				const parent = (await getBlockByHeight(
+					block.block.height - 1,
+					'json',
+				)) as Block | undefined
+				if (parent) {
+					const expected = expectedDifficulty(
+						parent.block.header.difficulty,
+						parent.block.header.timestamp,
+						block.block.header.timestamp,
+						parent.block.height,
+					)
+					if (block.block.header.difficulty !== expected) {
+						throw new Error(
+							`Difficulty mismatch at height ${block.block.height}: ` +
+								`header ${block.block.header.difficulty}, expected ${expected}`,
+						)
+					}
+				}
 			}
 
 			// ---- PLAFON SUPLAI (gagal-dulu, sebelum menulis apa pun) ------
@@ -155,29 +184,4 @@ export class BlockChains {
 		loggingDebug('blockchain:verify', 'verifying chain integrity')
 		return await verifyChainIntegrity()!
 	}
-}
-
-/**
- * Timestamp (epoch ms) blok TERAKHIR / tip — dasar retarget berbasis waktu
- * (`retargetByTime` dan jalur expiry `cleanupExpiredJobs`).
- *
- * `getCurrentBlock` melempar bila state atau blok belum siap (database kosong
- * / genesis belum terbentuk). Dalam kasus itu fungsi ini mengembalikan
- * `fallbackMs` (default `Date.now()`), yang membuat `actualMs ≈ 0` sehingga
- * retarget otomatis flat (tanpa koreksi) — aman dipanggil lebih awal pada
- * setiap `nex_getWork` tanpa perlu membedakan status rantai.
- *
- * @param fallbackMs nilai pakai bila tip belum tersedia.
- */
-export const getLastBlockTimestamp = async (
-	fallbackMs: number = Date.now(),
-): Promise<number> => {
-	try {
-		const tip = (await getCurrentBlock('json')) as Block
-		const ts = tip?.block?.header?.timestamp
-		if (typeof ts === 'number' && Number.isFinite(ts) && ts > 0) return ts
-	} catch {
-		// state / blok belum siap — jatuh ke fallback di bawah
-	}
-	return fallbackMs
 }
