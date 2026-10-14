@@ -19,6 +19,7 @@ import { countPendingBySender } from 'src/core/state/storage/mempool/mempoolInde
 import { blockSummary } from 'src/types/block'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import { getWork, submitWork } from 'src/core/consensus/work'
+import { getSyncStatus } from 'src/core/events/syncState'
 
 /** Ubah Block penuh menjadi ringkasan untuk list explorer. */
 const toBlockSummary = (block: Block): blockSummary => {
@@ -153,6 +154,14 @@ rpc.addMethod('nex_getBlocksRange', async (params?: unknown) => {
 // Return: TxInterface[] JSON polos (bukan hex)
 rpc.addMethod('nex_getMempool', async () => {
 	return await loadMempool()
+})
+
+// Status sinkronisasi P2P (JSON polos, BUKAN hex). `syncing: true` berarti
+// `nex_getWork` sementara ditolak sampai rantai menyusul peer (IBD). Bila P2P
+// mati atau node sudah menyusul, `syncing` bernilai false dan mining normal.
+// Lihat `src/core/events/syncState.ts`.
+rpc.addMethod('nex_getSyncStatus', () => {
+	return getSyncStatus()
 })
 
 // Account

@@ -16,6 +16,7 @@
 		"check:difficulty": "bun run scripts/difficultyRetargetCheck.ts",
 		"check:consensus": "bun run scripts/consensusRulesCheck.ts",
 		"check:rpc": "bun run scripts/rpcSecurityCheck.ts",
+		"check:p2p": "bun run scripts/p2pCheck.ts",
 		"check:txpolicy": "bun run scripts/txPolicyCheck.ts",
 		"check:storage": "bun run scripts/storageCheck.ts",
 		"check:pow": "bun run scripts/powParityCheck.ts",
@@ -41,7 +42,9 @@
 		"miner:dev": "bun run --cwd miner-ui dev",
 		"miner:build": "bun run --cwd miner-ui build",
 		"miner:typecheck": "bun run --cwd miner-ui typecheck",
-		"miner:smoke": "bun run scripts/minerUiSmoke.ts"
+		"miner:smoke": "bun run scripts/minerUiSmoke.ts",
+		"p2p:smoke": "bun run scripts/p2pSmoke.ts",
+		"p2p:evil": "bun run scripts/evilPeer.ts"
 	},
 	"repository": {
 		"type": "git",

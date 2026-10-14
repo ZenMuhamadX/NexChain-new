@@ -55,6 +55,13 @@ import { recoverSignerAddress } from 'src/crypto/verifySignature'
 import { sha256 } from 'src/core/encoding/sha256'
 import { rlpEncode, type RlpInput } from './rlpEncode'
 import { rlpDecode } from './rlpDecode'
+import { TX_HASH_PREFIX } from './txHash'
+
+// Prefix didefinisikan di modul murni `./txHash` supaya lapisan P2P/protokol
+// bisa memvalidasinya tanpa menyeret seluruh kodek RLP — dan supaya tidak ada
+// dua definisi prefix yang bisa berbeda. Re-export menjaga permukaan publik
+// `txCodec` yang sudah didokumentasikan.
+export { TX_HASH_PREFIX } from './txHash'
 
 /** Byte tipe transaksi (EIP-2718). `0x01` = skema RLP lama. */
 export const TX_TYPE = 0x02
@@ -73,9 +80,6 @@ const ADDRESS_BYTES = 1 + ADDRESS_HEX_LENGTH / 2 // tag + 20 byte
 const SIGNATURE_BYTES = 32
 
 const LOWERCASE_HEX = /^[0-9a-f]+$/
-
-/** Prefix `txHash`. Murni tampilan — tidak ikut di-hash. */
-export const TX_HASH_PREFIX = 'TxC'
 
 // ---------------------------------------------------------------------------
 // Helper byte <-> teks
@@ -112,9 +116,7 @@ const addressToBytes = (address: string): Uint8Array => {
 	if (typeof address !== 'string') {
 		throw new Error('txCodec: alamat harus berupa string')
 	}
-	const tag = ADDRESS_PREFIXES.findIndex((prefix) =>
-		address.startsWith(prefix),
-	)
+	const tag = ADDRESS_PREFIXES.findIndex((prefix) => address.startsWith(prefix))
 	if (tag < 0) {
 		throw new Error(`txCodec: prefix alamat tidak dikenal: ${address}`)
 	}

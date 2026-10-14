@@ -14,6 +14,7 @@ import { logToConsole } from 'src/logging/logging'
 import { assertUnitConstants } from 'src/core/token/constants'
 import { DATA_DIR } from 'src/core/state/db/dataDir'
 import { checkBindAndAuth, hasConfiguredCredentials } from 'src/rpc/authLogic'
+import { startP2P } from 'src/p2p/node'
 
 // Verifikasi konstanta satuan SEBELUM menyentuh apa pun.
 //
@@ -125,6 +126,27 @@ app.listen(PORT, HOST, async () => {
 	} else {
 		logToConsole(
 			`Genesis verified (hash cocok konstanta ${GENESIS_HASH.slice(0, 16)}…).`,
+		)
+	}
+
+	// Nyalakan lapisan P2P SETELAH genesis terverifikasi. Default MATI
+	// (`NEX_P2P_ENABLED` belum diset) sehingga node tunggal tak berubah.
+	//
+	// Kegagalan P2P TIDAK menjatuhkan node RPC/mining — jaringan P2P adalah
+	// fitur latar; membunuh seluruh node hanya karena port P2P terpakai akan
+	// membuat RPC mati tanpa alasan. Kesalahan tetap dicatat keras supaya
+	// operator tahu node tidak benar-benar tersambung ke jaringan.
+	try {
+		const p2p = await startP2P()
+		if (p2p) {
+			const shutdown = () => p2p.stop()
+			process.once('SIGINT', shutdown)
+			process.once('SIGTERM', shutdown)
+		}
+	} catch (error) {
+		console.error(
+			'P2P gagal dinyalakan (node tetap jalan tanpa P2P):',
+			error instanceof Error ? error.message : error,
 		)
 	}
 
