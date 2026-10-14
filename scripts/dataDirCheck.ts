@@ -83,7 +83,7 @@ check(
 // 2. Integrasi — node sungguhan, NEX_DATA_DIR diarahkan
 // ---------------------------------------------------------------------------
 
-const SUBDIRS = ['block', 'history', 'memPool', 'state', 'storeData']
+const SUBDIRS = ['block', 'history', 'journal', 'memPool', 'state', 'storeData']
 
 interface BootResult {
 	dirs: boolean
@@ -166,7 +166,7 @@ console.log('\nIntegrasi — node dijalankan dengan NEX_DATA_DIR:')
 const tmpA = fs.mkdtempSync(path.join(os.tmpdir(), 'nex-datadir-'))
 try {
 	const res = await bootWith(tmpA, 8188)
-	check('5 subdirektori dibuat di NEX_DATA_DIR', res.dirs, SUBDIRS.join(','))
+	check('6 subdirektori dibuat di NEX_DATA_DIR', res.dirs, SUBDIRS.join(','))
 	check('log boot menyebut lokasi data', res.output.includes('Data dir:'))
 	check(
 		'node tetap hidup setelah genesis (tidak crash)',

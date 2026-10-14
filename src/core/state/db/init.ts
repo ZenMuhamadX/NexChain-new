@@ -5,7 +5,14 @@ import { DATA_DIR, dataPath } from './dataDir'
 /**
  * Sub-direktori data node. Masing-masing adalah satu database LevelDB.
  */
-const DATA_SUBDIRS = ['block', 'history', 'memPool', 'state', 'storeData']
+const DATA_SUBDIRS = [
+	'block',
+	'history',
+	'journal',
+	'memPool',
+	'state',
+	'storeData',
+]
 
 let initialized = false
 
