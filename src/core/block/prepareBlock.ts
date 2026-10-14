@@ -21,9 +21,12 @@ export const prepareBlockForHashing = ({ block }: Block): string => {
 		// kalau tidak, penambang bisa mengalihkan hadiah ke alamat lain tanpa
 		// mengulang PoW.
 		//
-		// `totalReward` wajib ada meski `blockReward` sudah ikut: selisihnya
-		// (`gasPrice + Σ fee`) tidak bisa diturunkan dari preimage, karena
-		// `gasPrice` tinggal di `metadata` yang tidak di-hash.
+		// `totalReward` wajib ada meski `blockReward` sudah ikut: ia
+		// mengunci JUMLAH PASTI yang dibayarkan coinbase (blockReward +
+		// Σ fee) di preimage — verifier menghitung ulang lalu membandingkan
+		// `===`, jadi setiap manipulasi jumlah total terlihat tanpa harus
+		// menyusun ulang transaksi. (Sejak P2 tidak ada lagi suku gasPrice:
+		// selisihnya murni Σ fee.)
 		// ------------------------------------------------------------------
 		minerId: block.minerId,
 		totalReward: block.totalReward,

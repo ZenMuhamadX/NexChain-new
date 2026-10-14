@@ -13,6 +13,8 @@ import { saveBlock } from 'src/core/state/storage/block/saveBlock'
 import { logToConsole } from 'src/logging/logging'
 import { assertUnitConstants } from 'src/core/token/constants'
 import { DATA_DIR } from 'src/core/state/db/dataDir'
+import { checkBindAndAuth, hasConfiguredCredentials } from 'src/rpc/authLogic'
+import { startP2P } from 'src/p2p/node'
 
 // Verifikasi konstanta satuan SEBELUM menyentuh apa pun.
 //
@@ -30,7 +32,29 @@ const PORT = Number(process.env.NEX_RPC_PORT ?? process.env.PORT ?? 8000)
 // Default 127.0.0.1 (secure by default): RPC hanya terjangkau dari mesin ini;
 // di VPS cukup di-proxy Nginx Proxy Manager (port 80/443) tanpa membuka 8000.
 // Set RPC_BIND_HOST=0.0.0.0 bila miner/explorer ada di mesin lain (LAN dev).
-const HOST = process.env.RPC_BIND_HOST as string || '0.0.0.0'
+const HOST = (process.env.RPC_BIND_HOST as string) || '127.0.0.1'
+
+// Pemeriksaan keamanan SEBELUM listen:
+//   - bind non-loopback TANPA RPC_USER/RPC_PASSWORD → MENOLAK start (exit 1).
+//     Tanpa kredensial, satu-satunya pagar method tulis adalah alamat remote
+//     — dan di balik proxy/docker bridge alamat itu terlihat loopback, jadi
+//     pagar itu bisa dilewati tanpa terlihat. Lebih baik gagal keras di boot.
+//   - loopback TANPA kredensial → boleh (dev lokal), tapi dengan peringatan
+//     keras: method tulis hanya terproteksi loopback; DI BELAKANG PROXY
+//     WAJIB set kredensial.
+// Logika murninya ada di `src/rpc/authLogic.ts` (teruji `check:rpc`).
+const bindAuth = checkBindAndAuth(
+	HOST,
+	process.env.RPC_USER,
+	process.env.RPC_PASSWORD,
+)
+if (!bindAuth.ok) {
+	console.error(bindAuth.message)
+	process.exit(1)
+}
+if (bindAuth.warning) {
+	console.warn(`PERINGATAN KEAMANAN: ${bindAuth.warning}`)
+}
 
 // Jalankan server
 app.listen(PORT, HOST, async () => {
@@ -105,5 +129,35 @@ app.listen(PORT, HOST, async () => {
 		)
 	}
 
+	// Nyalakan lapisan P2P SETELAH genesis terverifikasi. Default MATI
+	// (`NEX_P2P_ENABLED` belum diset) sehingga node tunggal tak berubah.
+	//
+	// Kegagalan P2P TIDAK menjatuhkan node RPC/mining — jaringan P2P adalah
+	// fitur latar; membunuh seluruh node hanya karena port P2P terpakai akan
+	// membuat RPC mati tanpa alasan. Kesalahan tetap dicatat keras supaya
+	// operator tahu node tidak benar-benar tersambung ke jaringan.
+	try {
+		const p2p = await startP2P()
+		if (p2p) {
+			const shutdown = () => p2p.stop()
+			process.once('SIGINT', shutdown)
+			process.once('SIGTERM', shutdown)
+		}
+	} catch (error) {
+		console.error(
+			'P2P gagal dinyalakan (node tetap jalan tanpa P2P):',
+			error instanceof Error ? error.message : error,
+		)
+	}
+
 	console.log(`RPC server running on http://${HOST}:${PORT}/rpc`)
+	// Indikator keras mode auth method tulis — operator harus bisa membacanya
+	// dari log boot tanpa menebak-nebak konfigurasinya.
+	console.log(
+		`Write-method auth: ${
+			hasConfiguredCredentials(process.env.RPC_USER, process.env.RPC_PASSWORD)
+				? 'Basic (RPC_USER/RPC_PASSWORD)'
+				: 'loopback-only (RPC_USER/RPC_PASSWORD belum diset)'
+		}`,
+	)
 })

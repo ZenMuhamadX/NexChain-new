@@ -7,6 +7,11 @@ import { saveBlock } from 'src/core/state/storage/block/saveBlock'
 import { loggingErr } from '../../logging/errorLog'
 import { verifyChainIntegrity } from 'src/core/consensus/verify/verifyIntegrity'
 import { verifyMerkleRoot } from 'src/core/consensus/verify/module/verifyMerkleRoot'
+import { verifyBlockReward } from 'src/core/consensus/verify/module/verifyReward'
+import {
+	checkBlockTimestamp,
+	getPreviousTimestamps,
+} from 'src/core/consensus/verify/module/verifyTimestamp'
 import { processTransact } from 'src/core/transaction/processTransaction'
 import { logToConsole } from 'src/logging/logging'
 import { loggingDebug } from 'src/logging/debug'
@@ -27,13 +32,15 @@ export class BlockChains {
 	 *
 	 * Urutan:
 	 *   1. verifikasi merkle root (blok gagal simpan bila tidak cocok);
-	 *   2. verifikasi PLAFON SUPLAI — `totalIssued` proyektif belum melewati
+	 *   2. verifikasi HADIAH & FEE (direhitung — `verifyBlockReward`) dan
+	 *      TIMESTAMP (MTP-11 + batas masa depan — `checkBlockTimestamp`);
+	 *   3. verifikasi PLAFON SUPLAI — `totalIssued` proyektif belum melewati
 	 *      50 juta NXC. Dilakukan di sini (sebelum menulis apa pun) supaya
 	 *      penolakan bersih, bukan setengah-blok di DB;
-	 *   3. simpan blok ke DB (hash/height/state) — nilai return `saveBlock`
+	 *   4. simpan blok ke DB (hash/height/state) — nilai return `saveBlock`
 	 *      kini DIPERIKSA (dulu diabaikan: blok bisa gagal tersimpan tapi
 	 *      hadiah & transaksi tetap diproses);
-	 *   4. proses SELURUH transaksi blok lewat `processTransact` — termasuk
+	 *   5. proses SELURUH transaksi blok lewat `processTransact` — termasuk
 	 *      transaksi coinbase, sehingga hadiah blok terkredit melalui
 	 *      pipeline transaksi yang sama (pengganti `giveReward`/`putAccount`
 	 *      langsung) dan ikut terindex di riwayat alamat.
@@ -46,6 +53,29 @@ export class BlockChains {
 		try {
 			if (!verifyMerkleRoot(block.block.transactions, block.block.merkleRoot)) {
 				throw new Error('Merkle root verification failed.')
+			}
+
+			// ---- HADIAH & FEE (aturan konsensus, direhitung) ---------------
+			// Semua nilai reward dihitung ulang dari fungsi deterministik —
+			// field blok TIDAK dipercaya. Gagal-dulu: sebelum supply-cap,
+			// sebelum satu byte pun menyentuh DB.
+			const rewardReason = verifyBlockReward(block)
+			if (rewardReason !== null) {
+				throw new Error(`Block reward verification failed: ${rewardReason}`)
+			}
+
+			// ---- TIMESTAMP (MTP-11 + batas masa depan 2 jam) ---------------
+			// Blok template disusun agar tervalidasi MTP oleh konstruksi;
+			// cek ulang di sini menutup jalur submit di luar template.
+			const timestampReason = checkBlockTimestamp(
+				block.block.header.timestamp,
+				await getPreviousTimestamps(block.block.height),
+				Date.now(),
+			)
+			if (timestampReason !== null) {
+				throw new Error(
+					`Block timestamp verification failed: ${timestampReason}`,
+				)
 			}
 
 			// ---- PLAFON SUPLAI (gagal-dulu, sebelum menulis apa pun) ------

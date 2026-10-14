@@ -389,10 +389,6 @@ export function BlockDetailPage() {
 								<dd>{formatNumber(block.metadata.txCount)}</dd>
 							</div>
 							<div className="detail-row">
-								<dt>Gas price</dt>
-								<dd>{formatNumber(block.metadata.gasPrice)} nexu</dd>
-							</div>
-							<div className="detail-row">
 								<dt>Created at</dt>
 								<dd>{formatDateTime(block.metadata.created_at)}</dd>
 							</div>

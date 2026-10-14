@@ -5,7 +5,7 @@
  *   1. `nex_getWork`      — minta job (payload + difficulty) via HTTP;
  *   2. loop hash in-process — SHA-256(payload || nonce) sampai lolos difficulty;
  *   3. `nex_submitWork`   — kirim solusi; node verifikasi ulang & commit blok;
- *   4. ulangi (job baru per blok; blok tiap ±30 detik sesuai target difficulty).
+ *   4. ulangi (job baru per blok; blok tiap ±60 detik sesuai target difficulty).
  *
  * Klien ini SENGAJA hanya mengimpor modul murni (`hashWithNonce`,
  * `meetsDifficulty`) — TIDAK ADA import LevelDB/model DB di sini, karena itu

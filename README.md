@@ -38,6 +38,21 @@ Verifikasi konstanta: `bun run genesis:check`. Pada boot, node menulis genesis d
 
 Data devnet/test: dana uji dikirim lewat transaksi airdrop normal setelah genesis (bukan dari premine).
 
+## Jaringan P2P (opsional, default MATI)
+
+Node dapat menyinkronkan rantai dari peer lain lewat TCP — gaya awal Bitcoin: **tanpa identitas, tanpa tanda tangan blok** (keamanan dari PoW + hash chain). P2P hanya menyala bila `NEX_P2P_ENABLED` diset:
+
+```bash
+NEX_P2P_ENABLED=1
+NEX_P2P_PEERS=127.0.0.1:30303
+```
+
+- Bind default `127.0.0.1` (`NEX_P2P_BIND_HOST`). **P2P tidak punya autentikasi** — perlakukan bind non-loopback seperti membuka method tulis RPC (batasi lewat firewall).
+- Node yang baru menyambung otomatis mengejar rantai (`getblocks` → `inv` → `getdata` → `block`). **Reorg belum didukung**: blok hanya diterima bila tepat menempel ke tip lokal (`height === tip + 1` dan `previousBlockHash === tip.hash`).
+- Pertahanan peer jahat: batas ukuran pesan, batas peer, timeout handshake/idle, dan ban untuk pelanggaran konsensus (PoW/hash/struktur/merkle/hadiah/timestamp).
+- Variabel lengkap ada di `.env.example`; peta modul di `src/p2p/README.md`.
+- Uji: `bun run check:p2p` (offline), `bun run p2p:smoke` (dua node lokal), `bun run p2p:evil -- <skenario> --host 127.0.0.1 --port 30303`.
+
 ## License
 
 Nexchain Core is released under the MIT license. For more information, please see the [LICENSE](LICENSE) file or visit the [Open Source Initiative](https://opensource.org/licenses/MIT).

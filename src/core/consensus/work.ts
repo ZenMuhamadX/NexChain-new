@@ -15,6 +15,8 @@ import { getLastBlockTimestamp } from 'src/core/blockchain/blockchain'
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { mineLog } from 'src/logging/mineLog'
 import { logToConsole } from 'src/logging/logging'
+import { publishBlock } from 'src/core/events/nodeEvents'
+import { isSyncing } from 'src/core/events/syncState'
 import { loggingErr } from 'src/logging/errorLog'
 import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { formatStr } from 'src/core/encoding/lib/formatString'
@@ -155,6 +157,26 @@ export const getWork = (rawParams?: unknown): Promise<WorkResult> =>
 
 const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 	try {
+		// Gerbang IBD: JANGAN menyusun template di atas rantai yang masih
+		// tertinggal. Tanpa ini, node yang baru menyambung ke jaringan bisa
+		// menambang di atas tip lokal yang basi → rantai bercabang yang TIDAK
+		// bisa di-reorg (reorg belum didukung, lihat `src/p2p/`). Gerbang hanya
+		// menyala saat P2P menandai "syncing"; node tunggal (P2P mati) dan node
+		// yang sudah menyusul tidak pernah terpengaruh — lihat
+		// `src/core/events/syncState.ts`.
+		//
+		// CATATAN: hanya `nex_getWork` yang digerbang. `nex_submitWork` dan
+		// `connectBlock` TIDAK — kerja yang sudah dihitung miner tetap bisa
+		// diselesaikan, dan blok yang datang dari peer tetap di-commit.
+		if (isSyncing()) {
+			return {
+				status: false,
+				error:
+					'Node is syncing with peers (IBD in progress) — mining is ' +
+					'paused until the chain catches up. See nex_getSyncStatus.',
+			}
+		}
+
 		const genesis = await getBlockByHeight(0, 'json')
 		if (!genesis) {
 			return {
@@ -348,6 +370,11 @@ const executeSubmit = async (rawParams?: unknown): Promise<SubmitResult> => {
 				`(difficulty ${job.difficulty} bits, ${block.block.transactions.length} tx, ` +
 				`miner ${job.minerAddress})`,
 		)
+
+		// Sebarkan blok hasil mining ke jaringan lewat bus netral. Core tidak
+		// tahu-menahu soal P2P; `src/p2p/node.ts` yang berlangganan. Tanpa
+		// pendengar (P2P mati) pemanggilan ini no-op.
+		publishBlock(block)
 
 		return {
 			status: true,

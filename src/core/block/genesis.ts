@@ -38,7 +38,17 @@ export const GENESIS_VERSION = '1.0.0'
 export const GENESIS_HASHING_ALGORITHM = 'SHA256'
 export const GENESIS_PREVIOUS_BLOCK_HASH = '0'.repeat(64)
 export const GENESIS_MERKLE_ROOT = '0'.repeat(64)
-export const GENESIS_REWARD_NEX = 500
+/**
+ * Hadiah genesis — **0 sejak P2**, dibayar ke alamat burn tanpa private key.
+ *
+ * Awalnya 500 NXC, tetapi jadwal halving baru (Σ = 49_999_999.78 NXC) +
+ * genesis 500 NXC = 50_000_499.78 NXC MELEBIHI plafon 50 juta NXC.
+ * Karena alamatnya burn (nilai ekonomi nol), solusi paling bersih adalah
+ * nol-kan hadiahnya — tanpa mengubah R0/H jadwal dan tanpa menyentuh
+ * plafon. Konsekuensi: preimage genesis berubah → GENESIS_NONCE/HASH
+ * di-re-solve (`bun run genesis:solve`).
+ */
+export const GENESIS_REWARD_NEX = 0
 /** Alamat void — tidak ada private key, dana genesis tidak bisa di-spend. */
 export const GENESIS_COINBASE_RECEIVER = `NxC${'0'.repeat(40)}`
 export const GENESIS_COINBASE_MESSAGE = 'Genesis Block Reward'
@@ -52,10 +62,14 @@ export const GENESIS_MESSAGE = 'NexChain Devnet Genesis — Bitcoin-style PoW'
  *     dan `toNexu(GENESIS_REWARD_NEX)` berubah nilainya.
  *   - coinbase dikeluarkan dari daftar transaksi: preimage kini juga memuat
  *     `minerId`, `totalReward`, dan `coinbaseTransaction`.
+ *   - P2 jadwal halving + penghapusan gasPrice: `GENESIS_REWARD_NEX`
+ *     500 → 0 (Σ jadwal + genesis 500 akan melampaui plafon 50 juta NXC);
+ *     `blockReward`/`totalReward`/`coinbaseTransaction.amount` ikut preimage,
+ *     jadi nonce & hash di-re-solve.
  */
-export const GENESIS_NONCE = 660308
+export const GENESIS_NONCE = 1554740
 export const GENESIS_HASH =
-	'00000fe0f6889fac24df0326191e6bc52ed7857ecb445a6825f68f1458825044'
+	'000005f85820b4d6d257c65613d9d7c941162b5a3da2028c27b1924b3fd744cf'
 
 /**
  * Susun blok genesis sesuai konstanta. Murni & deterministik — tidak
@@ -93,8 +107,9 @@ export const buildGenesisBlock = (): Block => {
 		},
 		// Genesis memakai merkle sentinel 64×"0" (tanpa transaksi) — persis
 		// pengecualian yang sudah dikenal `verifyIntegrity`.
+		// (Field `gasPrice` dihapus dari metadata pada P2 — metadata genesis
+		// mengikuti schema yang sama dengan blok biasa.)
 		metadata: {
-			gasPrice: 0,
 			created_at: timestamp,
 			txCount: 0,
 			extraData: stringToHex(GENESIS_MESSAGE),
@@ -113,10 +128,7 @@ export const buildGenesisBlock = (): Block => {
  */
 export const assertGenesisValid = (): void => {
 	const block = buildGenesisBlock()
-	const computed = hashWithNonce(
-		prepareBlockForHashing(block),
-		GENESIS_NONCE,
-	)
+	const computed = hashWithNonce(prepareBlockForHashing(block), GENESIS_NONCE)
 	if (computed !== GENESIS_HASH) {
 		throw new Error(
 			`Genesis hash mismatch: computed ${computed}, konstanta ${GENESIS_HASH}. ` +
@@ -140,7 +152,7 @@ export const getGenesisBlock = (): Block => {
 	assertGenesisValid()
 	const block = buildGenesisBlock()
 	logToConsole(
-		`Genesis block: hash ${GENESIS_HASH}, receiver ${GENESIS_COINBASE_RECEIVER} (burned — ${GENESIS_REWARD_NEX} NXC terkunci)`,
+		`Genesis block: hash ${GENESIS_HASH}, receiver ${GENESIS_COINBASE_RECEIVER} (burned address — ${GENESIS_REWARD_NEX} NXC di-premined)`,
 	)
 	return block
 }

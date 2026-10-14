@@ -1,6 +1,6 @@
 ﻿import { TxInterface } from 'src/types/transaction'
 import { getAccount } from 'src/core/state/account/getAccount'
-import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
+import { countPendingBySender } from 'src/core/state/storage/mempool/mempoolIndex'
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { validateRule } from './validateField'
 
@@ -38,11 +38,13 @@ export const validateTransactionNonce = async (
 	const account = await getAccount(transaction.from!)
 	const accountNonce = account?.nonce ?? 0
 
-	// Hitung tx sender yang masih pending di mempool
-	const mempool = await loadMempool().catch(() => [])
-	const pendingCount = Array.isArray(mempool)
-		? mempool.filter((tx: TxInterface) => tx.from === transaction.from).length
-		: 0
+	// Hitung tx sender yang masih pending — memakai indeks per-pengirim
+	// (`countPendingBySender`), BUKAN `loadMempool` yang terpotong 100
+	// entri secara global. Cacat lama (audit P1 #4): saat mempool melebihi
+	// 100 tx, jumlah milik pengirim ini bisa terpotong → ekspektasi nonce
+	// salah → nonce kembar lolos (transaksi kembar) atau reserve pending
+	// menumpuk tanpa dilepas (dana terkunci).
+	const pendingCount = await countPendingBySender(transaction.from!)
 
 	const expectedNonce = accountNonce + pendingCount
 

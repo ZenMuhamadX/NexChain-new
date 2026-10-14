@@ -1,6 +1,7 @@
 import { TxInterface } from 'src/types/transaction'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { sha256 } from 'src/core/encoding/sha256'
+import { TX_HASH_PREFIX } from 'src/core/encoding/rlp/txHash'
 
 /**
  * Penanda hadiah blok pada RECORD RIWAYAT.
@@ -23,7 +24,7 @@ const COINBASE_MESSAGE = 'Block reward'
  * kunci riwayatnya, betapapun mirip isinya.
  */
 export const coinbaseRewardId = (blockHeight: number): string =>
-	`TxC${sha256(`coinbase:${blockHeight}`, 'hex') as string}`
+	`${TX_HASH_PREFIX}${sha256(`coinbase:${blockHeight}`, 'hex') as string}`
 
 /**
  * Record riwayat untuk hadiah blok — **bukan transaksi**.

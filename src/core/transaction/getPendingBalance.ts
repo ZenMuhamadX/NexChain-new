@@ -1,25 +1,45 @@
 import { rocksState } from 'src/core/state/db/state'
 import { decodeFromBytes } from 'src/core/encoding/hex/bytes/decodeBytes'
-import { pendingBalance, setPendingBalance } from './setPendingBalance'
+import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
+import { pendingBalance } from './setPendingBalance'
 
 /**
- * Fungsi untuk memuat pending balance dari database
- * @param {string} address - ID unik user
- * @returns {Promise<PendingBalance>} - Pending balance yang disimpan atau objek dengan amount 0 jika tidak ditemukan
+ * Muat pending balance (reserve transaksi belum dieksekusi) sebuah alamat.
+ *
+ * DUA aturan keras (audit P1 #3):
+ *
+ *   1. Alamat DIVALIDASI dulu — alamat rusak MELEMPAR, bukan diam-diam
+ *      mengembalikan 0. Nol diam-diam menyamarkan serangan (typo/salah
+ *      param yang terlihat "berhasil", dan pemanggil tidak bisa membedakan
+ *      "tidak ada reserve" dari "alamat salah").
+ *   2. TANPA TULIS-SAAT-BACA: kunci yang hilang menghasilkan
+ *      `{ pendingAmount: 0 }` tanpa menyimpan apa pun. Menulis 0 saat
+ *      membaca (perilaku lama) membuat pembacaan RPC sembarang menumbuhkan
+ *      key `pendingBalance:<alamat>` sampah di DB negara-bagian, dan
+ *      menyamarkan siapa penulis reserve yang SAH (hanya admission
+ *      `memPool` dan pelepasan `processSender` yang boleh menulis).
+ *
+ * Pemanggil: admission mempool (`memPool.handleUserTransaction` — `from`
+ * hasil ecrecover, selalu sah), eksekusi blok (`processSender`), dan RPC
+ * `nex_getPendingBalance` (lapisan json-rpc mengubah throw menjadi
+ * respons error JSON-RPC — bukan kegagalan HTTP).
  */
 export const getPendingBalance = async (
 	address: string,
 ): Promise<pendingBalance> => {
+	if (!isValidAddress(address)) {
+		throw new Error(`getPendingBalance: alamat tidak valid: ${address}`)
+	}
 	try {
-		// Ambil pending balance dari database berdasarkan userId
+		// Ambil pending balance dari database berdasarkan alamat
 		const pendingBalanceData = await rocksState
 			.get(`pendingBalance:${address}`)
 			.catch(() => null)
 
 		if (!pendingBalanceData) {
-			// Jika tidak ada pending balance, set dengan nilai kosong (0)
-			await setPendingBalance({ address, pendingAmount: 0 }) // Inisialisasi dengan 0
-			return { pendingAmount: 0, address } // Kembalikan objek dengan amount 0
+			// Tidak ada reserve tersimpan = tidak ada transaksi pending.
+			// Sengaja TIDAK menulis apa pun (tanpa tulis-saat-baca).
+			return { pendingAmount: 0, address }
 		}
 
 		// Jika pending balance ada, decode dan parse

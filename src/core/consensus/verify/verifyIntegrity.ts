@@ -2,6 +2,8 @@ import { verifyStruct } from './module/verifyStruct'
 import { verifyPow } from './module/verifyPow'
 import { verifyHashLength } from './module/verifyHashLength'
 import { verifyBlockHash } from './module/verifyBlockHash'
+import { verifyBlockReward } from './module/verifyReward'
+import { checkBlockTimestamp, MTP_WINDOW } from './module/verifyTimestamp'
 import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByHeight'
 import { Block } from 'src/core/block/blockModel'
 import { verifyMerkleRoot } from './module/verifyMerkleRoot'
@@ -21,7 +23,11 @@ import { GENESIS_HASH } from 'src/core/block/genesis'
  *   3. `verifyPow`     — hash memenuhi difficulty tersimpan di header;
  *   4. `verifyBlockHash` — hash = SHA-256(preimage ‖ nonce);
  *   5. `verifyMerkleRoot` — merkle cocok dengan transaksi (kecuali genesis);
- *   6. genesis — hash WAJIB sama dengan konstanta `GENESIS_HASH` kode ini
+ *   6. `verifyBlockReward` — hadiah/fee/coinbase direhitung dari
+ *      fungsi deterministik (kecuali genesis, lihat pengecualian di bawah);
+ *   7. `checkBlockTimestamp` — timestamp > median-time-past 11 blok
+ *      sebelumnya dan tidak lebih dari 2 jam ke depan;
+ *   8. genesis — hash WAJIB sama dengan konstanta `GENESIS_HASH` kode ini
  *      (identitas jaringan; anti-fork / anti-tamper).
  *
  * Seluruh hasil dievaluasi; kegagalan mencatat height, hash, dan check yang
@@ -39,6 +45,9 @@ import { GENESIS_HASH } from 'src/core/block/genesis'
 export const verifyChainIntegrity = async (): Promise<boolean> => {
 	logToConsole('Checking chain integrity...')
 	let currentHeight = 0
+	// Jendela MTP-11 rolling lintas-blok: timestamp blok yang sudah
+	// diverifikasi, maksimal MTP_WINDOW (dipakai `checkBlockTimestamp`).
+	const previousTimestamps: number[] = []
 
 	while (true) {
 		const block = (await getBlockByHeight(currentHeight, 'json')) as
@@ -72,6 +81,26 @@ export const verifyChainIntegrity = async (): Promise<boolean> => {
 		) {
 			failures.push('merkle root')
 		}
+
+		// Hadiah/fee/coinbase: semua direhitung (genesis exempt — lihat
+		// catatan fungsi `verifyBlockReward`).
+		const rewardReason = verifyBlockReward(block)
+		if (rewardReason !== null) failures.push(`reward (${rewardReason})`)
+
+		// Timestamp: MTP-11 (rolling di seluruh loop, bukan per-blok terisolir)
+		// + batas masa depan 2 jam dari sekarang.
+		const timestampReason = checkBlockTimestamp(
+			block.block.header.timestamp,
+			previousTimestamps,
+			Date.now(),
+		)
+		if (timestampReason !== null) {
+			failures.push(`timestamp (${timestampReason})`)
+		}
+		// Rolling window: simpan timestamp blok yang baru lolos (atau tidak —
+		// bila gagal, loop berhenti anyway) dan jaga maksimal MTP_WINDOW.
+		previousTimestamps.push(block.block.header.timestamp)
+		if (previousTimestamps.length > MTP_WINDOW) previousTimestamps.shift()
 
 		if (failures.length > 0) {
 			loggingErr({

@@ -15,9 +15,11 @@ import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
 import { getPendingBalance } from 'src/core/transaction/getPendingBalance'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
+import { countPendingBySender } from 'src/core/state/storage/mempool/mempoolIndex'
 import { blockSummary } from 'src/types/block'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import { getWork, submitWork } from 'src/core/consensus/work'
+import { getSyncStatus } from 'src/core/events/syncState'
 
 /** Ubah Block penuh menjadi ringkasan untuk list explorer. */
 const toBlockSummary = (block: Block): blockSummary => {
@@ -154,6 +156,14 @@ rpc.addMethod('nex_getMempool', async () => {
 	return await loadMempool()
 })
 
+// Status sinkronisasi P2P (JSON polos, BUKAN hex). `syncing: true` berarti
+// `nex_getWork` sementara ditolak sampai rantai menyusul peer (IBD). Bila P2P
+// mati atau node sudah menyusul, `syncing` bernilai false dan mining normal.
+// Lihat `src/core/events/syncState.ts`.
+rpc.addMethod('nex_getSyncStatus', () => {
+	return getSyncStatus()
+})
+
 // Account
 
 rpc.addMethod('nex_getPendingBalance', async (address: string) => {
@@ -191,13 +201,16 @@ rpc.addMethod('nex_getNonceAccount', async (address: string) => {
  *
  * Dihitung di server supaya wallet tidak perlu mengunduh seluruh mempool
  * hanya untuk menghitung transaksinya sendiri.
+ *
+ * P1: `pendingCount` diambil dari indeks per-pengirim (`countPendingBySender`),
+ * BUKAN `loadMempool().filter(...)` yang terpotong 100 entri global — kalau
+ * mempool ramai, angka palsu kecil membuat wallet mengulang nonce yang sama
+ * dan transaksinya ditolak (atau, pada validator, lolos ganda). Nilai kini
+ * identik dengan hasil `validateTransactionNonce`.
  */
 rpc.addMethod('nex_getNextNonce', async (address: string) => {
 	const account = await getAccount(address)
-	const mempool = await loadMempool().catch(() => [])
-	const pendingCount = Array.isArray(mempool)
-		? mempool.filter((tx: TxInterface) => tx.from === address).length
-		: 0
+	const pendingCount = await countPendingBySender(address)
 	return stringToHex(JSON.stringify((account?.nonce ?? 0) + pendingCount))
 })
 
@@ -257,7 +270,7 @@ rpc.addMethod('nex_sendRawTransaction', async (data: string) => {
 // konsumen, dan keberadaannya menyiratkan node memegang kunci.
 
 // Mining (job eksternal) — node menyusun template + difficulty adaptif
-// target 30 detik; miner eksternal yang menghitung PoW lewat HTTP sehingga
+// target 60 detik; miner eksternal yang menghitung PoW lewat HTTP sehingga
 // RPC tetap hidup selama mining. Lihat nexchain/miner/work.ts.
 // Params getWork: {minerAddress} | [minerAddress] | minerAddress | kosong
 //   → {status, jobId, payload, difficulty, height, previousBlockHash, ...}

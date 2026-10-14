@@ -7,8 +7,11 @@ import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { calculateTotalFees } from 'src/core/transaction/utils/totalFees'
 import { calculateTotalBlockReward } from 'src/core/consensus/calculateReward'
 import { clampDifficulty, retargetByTime } from 'src/core/consensus/difficulty'
-import { toNexu } from 'src/core/token/toNexu'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
+import {
+	getPreviousTimestamps,
+	medianTimePast,
+} from 'src/core/consensus/verify/module/verifyTimestamp'
 import { CHAIN_ID } from 'src/crypto/chainId'
 
 /**
@@ -27,7 +30,7 @@ import { CHAIN_ID } from 'src/crypto/chainId'
  * (= `prepareBlockForHashing(template)`), miner mencari nonce, node
  * memverifikasi ulang dan menyelesaikan blok.
  *
- * Difficulty memakai retarget adaptif target 30 detik (lihat
+ * Difficulty memakai retarget adaptif target 60 detik (lihat
  * `nexchain/miner/difficulty`) — mengganti `difficulty: 5` hardcode lama.
  */
 export const createBlockTemplate = async (
@@ -40,16 +43,26 @@ export const createBlockTemplate = async (
 	}
 
 	const height = latestBlock.block.height + 1
-	const timestamp = generateTimestampz()
+
+	// Timestamp harus LEBIH BESAR dari median-time-past 11 blok sebelumnya
+	// (aturan konsensus `checkBlockTimestamp`) — kalau tidak, blok yang
+	// disusun node ini akan DITOLAK oleh commitBlock/verifyIntegrity saat
+	// kembali. Mining cepat di dev (beberapa blok per detik) membuat
+	// `Date.now()` bisa sama dengan atau lebih kecil dari tip; dalam kasus
+	// itu pakai `mtp + 1` sehingga setiap template tervalidasi MTP
+	// **oleh konstruksi**.
+	const now = generateTimestampz()
+	const previousTimestamps = await getPreviousTimestamps(height)
+	const mtp = medianTimePast(previousTimestamps)
+	const timestamp = now > mtp ? now : mtp + 1
 
 	// Hadiah blok + fee (fee dihitung dari transaksi pengguna; coinbase fee 0
-	// sehingga tidak perlu dihitung dua kali).
+	// sehingga tidak perlu dihitung dua kali). Tidak ada suku gasPrice lagi
+	// sejak P2 — satu-satunya pendapatan miner = hadiah + fee.
 	const blockReward = cutBlockReward(height)
-	const gasPrice = toNexu(0.00025)
 	const totalTransactionFees = calculateTotalFees(transactions)
 	const totalReward = calculateTotalBlockReward(
 		blockReward,
-		gasPrice,
 		totalTransactionFees,
 	)
 
@@ -86,7 +99,6 @@ export const createBlockTemplate = async (
 		},
 		metadata: {
 			extraData: stringToHex('BlockChains by NexChain'),
-			gasPrice,
 			txCount: transactions.length,
 			created_at: timestamp,
 		},
@@ -101,7 +113,8 @@ export const createBlockTemplate = async (
  *
  * Mengapa jarak grandparent→tip (lama) menyebabkan bug: nilai itu hanya
  * mencerminkan interval DUA blok LAMAU. Saat rantai idle (job terus
- * kadaluarsa, blok tak pernah diselesaikan) angkanya tetap ~target 30 detik,
+ * kadaluarsa, blok tak pernah diselesaikan) angkanya tetap ~target (30 detik
+ * kala itu),
  * sehingga difficulty mandek (mis. 27.5) dan tidak pernah turun — persis
  * gejala "expiry berturut-turut tanpa penurunan". `now - tip.timestamp`
  * mengukur umur tip: idle time ikut terhitung → actualMs tumbuh → difficulty
@@ -109,9 +122,9 @@ export const createBlockTemplate = async (
  *
  * - Tip genesis (`height <= 0`): jarak waktu belum terdefinisi → pertahankan
  *   difficulty tip (dibatasi [MIN, MAX]) — perilaku lama dipertahankan;
- * - selain itu `retargetByTime` menghitung koreksi log2 terhadap target 30
- *   detik, dibatasi asimetris (naik maks +2, turun maks -4), dikunci
- *   [MIN, MAX] dan dikuantisasi 0.25 bit.
+ * - selain itu `retargetByTime` menghitung koreksi log2 terhadap
+ *   `TARGET_BLOCK_TIME_MS` (kini 60 detik), dibatasi asimetris (naik maks +2,
+ *   turun maks -4), dikunci [MIN, MAX] dan dikuantisasi 0.25 bit.
  *
  * Catatan: `retargetByTime` dibatasi turun maks -4 PER PEMANGGILAN dari
  * `tip.difficulty`. Selama tip tidak bergerak (blok tak ter-commit) penurunan

@@ -119,6 +119,21 @@ const RETRY_DELAY_MS = 3_000
 // Transport JSON-RPC (HTTP POST, tanpa dependensi)
 // ---------------------------------------------------------------------------
 
+/**
+ * Header Basic Auth OPSIONAL untuk node dengan `RPC_USER`/`RPC_PASSWORD`.
+ *
+ * Kedua env harus terisi bersamaan; kalau tidak, `undefined` (node lokal
+ * tanpa kredensial tetap jalan tanpa header). Header ini dibawa SEMUA
+ * panggilan (baca maupun tulis) — node hanya menuntutnya untuk method tulis
+ * (`nex_getWork` / `nex_submitWork`) dan mengabaikannya di method baca.
+ */
+const AUTH_HEADER: string | undefined = (() => {
+	const user = process.env.NEX_RPC_USER
+	const password = process.env.NEX_RPC_PASS
+	if (!user || !password) return undefined
+	return `Basic ${Buffer.from(`${user}:${password}`, 'utf8').toString('base64')}`
+})()
+
 let requestId = 0
 
 const rpcCall = async <T>(
@@ -128,7 +143,10 @@ const rpcCall = async <T>(
 ): Promise<T> => {
 	const response = await fetch(rpcUrl, {
 		method: 'POST',
-		headers: { 'content-type': 'application/json' },
+		headers: {
+			'content-type': 'application/json',
+			...(AUTH_HEADER ? { authorization: AUTH_HEADER } : {}),
+		},
 		body: JSON.stringify({
 			jsonrpc: '2.0',
 			id: ++requestId,
@@ -137,7 +155,13 @@ const rpcCall = async <T>(
 		}),
 	})
 	if (!response.ok) {
-		throw new Error(`HTTP ${response.status} ${response.statusText}`)
+		// 401/403 dari node berarti autentikasi method tulis menolak —
+		// beri petunjuk env yang benar supaya operator tidak menebak-nebak.
+		const hint =
+			response.status === 401 || response.status === 403
+				? ' — method ini butuh Basic Auth: set NEX_RPC_USER dan NEX_RPC_PASS'
+				: ''
+		throw new Error(`HTTP ${response.status} ${response.statusText}${hint}`)
 	}
 	const body = (await response.json()) as {
 		result?: T
@@ -267,6 +291,9 @@ const runMiner = async (
 	console.log('NexChain external miner')
 	console.log(`  address : ${minerAddress}`)
 	console.log(`  rpc     : ${rpcUrl}`)
+	console.log(
+		`  auth    : ${AUTH_HEADER ? 'Basic (NEX_RPC_USER/NEX_RPC_PASS)' : 'tanpa kredensial'}`,
+	)
 
 	let totalHashes = 0
 

@@ -1,5 +1,5 @@
 /**
- * Difficulty Proof-of-Work NexChain — adaptif, target block time 30 detik.
+ * Difficulty Proof-of-Work NexChain — adaptif, target block time 60 detik.
  *
  * Satuan: **bit zerodepan fractional** (bukan jumlah digit heksadesimal),
  * di-quantize ke langkah 0.25. Contoh: difficulty 20 = hash harus diawali
@@ -16,7 +16,7 @@
  */
 
 /** Target jarak antar blok (ms). Inilah yang dikejar retarget. */
-export const TARGET_BLOCK_TIME_MS = 30_000
+export const TARGET_BLOCK_TIME_MS = 60_000
 
 /** Difficulty awal rantai (== skema lama prefix 5 digit heksadesimal). */
 export const INITIAL_DIFFICULTY_BITS = 20
@@ -32,11 +32,16 @@ export const MAX_DIFFICULTY_BITS = 48
  *   1-detik melompat MELEWATI titik seimbang (mis. 20 → 24 bit untuk hashrate
  *   ~120 kH/s) sehingga blok berikutnya memakan menit. Dengan langkah maks
  *   +2, pendekatan ke titik seimbang monoton — ladder waktu blok menyempit ke
- *   ±30 detik tanpa overshoot besar.
+ *   sekitar target tanpa overshoot besar.
  * - `MAX_FALL_BITS` 4 (turun): blok yang sangat lambat / idle time panjang
  *   harus segera kembali ke sekitar target; jatuh maks 4 bit per blok
  *   memulihkan equilibrium dalam 1–2 blok (turun 14 bit sekaligus setelah
  *   menganggur semalam tetap dicegah).
+ * - Kalibrasi ini dilakukan saat target masih 30 detik; ketika target
+ *   digeser ke 60 detik (P2) nilai ±2/4 bit DIPERTAHANKAN — langkah
+ *   per-blok yang sama kini bergerak dua kali lebih lambat dalam satuan
+ *   "kejutan waktu", yang justru menurunkan overshoot tanpa mengubah
+ *   sifat asimetris (naik hati-hati, turun cepat).
  */
 export const MAX_RISE_BITS = 2
 export const MAX_FALL_BITS = 4

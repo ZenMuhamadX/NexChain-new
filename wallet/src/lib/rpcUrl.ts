@@ -14,6 +14,11 @@ import { errorMessage } from './format'
  * (main.tsx); `setRpcUrl` sendiri menolak selain http(s).
  */
 const STORAGE_KEY = 'nex_rpc_url'
+// Kredensial Basic Auth method tulis — opsional, hanya dipakai bila node
+// menyetel RPC_USER/RPC_PASSWORD. Kunci terpisah dari URL supaya menyimpan
+// auth tidak ikut mengubah endpoint (dan sebaliknya).
+const USER_KEY = 'nex_rpc_user'
+const PASS_KEY = 'nex_rpc_pass'
 const RPC_PORT = 8000
 
 /**
@@ -96,6 +101,53 @@ export const persistRpcUrl = (url: string): void => {
 	}
 }
 
+export interface RpcCredentials {
+	user: string
+	password: string
+}
+
+/**
+ * Kredensial Basic Auth tersimpan untuk method tulis
+ * (`nex_sendRawTransaction` — lihat `lib/rpc.ts`).
+ *
+ * `"kosong"` berarti tidak ada kredensial → request dikirim TANPA header
+ * `Authorization`, persis perilaku lama (node dev lokal tanpa auth).
+ */
+export const getRpcCredentials = (): RpcCredentials => {
+	try {
+		return {
+			user: localStorage.getItem(USER_KEY) ?? '',
+			password: localStorage.getItem(PASS_KEY) ?? '',
+		}
+	} catch {
+		// localStorage diblokir (private mode) → perlakukan sebagai tanpa auth
+		return { user: '', password: '' }
+	}
+}
+
+/**
+ * Simpan kredensial dari layar Settings (keduanya kosong = hapus).
+ *
+ * Nilai disimpan apa adanya (di-trim) walaupun baru satu yang terisi, supaya
+ * user tidak kehilangan input saat mengisi kolom satu per satu; header Basic
+ * baru dibentuk bila KEDUANYA terisi (sama dengan aturan server).
+ */
+export const persistRpcCredentials = (user: string, password: string): void => {
+	const trimmedUser = user.trim()
+	const trimmedPassword = password.trim()
+	try {
+		if (!trimmedUser && !trimmedPassword) {
+			localStorage.removeItem(USER_KEY)
+			localStorage.removeItem(PASS_KEY)
+			return
+		}
+		localStorage.setItem(USER_KEY, trimmedUser)
+		localStorage.setItem(PASS_KEY, trimmedPassword)
+	} catch {
+		// gagal persist bukan gagal koneksi; berlaku untuk sesi ini saja
+	}
+}
+
 export interface RpcConnectionResult {
 	ok: boolean
 	chainId?: number
@@ -103,7 +155,9 @@ export interface RpcConnectionResult {
 }
 
 /** Lightweight connection probe used by Settings without changing the active client. */
-export const testRpcUrl = async (value: string): Promise<RpcConnectionResult> => {
+export const testRpcUrl = async (
+	value: string,
+): Promise<RpcConnectionResult> => {
 	let parsed: URL
 	try {
 		parsed = new URL(value.trim())
@@ -123,20 +177,24 @@ export const testRpcUrl = async (value: string): Promise<RpcConnectionResult> =>
 			body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'nex_getChainId' }),
 			signal: controller.signal,
 		})
-		if (!response.ok) return { ok: false, error: `Node membalas HTTP ${response.status}.` }
+		if (!response.ok)
+			return { ok: false, error: `Node membalas HTTP ${response.status}.` }
 		const body = (await response.json()) as {
 			result?: number
 			error?: { message?: string }
 		}
-		if (body.error) return { ok: false, error: body.error.message ?? 'Node menolak probe.' }
-		if (typeof body.result !== 'number') return { ok: false, error: 'Respons chain ID tidak valid.' }
+		if (body.error)
+			return { ok: false, error: body.error.message ?? 'Node menolak probe.' }
+		if (typeof body.result !== 'number')
+			return { ok: false, error: 'Respons chain ID tidak valid.' }
 		return { ok: true, chainId: body.result }
 	} catch (error) {
 		return {
 			ok: false,
-			error: error instanceof DOMException && error.name === 'AbortError'
-				? 'Node tidak merespons dalam 8 detik.'
-				: errorMessage(error),
+			error:
+				error instanceof DOMException && error.name === 'AbortError'
+					? 'Node tidak merespons dalam 8 detik.'
+					: errorMessage(error),
 		}
 	} finally {
 		window.clearTimeout(timeout)
