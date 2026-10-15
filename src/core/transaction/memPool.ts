@@ -4,7 +4,10 @@ import { TxInterface } from 'src/types/transaction'
 import { logToConsole } from 'src/logging/logging'
 import { saveMempool } from 'src/core/state/storage/mempool/saveMemPool'
 import { getPendingBalance } from 'src/core/transaction/getPendingBalance'
-import { setPendingBalance } from 'src/core/transaction/setPendingBalance'
+import {
+	countPendingBySender,
+	MAX_PENDING_PER_SENDER,
+} from 'src/core/state/storage/mempool/mempoolIndex'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
 import { getAccount } from 'src/core/state/account/getAccount'
 import { formatStr } from 'src/core/encoding/lib/formatString'
@@ -70,13 +73,35 @@ export class MemPool {
 	}
 
 	/**
-	 * Validates and updates pending balance for user transactions.
+	 * Validasi keterjangkauan saldo terhadap reserve turunan.
+	 *
+	 * Reserve-nya TURUNAN dari indeks mempool per-pengirim
+	 * (`getPendingBalance` = Σ(amount+fee) tx pending pengirim ini) — bukan
+	 * kunci tersimpan. Karena itu admission ini TIDAK menulis reserve apa
+	 * pun: `saveMempool` di bawah menulis tx BERSAMA entri indeksnya dalam
+	 * SATU batch atomik, sehingga reserve berikutnya otomatis menyertakan
+	 * transaksi ini. Keputusan terima/tolak tidak berubah — hanya sumber
+	 * reserve yang berpindah dari counter ke turunan.
 	 * @param transaction - User transaction.
 	 * @returns True if balance is sufficient, otherwise false.
 	 */
 	private async handleUserTransaction(
 		transaction: TxInterface,
 	): Promise<boolean> {
+		// Cap per-pengirim (KEBIJAKAN node, bukan konsensus): tolak bila
+		// pengirim sudah punya MAX_PENDING_PER_SENDER tx pending — SEBELUM
+		// tx ke-17 diterima. Membatasi pindai prefix reserve dan mencegah
+		// satu akun menghabiskan slot pool global. Node lain boleh memakai
+		// batas berbeda tanpa fork (isi mempool memang node-local).
+		const pendingCount = await countPendingBySender(transaction.from!)
+		if (pendingCount >= MAX_PENDING_PER_SENDER) {
+			logToConsole(
+				`Mempool per-sender cap: ${formatStr(transaction.from!)} sudah punya ` +
+					`${pendingCount} tx pending (batas ${MAX_PENDING_PER_SENDER}) — ditolak`,
+			)
+			return false
+		}
+
 		const userBalance = await getAccount(transaction.from!)
 		if (!userBalance) {
 			logToConsole('Insufficient user balance')
@@ -92,29 +117,7 @@ export class MemPool {
 			return false
 		}
 
-		// Update pending balance
-		await this.updatePendingBalance(
-			transaction.from!,
-			pendingBalance.pendingAmount,
-			transaction,
-		)
 		return true
-	}
-
-	/**
-	 * Updates the pending balance for a given address.
-	 * @param address - The address to update.
-	 * @param currentPending - The current pending balance.
-	 * @param transaction - The transaction to update with.
-	 */
-	private async updatePendingBalance(
-		address: string,
-		currentPending: number | undefined,
-		transaction: TxInterface,
-	): Promise<void> {
-		const newPendingAmount =
-			(currentPending || 0) + transaction.amount + (transaction.fee || 0)
-		await setPendingBalance({ address, pendingAmount: newPendingAmount })
 	}
 
 	/**

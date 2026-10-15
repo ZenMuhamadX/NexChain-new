@@ -39,6 +39,10 @@ import { verifyBlockHash } from 'src/core/consensus/verify/module/verifyBlockHas
 import { verifyMerkleRoot } from 'src/core/consensus/verify/module/verifyMerkleRoot'
 import { verifyBlockReward } from 'src/core/consensus/verify/module/verifyReward'
 import {
+	verifyBlockNonceOrder,
+	isNonceMismatchError,
+} from 'src/core/consensus/verify/module/verifyNonce'
+import {
 	checkBlockTimestamp,
 	getPreviousTimestamps,
 	MTP_WINDOW,
@@ -194,6 +198,27 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 				true,
 			)
 		}
+		// Pra-penerbangan urutan nonce per-pengirim (G3): nonce yang
+		// tidak berurutan/berlubang adalah pelanggaran konsensus
+		// deterministik (aturan yang sama dijalankan `commitBlock` di
+		// dalam), jadi peer pengirim layak di-ban (`fatal=true`). Cek ini
+		// murni baca (tanpa efek samping); pengulangan di dalam
+		// `commitBlock` adalah defense-in-depth yang disengaja. Cek
+		// eksplisit di sini diperlukan karena `commitBlock` menelan
+		// `NonceMismatchError` menjadi `{ status:false }` tanpa jenis
+		// galat — tanpa pre-flight ini, blok nonce-rusak hanya ditolak
+		// non-fatal dan peer pelanggar lolos dari ban.
+		try {
+			await verifyBlockNonceOrder(block)
+		} catch (error) {
+			if (isNonceMismatchError(error)) {
+				return reject(
+					'nonce tidak berurutan: ' + (error as Error).message,
+					true,
+				)
+			}
+			throw error
+		}
 		const committed = await chains.commitBlock(block)
 		if (!committed.status) {
 			return reject('commitBlock menolak blok', false)
@@ -251,6 +276,9 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 	//     onCompetingTip). Blok jauh dari tip yang belum tersambung akan
 	//     menunggu induknya tiba; blok yang membentuk cabang lebih berat
 	//     memicu penggantian tip.
+	//     CATATAN: tidak ada pra-penerbangan nonce di jalur ini — blok
+	//     cabang baru di-commit saat replay reorg, ketika identitas peer
+	//     asalnya sudah tak tersedia sehingga klasifikasi ban tak bermakna.
 	addToPool(block)
 	await reevaluateBranches()
 	return { ok: true, fatal: false }

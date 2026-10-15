@@ -173,7 +173,7 @@ rpc.addMethod('nex_getPeerInfo', () => {
 
 // Account
 
-rpc.addMethod('nex_getPendingBalance', async (address: string) => {
+rpc.addMethod('nex_getPendingReserve', async (address: string) => {
 	return stringToHex(JSON.stringify(await getPendingBalance(address)))
 })
 

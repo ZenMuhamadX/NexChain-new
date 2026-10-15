@@ -1,28 +1,42 @@
-import { rocksState } from 'src/core/state/db/state'
-import { decodeFromBytes } from 'src/core/encoding/hex/bytes/decodeBytes'
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
-import { pendingBalance } from './setPendingBalance'
+import { sumCostBySender } from 'src/core/state/storage/mempool/mempoolIndex'
 
 /**
- * Muat pending balance (reserve transaksi belum dieksekusi) sebuah alamat.
+ * Bentuk reserve turunan satu alamat — dipindah ke sini dari
+ * `setPendingBalance.ts` yang DIHAPUS (Gelombang 2): tidak ada lagi modul
+ * penulis `pendingBalance:<alamat>`, jadi tipe milik pembaca ini.
+ */
+export interface pendingBalance {
+	address: string
+	pendingAmount: number
+}
+
+/**
+ * Muat reserve (dana terkunci transaksi belum dieksekusi) sebuah alamat —
+ * TURUNAN dari indeks mempool per-pengirim, BUKAN kunci tersimpan.
  *
- * DUA aturan keras (audit P1 #3):
+ * Mengapa turunan: kunci `pendingBalance:<alamat>` yang lama adalah counter
+ * terpisah yang ditulis di dua tempat (admission `memPool` menaikkan,
+ * `processSender` menurunkan). Satu tulis hilang (crash di luar batch, bug
+ * penulis berikutnya) menyesatkan selamanya — reserve menumpuk tanpa bisa
+ * dilepas (dana terkunci permanen) atau nol padahal tx masih pending
+ * (over-admission). Nilai turunan (`Σ(amount+fee)` dari `mpf:<from>:*` yang
+ * ditulis ATOMIK bersama tx oleh `saveMempool`) tidak mungkin drift: indeks
+ * ada ⟺ tx ada.
+ *
+ * DUA aturan keras (audit P1 #3) tetap berlaku:
  *
  *   1. Alamat DIVALIDASI dulu — alamat rusak MELEMPAR, bukan diam-diam
  *      mengembalikan 0. Nol diam-diam menyamarkan serangan (typo/salah
  *      param yang terlihat "berhasil", dan pemanggil tidak bisa membedakan
  *      "tidak ada reserve" dari "alamat salah").
- *   2. TANPA TULIS-SAAT-BACA: kunci yang hilang menghasilkan
- *      `{ pendingAmount: 0 }` tanpa menyimpan apa pun. Menulis 0 saat
- *      membaca (perilaku lama) membuat pembacaan RPC sembarang menumbuhkan
- *      key `pendingBalance:<alamat>` sampah di DB negara-bagian, dan
- *      menyamarkan siapa penulis reserve yang SAH (hanya admission
- *      `memPool` dan pelepasan `processSender` yang boleh menulis).
+ *   2. TANPA TULIS-SAAT-BACA: pembaca ini hanya memindai indeks; ia tidak
+ *      menulis kunci apa pun.
  *
  * Pemanggil: admission mempool (`memPool.handleUserTransaction` — `from`
- * hasil ecrecover, selalu sah), eksekusi blok (`processSender`), dan RPC
- * `nex_getPendingBalance` (lapisan json-rpc mengubah throw menjadi
- * respons error JSON-RPC — bukan kegagalan HTTP).
+ * hasil ecrecover, selalu sah) dan RPC `nex_getPendingReserve` (lapisan
+ * json-rpc mengubah throw menjadi respons error JSON-RPC — bukan kegagalan
+ * HTTP).
  */
 export const getPendingBalance = async (
 	address: string,
@@ -30,23 +44,5 @@ export const getPendingBalance = async (
 	if (!isValidAddress(address)) {
 		throw new Error(`getPendingBalance: alamat tidak valid: ${address}`)
 	}
-	try {
-		// Ambil pending balance dari database berdasarkan alamat
-		const pendingBalanceData = await rocksState
-			.get(`pendingBalance:${address}`)
-			.catch(() => null)
-
-		if (!pendingBalanceData) {
-			// Tidak ada reserve tersimpan = tidak ada transaksi pending.
-			// Sengaja TIDAK menulis apa pun (tanpa tulis-saat-baca).
-			return { pendingAmount: 0, address }
-		}
-
-		// Jika pending balance ada, decode dan parse
-		const parsedBytes = decodeFromBytes(pendingBalanceData as unknown as Buffer)
-		return JSON.parse(parsedBytes) as pendingBalance
-	} catch (error) {
-		console.error(error)
-		throw error
-	}
+	return { address, pendingAmount: await sumCostBySender(address) }
 }

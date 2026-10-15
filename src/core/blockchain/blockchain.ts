@@ -8,6 +8,7 @@ import { loggingErr } from '../../logging/errorLog'
 import { verifyChainIntegrity } from 'src/core/consensus/verify/verifyIntegrity'
 import { verifyMerkleRoot } from 'src/core/consensus/verify/module/verifyMerkleRoot'
 import { verifyBlockReward } from 'src/core/consensus/verify/module/verifyReward'
+import { verifyBlockNonceOrder } from 'src/core/consensus/verify/module/verifyNonce'
 import {
 	checkBlockTimestamp,
 	getPreviousTimestamps,
@@ -139,6 +140,19 @@ export class BlockChains {
 						`di blok height=${block.block.height} — blok ditolak.`,
 				)
 			}
+
+			// ---- URUTAN NONCE per-pengirim (gagal-dulu, sebelum WAL) ----
+			// Menegakkan "masuk blok ⇒ tereksekusi": tiap tx non-duplikat
+			// wajib tepat nonce yang diharapkan pengirimnya (kontigu dari
+			// `account.nonce` pra-blok). Tanpa ini, fee tx nonce-lompat ikut
+			// dibayar ke miner lewat coinbase padahal tx-nya tidak pernah
+			// didebet. Tx yang `isTxExecuted` dilewati (residu crash) tanpa
+			// memajukan penghitung. Dilempar sebagai `NonceMismatchError`
+			// dan ditangani jalur gagal yang sama di bawah (di titik ini
+			// `journalHeight` masih null — belum ada yang ditulis, jadi
+			// tidak ada yang perlu di-rollback). Genesis tidak lewat jalur
+			// ini (disimpan langsung via `saveBlock` saat bootstrap).
+			await verifyBlockNonceOrder(block)
 
 			// ---- UNDO JOURNAL (WAL, sebelum tulisan state apa pun) --------
 			// Enumerasi semua kunci yang akan disentuh + snapshot nilai

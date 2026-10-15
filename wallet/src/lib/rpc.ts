@@ -7,7 +7,7 @@ import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { getRpcUrl, getRpcCredentials } from './rpcUrl'
 import type { TxInterface } from 'src/types/transaction'
 import type { structBalance } from 'src/types/balance'
-import type { pendingBalance } from 'src/core/transaction/setPendingBalance'
+import type { pendingBalance } from 'src/core/transaction/getPendingBalance'
 
 /**
  * Pembungkus RPC untuk UI wallet.

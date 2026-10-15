@@ -21,8 +21,10 @@ lama, state seperti itu tidak bisa dipulihkan. Journal menyimpan nilai lama
    (`writeJournalRecord`) — WAL aman di disk;
 4. `beginJournalContext(touch)` → semua tulisan state/history/block dicek
    keanggotaannya oleh `assertJournalAllows` (dipanggil dari `putAccount`,
-   `setPendingBalance`, `saveTxHistory`, `saveTxByAddress`, `saveBlock`,
-   `writeBlockHash`);
+   `saveTxHistory`, `saveTxByAddress`, `saveBlock`, `writeBlockHash`);
+   (`setPendingBalance` dihapus Gelombang 2 — reserve kini turunan indeks
+   mempool, bukan tulisan state — sehingga namanya tidak lagi terdaftar
+   sebagai penulis.)
 5. `saveBlockToChain` + `processTransact`;
 6. `endJournalContext()`, lalu `pruneJournal(height)`.
 

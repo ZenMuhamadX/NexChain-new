@@ -37,10 +37,14 @@ export interface JournalRecord {
  * |---------|-------------------------------------|---------------------------------|
  * | state   | `blockState`, `blockHeight:<h>`     | blok (selalu)                   |
  * | state   | `<alamat>`                          | coinbase.receiver, tx.from, tx.receiver |
- * | state   | `pendingBalance:<from>`             | tiap `tx.from`                  |
  * | history | `txnHash:<txHash>`                  | record coinbase + tiap `tx.txHash` |
  * | history | `address:<alamat>`                  | coinbase.from/receiver + tx.from/receiver |
  * | block   | `blockHash:<hash>`                  | hash blok                       |
+ *
+ * (Baris `pendingBalance:<from>` dihapus Gelombang 2 bersama kuncinya:
+ * reserve kini turunan indeks mempool, bukan tulisan state — tidak ada lagi
+ * yang boleh menulis kunci itu, sehingga enumerasi pun tidak boleh
+ * menyebutnya.)
  */
 export const enumerateTouchSet = (block: Block): JournalTouchSet => {
 	const state = new Set<string>()
@@ -70,7 +74,6 @@ export const enumerateTouchSet = (block: Block): JournalTouchSet => {
 		if (tx.txHash) history.add(`txnHash:${tx.txHash}`)
 		if (tx.from) {
 			state.add(tx.from)
-			state.add(`pendingBalance:${tx.from}`)
 			history.add(`address:${tx.from}`)
 		}
 		state.add(tx.receiver)
