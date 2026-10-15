@@ -23,24 +23,26 @@ mengikuti kebijakan RPC.
 
 ## Peta modul
 
-| Berkas                       | Tanggung jawab                                                                    |
-| ---------------------------- | --------------------------------------------------------------------------------- |
-| `config.ts`                  | Baca `NEX_P2P_*` dari env. Default aman (mati, loopback).                         |
-| `types.ts`                   | **Kontrak** lintas modul (tipe + antarmuka). Semua modul hanya bicara lewat sini. |
-| `protocol/messages.ts`       | Skema pesan v1 + `parseMessage` (fail-closed).                                    |
-| `protocol/handshake.ts`      | Aturan `version`/`verack` (murni, bisa diuji tanpa socket).                       |
-| `transport/framing.ts`       | Framing TCP: length-prefix 4 byte BE + JSON UTF-8.                                |
-| `transport/connection.ts`    | Satu `PeerConnection` di atas socket Bun.                                         |
-| `transport/server.ts`        | `Bun.listen` (inbound) + `Bun.connect` (outbound).                                |
-| `peers/banList.ts`           | Daftar ban berbasis alamat, kedaluwarsa otomatis.                                 |
-| `peers/peerManager.ts`       | Siklus hidup peer: handshake, ping/pong, ban, reconnect, maxPeers.                |
-| `validation/connectBlock.ts` | Validasi blok asing + jalur cabang (branch pool → reorg), lalu `commitBlock`.         |
-| `sync/syncManager.ts`        | Protokol `getblocks`/`inv`/`getdata`/`block`/`tx`; menandai status sync.          |
-| `broadcastGate.ts`           | Menekan siaran ganda saat memproses item masuk.                                   |
-| `node.ts`                    | Orkestrator: `startP2P()`. Satu-satunya tempat semua dirangkai.                   |
+| Berkas                       | Tanggung jawab                                                                                       |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `config.ts`                  | Baca `NEX_P2P_*` dari env. Default aman (mati, loopback).                                            |
+| `types.ts`                   | **Kontrak** lintas modul (tipe + antarmuka). Semua modul hanya bicara lewat sini.                    |
+| `protocol/messages.ts`       | Skema pesan v1 + `parseMessage` (fail-closed).                                                       |
+| `protocol/handshake.ts`      | Aturan `version`/`verack` (murni, bisa diuji tanpa socket).                                          |
+| `transport/framing.ts`       | Framing TCP: length-prefix 4 byte BE + JSON UTF-8.                                                   |
+| `transport/connection.ts`    | Satu `PeerConnection` di atas socket Bun.                                                            |
+| `transport/server.ts`        | `Bun.listen` (inbound) + `Bun.connect` (outbound).                                                   |
+| `peers/banList.ts`           | Daftar ban berbasis alamat, kedaluwarsa otomatis.                                                    |
+| `peers/peerManager.ts`       | Siklus hidup peer: handshake, ping/pong, ban, reconnect, maxPeers. Menerbitkan snapshot peer netral. |
+| `validation/connectBlock.ts` | Validasi blok asing + jalur cabang (branch pool → reorg), lalu `commitBlock`.                        |
+| `sync/syncManager.ts`        | Protokol `getblocks`/`inv`/`getdata`/`block`/`tx`; menandai status sync; re-announce mempool.        |
+| `broadcastGate.ts`           | Menekan siaran ganda saat memproses item masuk.                                                      |
+| `node.ts`                    | Orkestrator: `startP2P()`. Satu-satunya tempat semua dirangkai.                                      |
 
 Status sinkronisasi sendiri disimpan di `src/core/events/syncState.ts` (netral,
 di sisi core) supaya `nex_getWork` dapat membacanya tanpa mengimpor `src/p2p/`.
+Snapshot peer disimpan serupa di `src/core/events/peerState.ts` supaya
+`nex_getPeerInfo` bisa membacanya tanpa mengimpor `src/p2p/`.
 
 ## Protokol v1
 
@@ -68,7 +70,7 @@ membacanya TANPA mengimpor `src/p2p/` (aturan lapisan tetap utuh).
   penyimpanan kita) **dan** tak ada peer siap lain yang mengklaim lebih tinggi
   dari kita. `inv` kosong saja TIDAK cukup (bisa datang dari gossip blok lama
   atau peer yang berbohong), dan tinggi klaim peer tidak pernah boleh
-  *membuka* gerbang — hanya boleh *menahannya*.
+  _membuka_ gerbang — hanya boleh _menahannya_.
 - **Katup pengaman.** Diukur dari kemajuan nyata terakhir (blok ter-commit),
   bukan dari peer menyambung / `inv` masuk. Bila `NEX_P2P_SYNC_TIMEOUT_MS`
   (default 60000, floor 1000) berlalu tanpa kemajuan, mining dibuka dengan
@@ -77,7 +79,7 @@ membacanya TANPA mengimpor `src/p2p/` (aturan lapisan tetap utuh).
 - **Latch.** Fase `synced` melekat: blok gossip tidak menyalakan ulang gerbang.
   Pengecualian yang disengaja: bila peer yang BARU handshake mengklaim lebih
   tinggi dari tip kita (mis. reconnect ke node yang jauh lebih maju), gerbang
-  ditutup lagi — memakai klaim untuk *menahan* selalu aman, dan menambang fork
+  ditutup lagi — memakai klaim untuk _menahan_ selalu aman, dan menambang fork
   yang tak bisa di-reorg jauh lebih buruk.
 - **Probe `getblocks` kedaluwarsa.** Satu peer yang diam (socket hidup karena
   `ping`, tapi tak pernah menjawab `getblocks`) tidak menyumbat pengejaran:
@@ -86,8 +88,8 @@ membacanya TANPA mengimpor `src/p2p/` (aturan lapisan tetap utuh).
   yang sudah dihitung tetap bisa diselesaikan, dan blok dari peer tetap
   di-commit. Hanya pembuatan job baru (`nex_getWork`) yang ditahan.
 - Cek dari klien: `nex_getSyncStatus` → `{ phase, syncing, localHeight,
-  targetHeight, updatedAt }` (JSON polos, `phase ∈
-  idle|syncing|assumed|synced|forked`). Fase **`forked`** menahan mining selama
+targetHeight, updatedAt }` (JSON polos, `phase ∈
+idle|syncing|assumed|synced|forked`). Fase **`forked`** menahan mining selama
   reorg (lihat bagian berikut); ia sengaja menimpa `synced` karena tip lokal
   memang sedang berubah, lalu ditutup oleh `markSynced()`.
 
@@ -119,6 +121,21 @@ kumulatif terbanyak (`Σ 2^difficulty`), bukan tinggi terpanjang.
   `reorg`) murni di sisi core; `src/p2p/` hanya memanggilnya. Pool in-memory
   (bukan LevelDB) supaya tak ada store ke-7 yang harus di-rollback.
 
+## Observability & re-announce mempool (M3)
+
+- **`nex_getPeerInfo`** (JSON polos, BUKAN hex) mengembalikan snapshot peer:
+  `{ peers, count, maxPeers, banned, updatedAt }`. Setiap peer memuat
+  `id`, `remoteAddress`, `remotePort`, `inbound`, `handshaked`, `connectedAt`,
+  `lastSeenAt`, dan `status` (`bestHeight`/`bestHash`/`chainId`/`genesisHash`).
+  Datanya ditulis `peerManager` ke `src/core/events/peerState.ts` (modul netral)
+  dan dibaca RPC, sehingga core tak perlu mengimpor `src/p2p/`. Snapshot adalah
+  **salinan** — pemanggil tak bisa memutasi state internal P2P.
+- **Re-announce mempool.** Relay tx murni reaktif (`publishTx` → `inv`) sehingga
+  peer yang menyambung SETELAH sebuah tx diterima tak pernah tahu tx itu ada.
+  `syncManager` menutup celah ini dengan menyiarkan `inv` tx untuk seluruh
+  mempool: sekali saat peer selesai handshake (`onPeerReady`) dan berkala tiap
+  60 detik. Peer yang belum punya tx lalu meminta lewat `getdata` seperti biasa.
+
 ## Aturan keamanan yang penting
 
 - **`connectBlock` menerima blok yang tidak menempel ke tip HANYA sebagai
@@ -135,11 +152,13 @@ kumulatif terbanyak (`Σ 2^difficulty`), bukan tinggi terpanjang.
 ## Uji
 
 - `bun run check:p2p` — gerbang offline (framing, pesan, config, handshake, ban,
-  status sync/IBD termasuk fase `forked`, dan arah dependensi `core ↛ p2p`).
+  status sync/IBD termasuk fase `forked`, snapshot observability peer, dan arah
+  dependensi `core ↛ p2p`).
 - `bun run check:reorg` — gerbang reorg (fork choice, branch pool, penelusuran
   nenek moyang, reorg penuh lewat LevelDB nyata, batas kedalaman, `invalidateFrom`).
 - `bun run p2p:smoke` — tiga node localhost; node kedua harus menyusul tinggi
-  rantai dan menerima relay tx, dan node ketiga (peer mati) harus menolak
+  rantai, `nex_getPeerInfo` di node pertama harus melaporkan peer ter-handshake,
+  node kedua harus menerima relay tx, dan node ketiga (peer mati) harus menolak
   `nex_getWork` lalu membukanya lewat katup pengaman.
 - `bun run p2p:evil -- <skenario> --host 127.0.0.1 --port 30303` — peer jahat
   (genesis salah, frame raksasa, blok curang) untuk memverifikasi pertahanan.

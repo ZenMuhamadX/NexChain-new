@@ -23,6 +23,7 @@
 		"check:reorg": "bun run scripts/reorgCheck.ts",
 		"check:pow": "bun run scripts/powParityCheck.ts",
 		"check:data": "bun run scripts/dataDirCheck.ts",
+		"check:all": "bun run scripts/checkAll.ts",
 		"pow:bench": "bun run scripts/powBench.ts",
 		"genesis:check": "bun run scripts/genesisCheck.ts",
 		"genesis:solve": "bun run scripts/genesisCheck.ts --solve",

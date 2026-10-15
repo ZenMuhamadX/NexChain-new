@@ -4,7 +4,7 @@
  * lalu memverifikasi hasilnya (tip bergerak, minerId cocok, hadiah terkredit).
  *
  * Ini BUKAN pengganti `check:*` offline — ia sengaja menyentuh node hidup
- * (membuat wallet, menambang satu blok, mengubah state rantai).
+ * (menambang satu blok, mengubah state rantai).
  *
  * Pakai:
  *   bun run rpc:start        # di terminal lain
@@ -13,6 +13,9 @@
 import { hashWithNonce } from 'src/core/consensus/Pow'
 import { meetsDifficulty } from 'src/core/consensus/difficulty'
 import { hexToString } from 'src/core/encoding/hex/hexToString'
+import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
+import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
+import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
 import type { HexString } from 'src/types/block'
 
 const RPC_URL = process.env.NEX_RPC_URL ?? 'http://localhost:8000/rpc'
@@ -113,13 +116,12 @@ const main = async (): Promise<void> => {
 	}
 	ok(`nex_getChainId = ${chainId}`)
 
-	// 2. Alamat penerima hadiah (node tidak punya wallet).
-	const walletJson = await rpc<string>('nex_createWallet')
-	const wallet = JSON.parse(walletJson) as { address?: string }
-	const address = wallet.address
-	if (typeof address !== 'string') {
-		throw new SmokeFailure('nex_createWallet tidak mengembalikan address')
-	}
+	// 2. Alamat penerima hadiah. Node TIDAK punya wallet (`nex_createWallet`
+	//    sudah dihapus), jadi alamat dibuat di sisi KLIEN lewat jalur derivasi
+	//    yang sama dengan wallet: mnemonic -> pubkey -> alamat.
+	const phrase = genRandomMnemonic()
+	const { publicKey } = generateKeysFromMnemonic(phrase)
+	const address = generateAddressFromPublicKey(publicKey.slice(2))
 	if (
 		!(address.startsWith('NxC') || address.startsWith('NxS')) ||
 		address.length !== 43
@@ -212,7 +214,9 @@ const main = async (): Promise<void> => {
 		hexToString(rawAccount as HexString),
 	) as AccountSummary
 	if (!(account.balance > 0)) {
-		throw new SmokeFailure('saldo hadiah tidak bertambah setelah blok ter-commit')
+		throw new SmokeFailure(
+			'saldo hadiah tidak bertambah setelah blok ter-commit',
+		)
 	}
 	ok(`saldo hadiah = ${account.balance} nexu`)
 
