@@ -5,17 +5,17 @@ jalan di sini**; semuanya dijalankan lewat `apps/node`. Dulu berada di `nexchain
 
 ## Sub-modul
 
-| Folder         | Isi                                                                                                                                                                                                            |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `block/`       | Struktur & pembuatan blok: `blockModel.ts`, `genesis.ts`, `createBlockTemplate.ts`, `isChainValid.ts`, `prepareBlock.ts`, `query/`.                                                                            |
-| `blockchain/`  | Orkestrasi rantai: `blockchain.ts`.                                                                                                                                                                            |
-| `transaction/` | Siklus tx: `processTransaction`, `createCoinbaseTransaction`, `memPool`, `isTxExecuted`, `sender/`, `receiver/`, `utils/`. Hash & skema wire tinggal di `encoding/rlp/txCodec.ts`.                             |
-| `consensus/`   | PoW: `difficulty.ts`, `Pow.ts`, `work.ts`, `verify/` (verifyIntegrity, verifyPow, verifyMerkleRoot, verifyStruct, module/), dan `reorg/` (fork choice, branch pool, penelusuran nenek moyang, eksekusi reorg). |
-| `state/`       | Persistensi: `db/` (akses leveldb) + `storage/` (block / state / mempool) + `journal/` (undo journal: WAL per blok, guard fail-closed, rollback & recovery).                                                   |
-| `encoding/`    | `hex/`, `rlp/` (codec wire transaksi), `lib/` (format, ukuran, timestamp), `sha256.ts`, `keccak256.ts`.                                                                                                        |
-| `token/`       | Nexucoin: nexu ↔ NxC, formatting.                                                                                                                                                                              |
-| `validation/`  | Validator tx: `txValidator.v.ts`, `joi/`, `module/`.                                                                                                                                                           |
-| `events/`      | Bus & status netral (tanpa P2P): `nodeEvents.ts` (publish blok/tx), `syncState.ts` (gerbang IBD), `peerState.ts` (snapshot peer untuk `nex_getPeerInfo`). Ditulis oleh `src/p2p/`, dibaca core/RPC.            |
+| Folder         | Isi                                                                                                                                                                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `block/`       | Struktur & pembuatan blok: `blockModel.ts`, `genesis.ts`, `createBlockTemplate.ts`, `isChainValid.ts` (gerbang `nex_getWork` → verifikasi inkremental), `prepareBlock.ts`, `query/`.                                                                |
+| `blockchain/`  | Orkestrasi rantai: `blockchain.ts`.                                                                                                                                                                                                                 |
+| `transaction/` | Siklus tx: `processTransaction`, `createCoinbaseTransaction`, `memPool`, `isTxExecuted`, `sender/`, `receiver/`, `utils/`. Hash & skema wire tinggal di `encoding/rlp/txCodec.ts`.                                                                  |
+| `consensus/`   | PoW: `difficulty.ts`, `Pow.ts`, `work.ts`, `verify/` (verifyIntegrity penuh/inkremental, `verifyMarker.ts`, verifyPow, verifyMerkleRoot, verifyStruct, module/), dan `reorg/` (fork choice, branch pool, penelusuran nenek moyang, eksekusi reorg). |
+| `state/`       | Persistensi: `db/` (akses leveldb) + `storage/` (block / state / mempool) + `journal/` (undo journal: WAL per blok, guard fail-closed, rollback & recovery).                                                                                        |
+| `encoding/`    | `hex/`, `rlp/` (codec wire transaksi), `lib/` (format, ukuran, timestamp), `sha256.ts`, `keccak256.ts`.                                                                                                                                             |
+| `token/`       | Nexucoin: nexu ↔ NxC, formatting.                                                                                                                                                                                                                   |
+| `validation/`  | Validator tx: `txValidator.v.ts`, `joi/`, `module/`.                                                                                                                                                                                                |
+| `events/`      | Bus & status netral (tanpa P2P): `nodeEvents.ts` (publish blok/tx), `syncState.ts` (gerbang IBD), `peerState.ts` (snapshot peer untuk `nex_getPeerInfo`). Ditulis oleh `src/p2p/`, dibaca core/RPC.                                                 |
 
 ## Hubungan antar modul
 
@@ -42,7 +42,34 @@ terhadap indeknya lalu diparkir di **branch pool in-memory**; `connectBlock`
 (P2P) memanggil `reevaluateBranches()` → `onCompetingTip` (satu titik deteksi,
 R-2). Bila cabang menang: rollback lewat undo journal, tx yatim dikembalikan ke
 mempool (opsi B), cabang diputar ulang **senyap**, dan `invalidateFrom` (R-1)
-membuang state turunan basi. Lihat `src/core/consensus/reorg/README.md`.
+membuang state turunan basi — branch pool DAN marker verifikasi inkremental
+(S4). Lihat `src/core/consensus/reorg/README.md`.
+
+## Verifikasi inkremental (S4 / T03)
+
+`nex_getWork` memanggil `isChainsValid()` SEBELUM membangun work. Dulu itu
+menelusuri SELURUH rantai dari genesis tiap panggilan (biaya O(N) per polling
+miner). Sejak S4 jalur ini **inkremental**: `verifyChainIncremental()` membaca
+marker hash-keyed in-memory (`consensus/verify/verifyMarker.ts`) berisi
+`{ height, hash }` blok tertinggi yang sudah diverifikasi, lalu memverifikasi
+HANYA sufiks di atasnya memakai loop yang SAMA (`verifyRange`) — sehingga
+hasilnya identik dengan verifikasi penuh **oleh konstruksi**.
+
+- Tanpa marker (boot / setelah reorg) atau marker basi (blok di height itu
+  berganti) → jatuh kembali ke `verifyChainIntegrity()` (penuh dari height 0,
+  fail-closed).
+- Reorg membatalkan marker di `>= forkHeight+1` lewat
+  `invalidateVerifyMarkerFrom` (hook R-1 di `invalidateFrom`), lalu
+  me-seed ulang ke blok fork supaya verifikasi berikutnya tetap inkremental.
+- Marker adalah **memoization**, bukan kepercayaan pihak luar: blok
+  content-addressed (hash = SHA-256 isinya), verifikasi deterministik, dan
+  setiap mutasi history memanggil hook invalidasi. Blok BARU tetap
+  diverifikasi penuh (sufiks diperiksa dengan aturan yang sama).
+- Batas jujur: marker hidup in-memory dan tidak menangkap korupsi data di disk
+  SETELAH marker terbentuk (dimitigasi oleh verifikasi penuh saat boot). Gate
+  `check:reorg` GROUP 0/3 membuktikan semantik marker, jalur inkremental pada
+  rantai PoW nyata, fallback marker basi, kontrol negatif, dan seed ulang
+  setelah reorg.
 
 ## Catatan gaya
 

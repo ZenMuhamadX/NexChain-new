@@ -45,6 +45,12 @@ import {
 	resetBranchPool,
 } from './branchPool'
 import { traceBranchToLocal } from './ancestry'
+import {
+	getVerifyMarker,
+	invalidateVerifyMarkerFrom,
+	resetVerifyMarker,
+	setVerifyMarker,
+} from 'src/core/consensus/verify/verifyMarker'
 
 /** Hasil percobaan reorg (untuk RPC/gate/log). */
 export interface ReorgResult {
@@ -90,16 +96,20 @@ const readLocalSegment = async (
 
 /**
  * **R-1 `invalidateFrom(height)`** — satu titik untuk membuang SEMUA state
- * turunan ber-key height/hash >= `height` setelah tip berubah. Untuk sekarang
- * hanya branch pool; bila kelak muncul marker verifikasi hash-keyed, ia wajib
- * dibersihkan di sini juga.
+ * turunan ber-key height/hash >= `height` setelah tip berubah: branch pool DAN
+ * marker verifikasi hash-keyed (`verifyMarker`, S4). Marker WAJIB ikut
+ * dibersihkan di sini, kalau tidak jalur inkremental `nex_getWork` akan
+ * mempercayai prefix blok yang sudah digantikan reorg.
  */
-export const invalidateFrom = (height: number): number =>
-	prunePoolAtOrAbove(height)
+export const invalidateFrom = (height: number): number => {
+	invalidateVerifyMarkerFrom(height)
+	return prunePoolAtOrAbove(height)
+}
 
 /** Bersihkan seluruh state reorg in-memory (dipakai uji). */
 export const resetReorgState = (): void => {
 	resetBranchPool()
+	resetVerifyMarker()
 }
 
 /**
@@ -107,9 +117,7 @@ export const resetReorgState = (): void => {
  * `tipHash` (blok di branch pool). Bila cabangnya tersambung ke rantai lokal
  * DAN lebih berat, lakukan reorg; selain itu tidak ada yang terjadi.
  */
-export const onCompetingTip = async (
-	tipHash: string,
-): Promise<ReorgResult> => {
+export const onCompetingTip = async (tipHash: string): Promise<ReorgResult> => {
 	const traced = await traceBranchToLocal(tipHash)
 	if (!traced) {
 		return { status: false, reason: 'cabang tidak tersambung ke rantai lokal' }
@@ -225,8 +233,18 @@ export const switchToBranch = async (
 	}
 
 	// R-1: state turunan di >= forkHeight+1 kini basi. (Branch pemenang sudah
-	// kita pegang di array `branch`, jadi menghapusnya dari pool aman.)
+	// kita pegang di array `branch`, jadi menghapusnya dari pool aman.) Ini
+	// juga membatalkan marker verifikasi di >= forkHeight+1.
+	const markerBefore = getVerifyMarker()
 	invalidateFrom(forkHeight + 1)
+
+	// Prefiks [0..forkHeight] TIDAK berubah dan sudah pernah diverifikasi
+	// (marker lama mencakupnya; hash blok fork dicek tak berubah di atas) —
+	// benihkan ulang marker ke blok fork supaya verifikasi berikutnya tetap
+	// inkremental, bukan penuh, setelah reorg.
+	if (markerBefore !== undefined && markerBefore.height >= forkHeight + 1) {
+		setVerifyMarker(forkHeight, fork.block.header.hash)
+	}
 
 	// (1) Kumpulkan tx dari blok lokal yang akan dibalik (menurun).
 	const orphaned: TxInterface[] = []
