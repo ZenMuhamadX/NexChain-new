@@ -20,6 +20,7 @@ import { blockSummary } from 'src/types/block'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import { getWork, submitWork } from 'src/core/consensus/work'
 import { getSyncStatus } from 'src/core/events/syncState'
+import { getPeerStateSnapshot } from 'src/core/events/peerState'
 
 /** Ubah Block penuh menjadi ringkasan untuk list explorer. */
 const toBlockSummary = (block: Block): blockSummary => {
@@ -162,6 +163,12 @@ rpc.addMethod('nex_getMempool', async () => {
 // Lihat `src/core/events/syncState.ts`.
 rpc.addMethod('nex_getSyncStatus', () => {
 	return getSyncStatus()
+})
+
+// Peer observability (JSON polos, BUKAN hex).
+// Tidak mengekspor data sensitif; hanya status jaringan peer yang terhubung.
+rpc.addMethod('nex_getPeerInfo', () => {
+	return getPeerStateSnapshot()
 })
 
 // Account

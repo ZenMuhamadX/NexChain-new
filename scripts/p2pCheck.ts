@@ -33,7 +33,9 @@
  *   8. **Status sinkronisasi** — gerbang IBD (`isSyncing`) tak menyala secara
  *      default; latch "synced" tak bisa diturunkan, sedangkan fase `assumed`
  *      (katup pengaman) masih boleh ditutup kembali.
- *   9. **Arah dependensi** — `src/core/**` TIDAK boleh mengimpor `src/p2p/**`
+ *   9. **Observability peer** — snapshot netral `src/core/events/peerState.ts`
+ *      yang dibaca `nex_getPeerInfo` (salinan, bukan referensi state p2p).
+ *  10. **Arah dependensi** — `src/core/**` TIDAK boleh mengimpor `src/p2p/**`
  *      (p2p adalah konsumen core, bukan sebaliknya).
  */
 import {
@@ -70,6 +72,13 @@ import {
 	markSyncing,
 	resetSyncState,
 } from 'src/core/events/syncState'
+import {
+	getPeerStateSnapshot,
+	resetPeerState,
+	updateBans,
+	updatePeers,
+	type PeerInfo,
+} from 'src/core/events/peerState'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import type { P2PMessage } from 'src/p2p/protocol/messages'
@@ -772,7 +781,112 @@ await run('markForked selesai → markSynced membuka mining', () => {
 })
 
 // ---------------------------------------------------------------------------
-// GROUP 9 — arah dependensi: `src/core/**` TIDAK boleh mengimpor `src/p2p/**`
+// GROUP 9 — observability peer: snapshot netral dipakai `nex_getPeerInfo`
+// ---------------------------------------------------------------------------
+//
+// `src/core/events/peerState.ts` ditulis oleh `src/p2p/peers/peerManager.ts`
+// dan dibaca oleh RPC. Karena core TIDAK boleh impor p2p (GROUP 10), modul ini
+// harus mandiri; snapshot juga harus SALINAN agar pemanggil tak bisa memutasi
+// state internal p2p.
+
+console.log('GROUP 9 — observability peer (nex_getPeerInfo):')
+
+await run('default: snapshot kosong (node tanpa peer)', () => {
+	resetPeerState()
+	const snap = getPeerStateSnapshot()
+	assert(snap.count === 0, 'default count harus 0')
+	assert(snap.peers.length === 0, 'default peers harus kosong')
+	assert(snap.banned.length === 0, 'default ban harus kosong')
+})
+
+await run('updatePeers mencatat count + maxPeers + updatedAt', () => {
+	resetPeerState()
+	const peer: PeerInfo = {
+		id: 'p1',
+		remoteAddress: '127.0.0.1',
+		remotePort: 30304,
+		inbound: true,
+		handshaked: true,
+		connectedAt: 1000,
+		lastSeenAt: 2000,
+		status: {
+			chainId: 26,
+			genesisHash: 'a'.repeat(64),
+			bestHeight: 7,
+			bestHash: 'b'.repeat(64),
+			listenPort: 30304,
+		},
+	}
+	updatePeers([peer], 8)
+	const snap = getPeerStateSnapshot()
+	assert(snap.count === 1, `count harus 1, dapat ${snap.count}`)
+	assert(snap.maxPeers === 8, `maxPeers harus 8, dapat ${snap.maxPeers}`)
+	assert(snap.updatedAt > 0, 'updatedAt harus diisi')
+	assert(snap.peers[0]?.status?.bestHeight === 7, 'status peer harus terbawa')
+})
+
+await run('snapshot adalah SALINAN (pemanggil tak bisa memutasi state)', () => {
+	resetPeerState()
+	updatePeers(
+		[
+			{
+				id: 'p1',
+				remoteAddress: '127.0.0.1',
+				remotePort: 1,
+				inbound: false,
+				handshaked: true,
+				connectedAt: 1,
+				lastSeenAt: 1,
+			},
+		],
+		4,
+	)
+	const a = getPeerStateSnapshot()
+	a.peers.push({
+		id: 'hack',
+		remoteAddress: 'x',
+		remotePort: 0,
+		inbound: false,
+		handshaked: false,
+		connectedAt: 0,
+		lastSeenAt: 0,
+	})
+	const b = getPeerStateSnapshot()
+	assert(b.count === 1, 'mutasi salinan tidak boleh mengubah state internal')
+})
+
+await run('updateBans mencatat entri ban', () => {
+	resetPeerState()
+	updateBans([{ address: '10.0.0.9', reason: 'PoW palsu', until: 9_999 }])
+	const snap = getPeerStateSnapshot()
+	assert(snap.banned.length === 1, 'harus ada 1 entri ban')
+	assert(snap.banned[0]?.reason === 'PoW palsu', 'alasan ban harus terbawa')
+})
+
+await run('resetPeerState mengosongkan semua', () => {
+	updatePeers(
+		[
+			{
+				id: 'p1',
+				remoteAddress: '127.0.0.1',
+				remotePort: 1,
+				inbound: false,
+				handshaked: true,
+				connectedAt: 1,
+				lastSeenAt: 1,
+			},
+		],
+		4,
+	)
+	updateBans([{ address: '10.0.0.9', reason: 'x', until: 1 }])
+	resetPeerState()
+	const snap = getPeerStateSnapshot()
+	assert(snap.count === 0 && snap.banned.length === 0, 'reset harus kosong')
+	assert(snap.maxPeers === 0, 'reset harus mengosongkan maxPeers')
+})
+
+// ---------------------------------------------------------------------------
+// GROUP 10 — arah dependensi: `src/core/**` TIDAK boleh mengimpor `src/p2p/**`
 // ---------------------------------------------------------------------------
 //
 // Aturan arsitektur (lihat AGENTS.md & src/p2p/README.md): p2p adalah
@@ -780,7 +894,7 @@ await run('markForked selesai → markSynced membuka mining', () => {
 // siklus impor dan core jadi tak bisa dipakai tanpa jaringan. Sebelumnya ini
 // hanya konvensi; sekarang dijaga gerbang.
 
-console.log('GROUP 9 — arah dependensi core → p2p:')
+console.log('GROUP 10 — arah dependensi core → p2p:')
 
 /** Semua berkas `.ts` di bawah sebuah direktori (rekursif). */
 const listTsFiles = (dir: string): string[] => {

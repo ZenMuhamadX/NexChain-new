@@ -32,6 +32,11 @@ import type {
 	TransportEvents,
 } from '../types.js'
 import { BanList } from './banList.js'
+import {
+	updatePeers,
+	updateBans,
+	type PeerInfo,
+} from 'src/core/events/peerState.js'
 
 /**
  * Rekaman internal satu peer: `PeerState` (kontrak publik) plus state
@@ -77,12 +82,40 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 		}
 	}
 
+	/**
+	 * Terbitkan snapshot peer netral (dibaca `nex_getPeerInfo`). Menyalin
+	 * state internal — pemanggil RPC tak boleh bisa memutasi map peer.
+	 */
+	const publishPeerSnapshot = (): void => {
+		const peerList = [...peers.values()].map((record): PeerInfo => ({
+			id: record.connection.id,
+			remoteAddress: record.connection.remoteAddress,
+			remotePort: record.connection.remotePort,
+			inbound: record.connection.inbound,
+			handshaked: record.handshaked,
+			connectedAt: record.connectedAt,
+			lastSeenAt: record.lastSeenAt,
+			status: record.status
+				? {
+						chainId: record.status.chainId,
+						genesisHash: record.status.genesisHash,
+						bestHeight: record.status.bestHeight,
+						bestHash: record.status.bestHash,
+						listenPort: record.status.listenPort,
+					}
+				: undefined,
+		}))
+		updatePeers(peerList, config.maxPeers)
+		updateBans(banned.entries())
+	}
+
 	/** Tandai siap saat handshake lengkap; beritahu konsumen tepat sekali. */
 	const maybeReady = (record: PeerRecord): void => {
 		if (record.handshaked) return
 		if (!isHandshakeComplete(record.handshake)) return
 		clearHandshakeTimer(record)
 		record.handshaked = true
+		publishPeerSnapshot()
 		emit('onPeerReady', () => events.onPeerReady(record))
 	}
 
@@ -134,6 +167,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 					connection.send({ type: 'verack' })
 					record.handshake.sentVerack = true
 					maybeReady(record)
+					publishPeerSnapshot()
 					return
 				}
 				case 'verack': {
@@ -143,6 +177,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 					}
 					record.handshake.receivedVerack = true
 					maybeReady(record)
+					publishPeerSnapshot()
 					return
 				}
 				case 'ping':
@@ -152,6 +187,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 					return
 				case 'pong':
 					// `lastSeenAt` sudah diperbarui pemanggil; nonce diabaikan.
+					publishPeerSnapshot()
 					return
 				default:
 					if (!record.handshaked) {
@@ -203,11 +239,13 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 					if (peers.get(connection.id) !== record) return
 					connection.send(buildVersionMessage(status, P2P_PROTOCOL_VERSION))
 					record.handshake.sentVersion = true
+					publishPeerSnapshot()
 				})
 				.catch((err: unknown) => {
 					logToConsole(`P2P: gagal mengambil status lokal: ${String(err)}`)
 					connection.close('gagal mengambil status lokal')
 				})
+			publishPeerSnapshot()
 		},
 		onMessage: (connection, message) => {
 			const record = peers.get(connection.id)
@@ -216,6 +254,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 				return
 			}
 			record.lastSeenAt = Date.now()
+			publishPeerSnapshot()
 			// `handleMessage` menangkap seluruh galatnya sendiri; ikat `.catch`
 			// di sini sebagai jaring pengaman terakhir.
 			handleMessage(connection, record, message).catch((err: unknown) => {
@@ -237,6 +276,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 					`tertutup (${reason})`,
 			)
 			emit('onPeerClosed', () => events.onPeerClosed(record, reason))
+			publishPeerSnapshot()
 		},
 		onConnectError: (host, port, reason) => {
 			// Cukup dicatat: interval reconnect akan mencoba lagi nanti.
@@ -270,6 +310,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 			if (record.connection.remoteAddress !== remoteAddress) continue
 			record.connection.close('dibanned: ' + reason)
 		}
+		publishPeerSnapshot()
 	}
 
 	const isBanned = (remoteAddress: string): boolean =>
@@ -291,6 +332,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 			record.lastPingNonce = nonce
 			record.connection.send({ type: 'ping', nonce })
 		}
+		publishPeerSnapshot()
 	}
 
 	/**
@@ -343,6 +385,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 		reconnectTimer = setInterval(dialBootstrapPeers, config.reconnectIntervalMs)
 		if (typeof pingTimer.unref === 'function') pingTimer.unref()
 		if (typeof reconnectTimer.unref === 'function') reconnectTimer.unref()
+		publishPeerSnapshot()
 	}
 
 	const stop = (): void => {
@@ -368,6 +411,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 
 		server?.stop()
 		server = undefined
+		publishPeerSnapshot()
 	}
 
 	return {

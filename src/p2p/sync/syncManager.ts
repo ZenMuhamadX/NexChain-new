@@ -100,6 +100,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 
 	/** Timer interval sinkronisasi berkala (`undefined` bila belum start). */
 	let timer: ReturnType<typeof setInterval> | undefined
+	let reannounceTimer: ReturnType<typeof setInterval> | undefined
 
 	/**
 	 * Peer yang sedang kita tunggu balasan `inv`-nya atas `getblocks` kita,
@@ -377,6 +378,21 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		})
 	}
 
+	/** Kirim inv untuk semua tx yang ada di mempool (re-announce). */
+	const reannounceMempool = async (): Promise<void> => {
+		const mempool = await loadMempool()
+		if (mempool.length === 0) return
+		const hashes: string[] = []
+		for (const tx of mempool) {
+			if (tx.txHash !== undefined) {
+				hashes.push(tx.txHash)
+				if (hashes.length >= MAX_INV_BATCH) break
+			}
+		}
+		if (hashes.length === 0) return
+		gateway.broadcast({ type: 'inv', kind: 'tx', hashes })
+	}
+
 	/**
 	 * Peer selesai handshake: tandai "masih mengejar" (kecuali sudah synced)
 	 * lalu probe peer ini dengan `getblocks`. Balasan `inv` kosong = kita sudah
@@ -391,6 +407,13 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 			)
 		})
 		requestSync(peer)
+		// Re-announce mempool yang masih ada untuk memberi tx ke peer baru
+		reannounceMempool().catch((error: unknown) => {
+			logToConsole(
+				`P2P: reannounceMempool gagal untuk ${peer.connection.id} — ` +
+					`${formatError(error)}`,
+			)
+		})
 	}
 
 	/**
@@ -652,6 +675,15 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		) {
 			handle.unref()
 		}
+		// Re-announce mempool berkala (setiap 60s)
+		reannounceTimer = setInterval(() => {
+			reannounceMempool().catch((error: unknown) => {
+				logToConsole(
+					`P2P: reannounceMempool berkala gagal — ${formatError(error)}`,
+				)
+			})
+		}, 60_000)
+		if (typeof reannounceTimer.unref === 'function') reannounceTimer.unref()
 	}
 
 	const stop = (): void => {
@@ -659,9 +691,14 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		// P2P mati → jangan tinggalkan gerbang IBD menyala selamanya (mis. bila
 		// suatu saat fitur "matikan P2P saat runtime" ditambahkan).
 		resetSyncState()
-		if (timer === undefined) return
-		clearInterval(timer)
-		timer = undefined
+		if (timer !== undefined) {
+			clearInterval(timer)
+			timer = undefined
+		}
+		if (reannounceTimer !== undefined) {
+			clearInterval(reannounceTimer)
+			reannounceTimer = undefined
+		}
 	}
 
 	return {
