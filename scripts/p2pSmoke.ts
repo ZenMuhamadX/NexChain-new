@@ -10,6 +10,8 @@
  *      dan B saling menyusul; node C sengaja menunjuk peer mati.
  *   2. Node B menunjuk node A sebagai bootstrap peer (`NEX_P2P_PEERS`);
  *      handshake `version`/`verack` harus selesai (identitas jaringan cocok).
+ *   2b. `nex_getPeerInfo` di node A harus melaporkan >=1 peer ter-handshake
+ *      (bukti observability M3 lewat jalur netral `core/events/peerState.ts`).
  *   3. Satu blok di-mining di node A lewat jalur RPC miner eksternal yang
  *      sama persis: `nex_getWork` -> `createPowHasher` -> `nex_submitWork`,
  *      dengan alamat uji yang dibuat skrip ini (`NxC` + 40 hex — node tidak
@@ -210,6 +212,20 @@ const readSyncStatus = async (url: string): Promise<SyncStatusView> => {
 	const raw = await rpc<unknown>(url, 'nex_getSyncStatus')
 	if (raw === null || typeof raw !== 'object') return {}
 	return raw as SyncStatusView
+}
+
+/** Subset snapshot peer yang dibaca smoke ini (`nex_getPeerInfo`). */
+interface PeerInfoView {
+	count?: number
+	peers?: Array<{ handshaked?: boolean; status?: { bestHeight?: number } }>
+	maxPeers?: number
+}
+
+/** Baca snapshot peer (`nex_getPeerInfo` — JSON polos, bukan hex). */
+const readPeerInfo = async (url: string): Promise<PeerInfoView> => {
+	const raw = await rpc<unknown>(url, 'nex_getPeerInfo')
+	if (raw === null || typeof raw !== 'object') return {}
+	return raw as PeerInfoView
 }
 
 // ---------------------------------------------------------------------------
@@ -470,6 +486,17 @@ try {
 			`tidak melihat "peer siap" di log node A dalam ${PEER_WAIT_MS / 1000}s`,
 		)
 	}
+
+	// 3a. Observability: `nex_getPeerInfo` (M3) harus melaporkan peer B yang
+	//     sudah handshake dari sisi A. Ini membuktikan jalur netral
+	//     core/events/peerState.ts benar-benar terisi oleh peer manager.
+	const peerInfoA = await readPeerInfo(nodeA.url)
+	check(
+		'nex_getPeerInfo di node A melaporkan >=1 peer ter-handshake',
+		(peerInfoA.count ?? 0) >= 1 &&
+			(peerInfoA.peers ?? []).some((p) => p.handshaked === true),
+		`count=${peerInfoA.count ?? '?'}`,
+	)
 
 	// 3b. Alamat uji dibuat DI SINI — node tidak punya wallet. Blok berikutnya
 	//     di-mining ke alamat ini sehingga ia ber-saldo dan bisa mengirim tx.
