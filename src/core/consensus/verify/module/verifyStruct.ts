@@ -13,76 +13,86 @@ import _ from 'lodash'
 // justru mematikan pertahanan itu tepat di lapisan yang memverifikasi
 // rantai — satu-satunya tempat yang menolak blok sebelum ia menjadi
 // bagian dari konsensus.
+//
+// ## Skema dibangun SEKALI (hoist, S4/T03)
+//
+// Dulu keempat `Joi.object({...})` dibangun DI DALAM `verifyStruct`, sehingga
+// skema dikompilasi ulang untuk SETIAP blok yang diverifikasi. Karena
+// `verifyChainIntegrity` menelusuri seluruh rantai, itu berarti ribuan
+// kompilasi skema yang identik. Kini skema hidup di scope modul (dibangun
+// sekali saat impor) dan `verifyStruct` hanya memanggil `.validate()`.
+
+// Schema untuk transaksi di dalam blok (MemPoolInterface).
+const txInterface = Joi.object({
+	// `from` adalah hasil ecrecover, bukan field yang dikirim. Transaksi
+	// di dalam blok selalu sudah melewati decode, jadi nilainya ada.
+	from: Joi.string().required(),
+	receiver: Joi.string().required(),
+	amount: Joi.number().required().max(MAX_SUPPLY_NEXU),
+	txHash: Joi.string().required(),
+	sign: Joi.object({
+		r: Joi.string().required(),
+		s: Joi.string().required(),
+		v: Joi.number().required(),
+	}).required(),
+	data: Joi.string().optional(),
+	fee: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
+	nonce: Joi.number().integer().min(0).required(),
+})
+
+// Schema untuk objek coinbaseTransaction.
+const coinbaseTransactionSchema = Joi.object({
+	receiver: Joi.string().required(),
+	// Jumlah yang benar-benar dikreditkan ke penambang — batas plafon
+	// di sini adalah pengaman terakhir sebelum kredit masuk ke saldo.
+	amount: Joi.number().required().max(MAX_SUPPLY_NEXU),
+	extraData: Joi.any().optional(),
+})
+
+// Schema untuk objek metadata.
+// (Field `gasPrice` DIHAPUS pada P2 bersama seluruh mekanisme gasPrice.)
+// Joi default MENOLAK key tak dikenal → blok lama yang masih membawa
+// `metadata.gasPrice` akan ditolak di sini — konsekuensi yang disengaja
+// (reset rantai bagian dari P2).
+const metadataSchema = Joi.object({
+	txCount: Joi.number().required(),
+	created_at: Joi.number().required(),
+	extraData: Joi.any().optional(), // Use .optional() if it's not required
+})
+
+// Schema untuk blockStruct.
+const blockStructSchema = Joi.object({
+	header: Joi.object({
+		previousBlockHash: Joi.string().required(),
+		timestamp: Joi.number().required(),
+		hash: Joi.string().required(),
+		nonce: Joi.number().required(),
+		version: Joi.string().required(),
+		difficulty: Joi.number().required(),
+		hashingAlgorithm: Joi.string().optional(),
+	}).required(),
+	height: Joi.number().required(),
+	chainId: Joi.number().required(),
+	size: Joi.number().required(),
+	totalTransactionFees: Joi.number().optional().min(0).max(MAX_SUPPLY_NEXU),
+	merkleRoot: Joi.string().required(),
+	minerId: Joi.string().required(),
+	// totalReward = jumlah yang benar-benar dikreditkan ke coinbase
+	// (blockReward + totalTransactionFees — tanpa gasPrice sejak P2).
+	// Batas plafon di sini + batas yang sama di totalIssued (Stage 3)
+	// memberi dua penegakan terpisah atas invariant yang sama.
+	totalReward: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
+	status: Joi.valid('confirmed', 'pending').required(),
+	// Dulu `Joi.any()` — menerima string apa pun, sehingga field yang
+	// menentukan besaran pencetakan tidak diperiksa sama sekali.
+	blockReward: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
+	coinbaseTransaction: coinbaseTransactionSchema.required(),
+	metadata: metadataSchema.optional(), // Use .optional() if metadata is not required
+	transactions: Joi.array().items(txInterface).required(),
+	contract: Joi.any(),
+})
+
 export const verifyStruct = async (chains: Block) => {
-	// Define the schema for the MemPoolInterface
-	const txInterface = Joi.object({
-		// `from` adalah hasil ecrecover, bukan field yang dikirim. Transaksi
-		// di dalam blok selalu sudah melewati decode, jadi nilainya ada.
-		from: Joi.string().required(),
-		receiver: Joi.string().required(),
-		amount: Joi.number().required().max(MAX_SUPPLY_NEXU),
-		txHash: Joi.string().required(),
-		sign: Joi.object({
-			r: Joi.string().required(),
-			s: Joi.string().required(),
-			v: Joi.number().required(),
-		}).required(),
-		data: Joi.string().optional(),
-		fee: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
-		nonce: Joi.number().integer().min(0).required(),
-	})
-
-	// Define the schema for the coinbaseTransaction object
-	const coinbaseTransactionSchema = Joi.object({
-		receiver: Joi.string().required(),
-		// Jumlah yang benar-benar dikreditkan ke penambang — batas plafon
-		// di sini adalah pengaman terakhir sebelum kredit masuk ke saldo.
-		amount: Joi.number().required().max(MAX_SUPPLY_NEXU),
-		extraData: Joi.any().optional(),
-	})
-
-	// Define the schema for the metadata object
-	// (Field `gasPrice` DIHAPUS pada P2 bersama seluruh mekanisme gasPrice.)
-	// Joi default MENOLAK key tak dikenal → blok lama yang masih membawa
-	// `metadata.gasPrice` akan ditolak di sini — konsekuensi yang disengaja
-	// (reset rantai bagian dari P2).
-	const metadataSchema = Joi.object({
-		txCount: Joi.number().required(),
-		created_at: Joi.number().required(),
-		extraData: Joi.any().optional(), // Use .optional() if it's not required
-	})
-
-	// Define the schema for the blockStruct interface
-	const blockStructSchema = Joi.object({
-		header: Joi.object({
-			previousBlockHash: Joi.string().required(),
-			timestamp: Joi.number().required(),
-			hash: Joi.string().required(),
-			nonce: Joi.number().required(),
-			version: Joi.string().required(),
-			difficulty: Joi.number().required(),
-			hashingAlgorithm: Joi.string().optional(),
-		}).required(),
-		height: Joi.number().required(),
-		chainId: Joi.number().required(),
-		size: Joi.number().required(),
-		totalTransactionFees: Joi.number().optional().min(0).max(MAX_SUPPLY_NEXU),
-		merkleRoot: Joi.string().required(),
-		minerId: Joi.string().required(),
-		// totalReward = jumlah yang benar-benar dikreditkan ke coinbase
-		// (blockReward + totalTransactionFees — tanpa gasPrice sejak P2).
-		// Batas plafon di sini + batas yang sama di totalIssued (Stage 3)
-		// memberi dua penegakan terpisah atas invariant yang sama.
-		totalReward: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
-		status: Joi.valid('confirmed', 'pending').required(),
-		// Dulu `Joi.any()` — menerima string apa pun, sehingga field yang
-		// menentukan besaran pencetakan tidak diperiksa sama sekali.
-		blockReward: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
-		coinbaseTransaction: coinbaseTransactionSchema.required(),
-		metadata: metadataSchema.optional(), // Use .optional() if metadata is not required
-		transactions: Joi.array().items(txInterface).required(),
-		contract: Joi.any(),
-	})
 	// Validate the block structure against the schema
 	const { error } = blockStructSchema.validate(chains.block)
 	if (error) {

@@ -3,7 +3,11 @@ import { verifyPow } from './module/verifyPow'
 import { verifyHashLength } from './module/verifyHashLength'
 import { verifyBlockHash } from './module/verifyBlockHash'
 import { verifyBlockReward } from './module/verifyReward'
-import { checkBlockTimestamp, MTP_WINDOW } from './module/verifyTimestamp'
+import {
+	checkBlockTimestamp,
+	getPreviousTimestamps,
+	MTP_WINDOW,
+} from './module/verifyTimestamp'
 import { expectedDifficulty } from '../difficulty'
 import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByHeight'
 import { Block } from 'src/core/block/blockModel'
@@ -12,10 +16,13 @@ import { logToConsole } from 'src/logging/logging'
 import { loggingErr } from 'src/logging/errorLog'
 import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { GENESIS_HASH } from 'src/core/block/genesis'
+import {
+	getVerifyMarker,
+	resetVerifyMarker,
+	setVerifyMarker,
+} from './verifyMarker'
 
 /**
- * Verifikasi integritas seluruh rantai, blok per blok, dari height 0.
- *
  * Model verifikasi — **standar PoW Bitcoin**: blok TIDAK ditandatangani
  * siapa pun (field `sign` dihapus dari struktur blok). Yang mengamankan
  * rantai:
@@ -42,18 +49,58 @@ import { GENESIS_HASH } from 'src/core/block/genesis'
  *     transaksi (bootstrap, bukan hasil `createMerkleRoot`) — dicek lewat
  *     PoW + hash, identitas via `GENESIS_HASH`, dan difficulty-nya bagian
  *     dari konstanta hardcoded (tidak dihitung ulang).
+ *
+ * ## Dua jalur (S4 / T03)
+ *
+ *   - `verifyChainIntegrity()` — **penuh** dari height 0. Dipakai saat boot
+ *     / pemanggilan pertama / setelah marker dibatalkan reorg.
+ *   - `verifyChainIncremental()` — **inkremental**: memverifikasi HANYA sufiks
+ *     di atas marker hash-keyed (`verifyMarker.ts`), memakai loop yang SAMA
+ *     (`verifyRange`) sehingga hasilnya identik dengan jalur penuh. Inilah
+ *     yang dipakai `nex_getWork` (lewat `isChainsValid`), mengubah biaya
+ *     O(N) per panggilan menjadi O(Δ).
  */
-export const verifyChainIntegrity = async (): Promise<boolean> => {
-	logToConsole('Checking chain integrity...')
-	let currentHeight = 0
-	// Jendela MTP-11 rolling lintas-blok: timestamp blok yang sudah
-	// diverifikasi, maksimal MTP_WINDOW (dipakai `checkBlockTimestamp`).
-	const previousTimestamps: number[] = []
-	// Data induk untuk hitung-ulang difficulty deterministik: diisi di akhir
-	// setiap iterasi; `undefined` sampai blok pertama selesai diproses.
-	let prevDifficulty: number | undefined
-	let prevTimestamp: number | undefined
-	let prevHeight = -1
+
+/**
+ * Keadaan lintas-blok yang dibawa loop verifikasi: jendela MTP-11 rolling +
+ * data induk untuk hitung-ulang difficulty deterministik.
+ */
+interface VerifySeed {
+	previousTimestamps: number[]
+	prevDifficulty: number | undefined
+	prevTimestamp: number | undefined
+	prevHeight: number
+}
+
+const EMPTY_SEED: VerifySeed = {
+	previousTimestamps: [],
+	prevDifficulty: undefined,
+	prevTimestamp: undefined,
+	prevHeight: -1,
+}
+
+/**
+ * Verifikasi blok `startHeight`, `startHeight + 1`, … sampai blok terakhir yang
+ * ada, dimulai dari keadaan lintas-blok `seed`.
+ *
+ * SATU-SATUNYA loop verifikasi: jalur penuh memanggilnya dengan
+ * `startHeight = 0` + `EMPTY_SEED`, jalur inkremental dengan seed yang
+ * direkonstruksi dari marker. Karena keduanya memakai loop ini, hasil
+ * keduanya identik **oleh konstruksi**.
+ *
+ * Marker dimajukan setiap blok yang lolos; pada kegagalan marker
+ * DI-RESET (rantai rusak tak boleh menyisakan titik terpercaya).
+ */
+const verifyRange = async (
+	startHeight: number,
+	seed: VerifySeed,
+): Promise<boolean> => {
+	let currentHeight = startHeight
+	// Salin array agar pemanggil tak ikut termutasi.
+	const previousTimestamps = [...seed.previousTimestamps]
+	let prevDifficulty = seed.prevDifficulty
+	let prevTimestamp = seed.prevTimestamp
+	let prevHeight = seed.prevHeight
 
 	while (true) {
 		const block = (await getBlockByHeight(currentHeight, 'json')) as
@@ -144,9 +191,65 @@ export const verifyChainIntegrity = async (): Promise<boolean> => {
 				context: 'verifyChainIntegrity',
 				hint: 'Rantai rusak atau bukan milik jaringan ini — hentikan node, periksa NEX_CHAIN_ID, atau reset direktori data (NEX_DATA_DIR). Mining ditolak sampai rantai valid.',
 			})
+			// Rantai tidak valid → jangan sisakan titik terpercaya.
+			resetVerifyMarker()
 			return false
 		}
 
+		// Blok lolos SELURUH pemeriksaan → majukan marker (hash-keyed) ke blok
+		// ini. Inilah yang membuat pemanggilan berikutnya hanya memeriksa
+		// sufiks baru, bukan dari genesis.
+		setVerifyMarker(currentHeight, hash)
+
 		currentHeight++
 	}
+}
+
+/**
+ * Verifikasi penuh dari height 0. Mereset marker lebih dulu supaya titik
+ * terpercaya selalu berasal dari pemeriksaan yang benar-benar berjalan.
+ */
+export const verifyChainIntegrity = async (): Promise<boolean> => {
+	logToConsole('Checking chain integrity...')
+	resetVerifyMarker()
+	return await verifyRange(0, EMPTY_SEED)
+}
+
+/**
+ * Verifikasi inkremental: hanya blok di ATAS marker hash-keyed.
+ *
+ *   - tanpa marker → jalankan verifikasi penuh (boot / baru dibatalkan reorg);
+ *   - marker menunjuk blok yang tak ada / ber-hash berbeda (rantai berubah di
+ *     bawah marker) → mulai dari nol (fail-closed);
+ *   - selain itu → rekonstruksi jendela MTP + data induk dari blok NYATA
+ *     (fungsi `getPreviousTimestamps` yang sama dipakai `createBlockTemplate`),
+ *     lalu verifikasi sufiks dengan loop yang sama.
+ *
+ * Biaya O(Δ) (Δ = blok baru sejak pemeriksaan terakhir), bukan O(N).
+ */
+export const verifyChainIncremental = async (): Promise<boolean> => {
+	const marker = getVerifyMarker()
+	if (marker === undefined) {
+		return await verifyChainIntegrity()
+	}
+
+	// Marker tetap sah? Blok di `marker.height` HARUS ada dan ber-hash SAMA.
+	// Hash-keyed: setelah reorg, blok di height itu berganti → marker basi.
+	const anchor = (await getBlockByHeight(marker.height, 'json')) as
+		Block | undefined
+	if (anchor === undefined || anchor.block.header.hash !== marker.hash) {
+		return await verifyChainIntegrity()
+	}
+
+	// Verifikasi HANYA sufiks di atas marker. Jendela MTP + data induk
+	// direkonstruksi dari blok nyata sehingga keadaan awal identik dengan
+	// jalur penuh pada height itu (lihat `VerifySeed`).
+	const startHeight = marker.height + 1
+	const seed: VerifySeed = {
+		previousTimestamps: await getPreviousTimestamps(startHeight),
+		prevDifficulty: anchor.block.header.difficulty,
+		prevTimestamp: anchor.block.header.timestamp,
+		prevHeight: marker.height,
+	}
+	return await verifyRange(startHeight, seed)
 }

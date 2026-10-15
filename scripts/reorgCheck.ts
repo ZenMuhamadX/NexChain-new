@@ -15,7 +15,15 @@
  *      replay senyap + tip/state/saldo benar (setara rantai segar satu node).
  *   5. **Cabang tidak lebih berat** — tip TIDAK berubah.
  *   6. **Batas kedalaman** — `MAX_REORG_DEPTH` ditolak dengan pesan jelas.
- *   7. **`invalidateFrom` (R-1)** — membuang state turunan >= height.
+ *   7. **`invalidateFrom` (R-1)** — membuang state turunan >= height, termasuk
+ *      marker verifikasi (S4).
+ *   8. **Marker verifikasi + jalur inkremental (S4/T03)** — `GROUP 0` menguji
+ *      semantik marker (set/get/invalidate/reset, salinan), jalur inkremental
+ *      pada rantai genesis-saja, dan fallback ke verifikasi penuh saat marker
+ *      basi; `GROUP 3` membangun satu blok PoW NYATA lalu membandingkan
+ *      `verifyChainIntegrity` (penuh) dengan `verifyChainIncremental`
+ *      (sufiks), menambah kontrol negatif (blok palsu ditolak oleh keduanya),
+ *      dan membuktikan marker di-seed ulang ke blok fork setelah reorg.
  *
  * Memakai `NEX_DATA_DIR` sementara (LevelDB nyata, dibuang setelahnya).
  * Modul DB diimpor SESUDAH env diset.
@@ -48,7 +56,7 @@ const { rocksState } = await import('src/core/state/db/state')
 const { rocksHistory } = await import('src/core/state/db/history')
 const { rocksBlock } = await import('src/core/state/db/block')
 const { rocksJournal } = await import('src/core/state/db/journal')
-const { getGenesisBlock } = await import('src/core/block/genesis')
+const { getGenesisBlock, GENESIS_HASH } = await import('src/core/block/genesis')
 const { putAccount } = await import('src/core/state/account/putAccount')
 const { saveBlock } = await import('src/core/state/storage/block/saveBlock')
 const { getBlockState } = await import('src/core/state/storage/state/getState')
@@ -65,6 +73,11 @@ const ancestry = await import('src/core/consensus/reorg/ancestry')
 const reorg = await import('src/core/consensus/reorg/reorg')
 const journal = await import('src/core/state/journal/store')
 const sync = await import('src/core/events/syncState')
+const verify = await import('src/core/consensus/verify/verifyIntegrity')
+const verifyMarker = await import('src/core/consensus/verify/verifyMarker')
+const { prepareBlockForHashing } = await import('src/core/block/prepareBlock')
+const { createPowHasher } = await import('src/core/consensus/Pow')
+const { meetsDifficulty } = await import('src/core/consensus/difficulty')
 
 await rocksState.open()
 await rocksHistory.open()
@@ -129,6 +142,31 @@ const commit = async (
 	return (await chains.commitBlock(block)).status
 }
 
+/**
+ * Tambang PoW NYATA untuk sebuah template: cari nonce yang memenuhi
+ * `meetsDifficulty(header.difficulty)` lalu set `hash`. Menghasilkan blok yang
+ * LULUS `verifyChainIntegrity` (PoW + hash + merkle + reward + timestamp +
+ * difficulty) — beda dari `commit` yang hanya menempelkan hash palsu.
+ *
+ * Dipakai `GROUP 0`/`GROUP 3` untuk membuktikan jalur verifikasi nyata.
+ */
+const mine = (template: InstanceType<typeof Block>): void => {
+	const payload = prepareBlockForHashing(template)
+	const hasher = createPowHasher(payload)
+	const bits = template.block.header.difficulty
+	let nonce = 0
+	let hash = hasher.hash(nonce)
+	while (!meetsDifficulty(hash, bits)) {
+		nonce++
+		if (nonce > 200_000_000) {
+			throw new Error(`mine: nonce > 2e8 pada difficulty ${bits}`)
+		}
+		hash = hasher.hash(nonce)
+	}
+	template.block.header.nonce = nonce
+	template.block.header.hash = hash
+}
+
 const tipHeight = async (): Promise<number | undefined> =>
 	(await getBlockState())?.currentBlockHeight
 
@@ -146,6 +184,68 @@ const tipHeight = async (): Promise<number | undefined> =>
 	const saved = await saveBlock(genesis)
 	ok('bootstrap genesis tersimpan', saved === true)
 }
+
+// ---------------------------------------------------------------------------
+// GROUP 0 — marker verifikasi + jalur inkremental (S4 / T03)
+// ---------------------------------------------------------------------------
+console.log('\nGROUP 0 — marker verifikasi (S4):')
+
+verifyMarker.resetVerifyMarker()
+ok('marker kosong di awal', verifyMarker.getVerifyMarker() === undefined)
+
+verifyMarker.setVerifyMarker(5, hex64(1234))
+ok(
+	'set/get marker',
+	verifyMarker.getVerifyMarker()?.height === 5 &&
+		verifyMarker.getVerifyMarker()?.hash === hex64(1234),
+)
+ok(
+	'getVerifyMarker mengembalikan SALINAN (mutasi pemanggil tak bocor)',
+	(() => {
+		const snapshot = verifyMarker.getVerifyMarker()!
+		snapshot.height = 99
+		return verifyMarker.getVerifyMarker()?.height === 5
+	})(),
+)
+verifyMarker.invalidateVerifyMarkerFrom(6)
+ok(
+	'invalidateFrom(6) TIDAK membuang marker height 5',
+	verifyMarker.getVerifyMarker()?.height === 5,
+)
+verifyMarker.invalidateVerifyMarkerFrom(5)
+ok(
+	'invalidateFrom(5) membuang marker height 5 (>= height)',
+	verifyMarker.getVerifyMarker() === undefined,
+)
+
+// Rantai masih genesis-saja: jalur inkremental memverifikasi penuh sekali lalu
+// memajukan marker ke genesis.
+verifyMarker.resetVerifyMarker()
+ok(
+	'incremental pada rantai genesis-saja → true',
+	(await verify.verifyChainIncremental()) === true,
+)
+ok(
+	'  → marker maju ke height 0 (hash genesis)',
+	verifyMarker.getVerifyMarker()?.height === 0 &&
+		verifyMarker.getVerifyMarker()?.hash === GENESIS_HASH,
+)
+ok(
+	'incremental ulang (marker sudah di tip) → true',
+	(await verify.verifyChainIncremental()) === true,
+)
+
+// Marker dengan hash SALAH (menunjuk blok yang tak ada / beda) → jalur
+// inkremental WAJIB jatuh kembali ke verifikasi penuh (fail-closed).
+verifyMarker.setVerifyMarker(0, hex64(0xdead))
+ok(
+	'marker hash salah → fallback verifikasi penuh → true',
+	(await verify.verifyChainIncremental()) === true,
+)
+ok(
+	'  → marker dipulihkan ke genesis',
+	verifyMarker.getVerifyMarker()?.hash === GENESIS_HASH,
+)
 
 // ---------------------------------------------------------------------------
 // GROUP 1 — fork choice murni
@@ -214,14 +314,18 @@ ok(
 )
 ok(
 	'eviction membuang height TERENDAH',
-	!pool.hasPooled(hex64(1000)) && pool.hasPooled(hex64(1000 + pool.MAX_POOL_BLOCKS + 4)),
+	!pool.hasPooled(hex64(1000)) &&
+		pool.hasPooled(hex64(1000 + pool.MAX_POOL_BLOCKS + 4)),
 )
 
 pool.resetBranchPool()
 pool.addToPool(fakeBlock(3, hex64(301), hex64(300)))
 pool.addToPool(fakeBlock(4, hex64(302), hex64(301)))
 pool.addToPool(fakeBlock(5, hex64(303), hex64(302)))
-ok('prunePoolAtOrBelow', pool.prunePoolAtOrBelow(4) === 2 && pool.poolSize() === 1)
+ok(
+	'prunePoolAtOrBelow',
+	pool.prunePoolAtOrBelow(4) === 2 && pool.poolSize() === 1,
+)
 pool.resetBranchPool()
 pool.addToPool(fakeBlock(3, hex64(401), hex64(400)))
 pool.addToPool(fakeBlock(4, hex64(402), hex64(401)))
@@ -239,15 +343,57 @@ console.log('\nGROUP 3 — reorg penuh:')
 pool.resetBranchPool()
 sync.resetSyncState()
 
-const h1 = hex64(1)
+// Blok 1 ditambang PoW NYATA (bukan hash palsu seperti blok uji lain) supaya
+// bisa dipakai membuktikan verifikasi penuh vs inkremental pada rantai nyata.
 const block1 = await createBlockTemplate([], MINER_A)
-ok('commit blok 1 (miner A)', await commit(block1, h1))
+mine(block1)
+const h1 = block1.block.header.hash
+ok('commit blok 1 (miner A, PoW nyata)', await commit(block1, h1))
+
+// ---- S4: verifikasi PENUH vs INKREMENTAL pada rantai nyata (genesis + 1) ----
+verifyMarker.resetVerifyMarker()
+ok(
+	'verifikasi PENUH rantai nyata → true',
+	(await verify.verifyChainIntegrity()) === true,
+)
+ok(
+	'  → marker di height 1',
+	verifyMarker.getVerifyMarker()?.height === 1 &&
+		verifyMarker.getVerifyMarker()?.hash === h1,
+)
+
+// Mulai dari marker genesis → jalur inkremental memverifikasi HANYA sufiks
+// (blok 1) dengan loop yang sama; hasilnya harus true dan sama dengan penuh.
+verifyMarker.setVerifyMarker(0, GENESIS_HASH)
+ok(
+	'verifikasi INKREMENTAL dari marker genesis (hanya sufiks) → true',
+	(await verify.verifyChainIncremental()) === true,
+)
+ok(
+	'  → marker maju ke height 1',
+	verifyMarker.getVerifyMarker()?.height === 1 &&
+		verifyMarker.getVerifyMarker()?.hash === h1,
+)
 
 // Cabang lokal: blok 2a (miner A) di atas blok 1.
 const h2a = hex64(2)
 const block2a = await createBlockTemplate([], MINER_A)
 ok('commit blok 2a (miner A)', await commit(block2a, h2a))
 ok('tip lokal = 2', (await tipHeight()) === 2)
+
+// Kontrol negatif (S4): blok 2a memakai hash PALSU (tanpa PoW nyata), jadi
+// verifikasi — penuh MAUPUN inkremental — WAJIB menolak. Ini membuktikan jalur
+// inkremental benar-benar memeriksa sufiks, bukan sekadar mempercayai marker.
+verifyMarker.resetVerifyMarker()
+ok(
+	'kontrol negatif: verifikasi PENUH menolak blok palsu',
+	(await verify.verifyChainIntegrity()) === false,
+)
+verifyMarker.setVerifyMarker(1, h1)
+ok(
+	'kontrol negatif: verifikasi INKREMENTAL juga menolak',
+	(await verify.verifyChainIncremental()) === false,
+)
 
 // Cabang saingan dari blok 1: 2b (miner B) -> 3b (miner B). Belum di-commit.
 const h2b = hex64(0xb)
@@ -269,9 +415,17 @@ ok(
 	(await ancestry.traceBranchToLocal(hex64(0xdead))) === undefined,
 )
 
+// S4: benihkan marker di tip lokal sebelum reorg → setelah reorg ia WAJIB
+// dibatalkan (R-1) dan di-seed ulang ke blok fork (height 1, hash h1).
+verifyMarker.setVerifyMarker(2, h2a)
 const reorgResult = await reorg.reevaluateBranches()
 
 ok('reevaluateBranches melakukan reorg', reorgResult.status === true)
+ok(
+	'marker di-seed ulang ke blok fork (height 1) setelah reorg',
+	verifyMarker.getVerifyMarker()?.height === 1 &&
+		verifyMarker.getVerifyMarker()?.hash === h1,
+)
 ok('forkHeight = 1', reorgResult.forkHeight === 1)
 ok('tip baru = 3', reorgResult.newHeight === 3)
 ok('1 blok lokal dibalik', reorgResult.rolledBack === 1)
@@ -313,11 +467,11 @@ const block2c = await createBlockTemplate([], MINER_B, block1)
 block2c.block.header.hash = h2c
 pool.addToPool(block2c)
 const weaker = await reorg.reevaluateBranches()
-ok('reevaluateBranches tidak reorg (cabang lebih ringan)', weaker.status === false)
 ok(
-	'tip tetap 3b',
-	(await getBlockState())?.currentBlockHash === h3b,
+	'reevaluateBranches tidak reorg (cabang lebih ringan)',
+	weaker.status === false,
 )
+ok('tip tetap 3b', (await getBlockState())?.currentBlockHash === h3b)
 ok(
 	'onCompetingTip hash tak tersambung → gagal',
 	(await reorg.onCompetingTip(hex64(0xfeed))).status === false,
@@ -362,8 +516,13 @@ pool.resetBranchPool()
 pool.addToPool(fakeBlock(5, hex64(6001), hex64(6000)))
 pool.addToPool(fakeBlock(6, hex64(6002), hex64(6001)))
 pool.addToPool(fakeBlock(7, hex64(6003), hex64(6002)))
+verifyMarker.setVerifyMarker(6, hex64(6010))
 ok('invalidateFrom(6) membuang height >= 6', reorg.invalidateFrom(6) === 2)
 ok('tinggal height 5', pool.poolSize() === 1 && pool.hasPooled(hex64(6001)))
+ok(
+	'invalidateFrom juga membatalkan marker verifikasi >= 6',
+	verifyMarker.getVerifyMarker() === undefined,
+)
 
 // ---------------------------------------------------------------------------
 // teardown
