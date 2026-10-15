@@ -169,7 +169,10 @@ const OFFLINE_GATES: ReadonlyArray<{ label: string; script: string }> = [
 	{ label: 'storage', script: 'check:storage' },
 	{ label: 'journal', script: 'check:journal' },
 	{ label: 'reorg', script: 'check:reorg' },
+	{ label: 'reserve mempool', script: 'check:mempool-reserve' },
+	{ label: 'sweep mempool', script: 'check:mempool-sweep' },
 	{ label: 'paritas PoW', script: 'check:pow' },
+	{ label: 'urutan nonce', script: 'check:nonce-order' },
 	{ label: 'direktori data', script: 'check:data' },
 	{ label: 'genesis', script: 'genesis:check' },
 ]

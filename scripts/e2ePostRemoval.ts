@@ -80,7 +80,7 @@ const getBal = async (address: string): Promise<number> =>
 	(await hexJson<AccountLite>('nex_getAccount', address))?.balance ?? 0
 
 const pendingOf = async (address: string): Promise<number> =>
-	(await hexJson<PendingLite>('nex_getPendingBalance', address))
+	(await hexJson<PendingLite>('nex_getPendingReserve', address))
 		?.pendingAmount ?? 0
 
 const nextNonce = async (address: string): Promise<number> =>

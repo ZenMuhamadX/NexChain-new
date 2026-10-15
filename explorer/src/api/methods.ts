@@ -70,7 +70,7 @@ export const rpc = {
 
 	getPendingBalance: (address: string) =>
 		hexJson<{ address: string; pendingAmount: number }>(
-			'nex_getPendingBalance',
+			'nex_getPendingReserve',
 			address,
 		),
 

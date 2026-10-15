@@ -1,8 +1,6 @@
 import { structBalance } from 'src/types/balance'
 import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { loggingErr } from 'src/logging/errorLog'
-import { getPendingBalance } from '../getPendingBalance'
-import { setPendingBalance } from '../setPendingBalance'
 import { getAccount } from 'src/core/state/account/getAccount'
 import { putAccount } from 'src/core/state/account/putAccount'
 import { hasSufficientBalance } from 'src/core/validation/module/hasSufficientBalance'
@@ -55,12 +53,9 @@ export const processSender = async (
 		nonce: oldData.nonce + 1,
 	}
 	await putAccount(senderAddress, newData)
-	// Ambil dan perbarui pending balance
-	const pendingBalance = await getPendingBalance(senderAddress)
-	const updatedPendingAmount =
-		(pendingBalance.pendingAmount || 0) - (amount + fee)
-	await setPendingBalance({
-		address: senderAddress,
-		pendingAmount: Math.max(updatedPendingAmount, 0),
-	})
+	// TIDAK ada pelepasan reserve di sini (Gelombang 2): reserve adalah
+	// TURUNAN dari indeks mempool per-pengirim, dan ia dilepas saat tx keluar
+	// dari mempool (`removeMemPool` di `processTransaction`), bukan saat
+	// eksekusi. Menurunkan counter di sini adalah perilaku lama yang dihapus
+	// bersama kunci `pendingBalance:<alamat>`.
 }

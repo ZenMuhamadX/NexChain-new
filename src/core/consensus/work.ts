@@ -21,6 +21,8 @@ import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { formatStr } from 'src/core/encoding/lib/formatString'
 import { removeMemPool } from 'src/core/state/storage/mempool/removeMempool'
 import { isTxExecuted } from 'src/core/transaction/isTxExecuted'
+import { getAccount } from 'src/core/state/account/getAccount'
+import { sweepUnaffordableMempool } from 'src/core/state/storage/mempool/sweepMempool'
 
 /**
  * Protokol job mining node ↔ miner eksternal (semua lewat JSON-RPC yang
@@ -154,6 +156,54 @@ const enqueue = <T>(task: () => Promise<T>): Promise<T> => {
 export const getWork = (rawParams?: unknown): Promise<WorkResult> =>
 	enqueue(() => executeGetWork(rawParams))
 
+/**
+ * Pilih subset transaksi yang BEBAS-GAP per-pengirim — diekspor agar
+ * gerbang regresi bisa mengujinya langsung tanpa node hidup.
+ *
+ * MENGAPA ada: `commitBlock` kini MENOLAK blok berisi tx nonce-lompat
+ * (lihat `verifyBlockNonceOrder` — "masuk blok ⇒ tereksekusi", supaya fee
+ * yang dibayar ke miner lewat coinbase pasti sudah didebet dari
+ * pengirimnya). Tanpa penyaringan di sini, satu tx berlubang di mempool
+ * akan meracuni seluruh template (blok hasil mining selalu ditolak).
+ *
+ * Aturan: kelompokkan tx per `from`; tiap pengirim diurut menaik menurut
+ * `nonce`, lalu ambil hanya larian KONTIGU mulai dari `account.nonce`
+ * saat ini. Tx bernonce di bawah ekspektasi dilewati (basi/duplikat);
+ * tx di atas lubang (gap) MEMUTUS larian — sisanya dibuang (tetap di
+ * mempool, bisa ikut blok berikutnya bila lubang terisi). Tx tanpa `from`
+ * dibuang (tak bisa diurut — pra-penerbangan pun menolaknya).
+ *
+ * Deterministik: pengirim diproses urut leksikografis, tx tiap pengirim
+ * urut nonce menaik — susunan template sama untuk isi mempool yang sama.
+ *
+ * @param txs transaksi kandidat (sudah lolos saringan zombie)
+ */
+export const selectGapFreeTransactions = async (
+	txs: TxInterface[],
+): Promise<TxInterface[]> => {
+	const bySender = new Map<string, TxInterface[]>()
+	for (const tx of txs) {
+		if (!tx.from) continue
+		const list = bySender.get(tx.from)
+		if (list) list.push(tx)
+		else bySender.set(tx.from, [tx])
+	}
+	const gapFree: TxInterface[] = []
+	for (const sender of [...bySender.keys()].sort()) {
+		const list = bySender.get(sender)!
+		list.sort((a, b) => a.nonce - b.nonce)
+		const account = await getAccount(sender)
+		let expected = account?.nonce ?? 0
+		for (const tx of list) {
+			if (tx.nonce < expected) continue
+			if (tx.nonce !== expected) break
+			gapFree.push(tx)
+			expected++
+		}
+	}
+	return gapFree
+}
+
 const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 	try {
 		// Gerbang IBD: JANGAN menyusun template di atas rantai yang masih
@@ -219,6 +269,13 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 		// (berbasis timestamp blok), jadi prune murni untuk memori.
 		pruneExpiredJobs()
 
+		// Sapuan keterjangkauan (G4, node-local): buang tx pool yang basi
+		// (`nonce < account.nonce`) atau tak lagi terjangkau SEBELUM template
+		// disusun — di dalam aliran getWork (lewat setelah gerbang syncing di
+		// atas, jadi node yang masih IBD tidak menyapu). Melepas reserve
+		// turunan otomatis karena reserve diturunkan dari isi pool.
+		await sweepUnaffordableMempool()
+
 		const pool = new MemPool()
 		const loaded = await pool.getValidTransactions()
 		// Penjaga "zombie": buang tx yang history-nya sudah 'confirmed'
@@ -233,7 +290,15 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 			}
 			transactions.push(tx)
 		}
-		const template = await createBlockTemplate(transactions, minerAddress)
+		// Template BEBAS-GAP per-pengirim: dari sisa mempool, tiap pengirim
+		// hanya menyumbang larian kontigu mulai dari `account.nonce`-nya
+		// (diurut menaik, pengirim urut leksikografis — deterministik). Tx
+		// di atas lubang dibuang dari template ini (tetap di mempool) —
+		// kalau tidak, `commitBlock` menolak seluruh blok hasil mining
+		// lewat `verifyBlockNonceOrder` (lihat komentar
+		// `selectGapFreeTransactions`).
+		const gapFree = await selectGapFreeTransactions(transactions)
+		const template = await createBlockTemplate(gapFree, minerAddress)
 		const payload = prepareBlockForHashing(template)
 
 		const job = createJob({
@@ -247,7 +312,7 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 
 		logToConsole(
 			`Work ${job.jobId} → height ${job.height}, difficulty ${job.difficulty} bits, ` +
-				`${transactions.length} tx, miner ${formatStr(minerAddress)}`,
+				`${gapFree.length} tx, miner ${formatStr(minerAddress)}`,
 		)
 
 		return {
