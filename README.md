@@ -72,6 +72,25 @@ The development of Nexchain Core follows a collaborative process, where contribu
 
 Testing and code review are crucial stages in our development cycle, as they help maintain the integrity and security of the Nexchain network. Given the high volume of pull requests, your patience and cooperation in testing others' submissions are greatly appreciated.
 
+### Gerbang otomatis sebelum push
+
+Satu perintah menjalankan seluruh gerbang repo: **`bun run check:all`**. Hook Husky `.husky/pre-push` memanggilnya, jadi push ke GitHub dibatalkan bila ada gerbang yang gagal.
+
+Fase (berurutan, berhenti pada kegagalan pertama):
+
+1. `offline` — `check` (tsc) + semua `check:*` + `genesis:check` (tanpa node).
+2. `local` — `wallet:smoke` (tanpa node).
+3. `p2p` — `p2p:smoke` (skrip ini menyalakan tiga node sendiri).
+4. `live` — `miner:smoke`; runner menyalakan **satu node sementara** (data dir temp + port bebas, kredensial tulis kosong, P2P mati), jadi **tidak perlu menyalakan node manual**.
+5. `explorer` — `explorer smoke` memakai **node yang sudah ada** (URL dari `NEX_EXPLORER_RPC_URL`, atau `VITE_RPC_URL` di `explorer/.env`). Bila node tidak terjangkau atau bloknya < 5, fase ini **dilewati dengan peringatan** (bukan gagal).
+
+```bash
+bun run check:all                         # semua fase (dipakai hook)
+NEX_CHECK_FAST=1 bun run check:all        # hanya gerbang offline (push cepat)
+NEX_CHECK_PHASES=live bun run check:all   # hanya fase tertentu (debug)
+git push --no-verify                      # lewati hook sekali (HUSKY=0 juga bisa)
+```
+
 ### Manual Quality Assurance (QA) Testing
 
 It is important for changes to be tested by individuals other than the original developer. This practice minimizes bias and helps catch potential issues early. For major or high-risk changes, please consider the following:

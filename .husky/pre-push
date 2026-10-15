@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# Gerbang "semua test" sebelum push. Gagal = push dibatalkan.
+# Butuh node hidup? Tidak: `check:all` menyalakan node sementara sendiri
+# (`miner:smoke`), dan `explorer smoke` memakai node yang sudah ada bila ada.
+# Lewati sekali: `git push --no-verify` atau `HUSKY=0 git push`.
+bun run check:all
