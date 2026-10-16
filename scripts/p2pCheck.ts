@@ -1298,6 +1298,31 @@ await run('round-trip genesis: field di luar preimage ikut utuh', () => {
 	)
 })
 
+await run('round-trip: difficulty pecahan tetap eksak (0.25 bit)', () => {
+	// `clampDifficulty` mengkuantisasi difficulty ke kelipatan 0.25 bit, jadi
+	// nilai pecahan seperti 21.5 SAH dan muncul di rantai nyata. Bug nyata
+	// (ditemukan `p2p:fork`): encoding integer MENOLAK blok seperti itu dengan
+	// "header.difficulty harus bilangan bulat aman >= 0", sehingga blok tak
+	// pernah terkirim lewat P2P. Fixture integer saja tidak menangkap ini.
+	const template = buildGenesisBlock().block
+	for (const difficulty of [21.5, 21.25, 20.75, 8.5, 131_072]) {
+		const block: blockStruct = {
+			...template,
+			header: { ...template.header, difficulty },
+		}
+		const decoded = decodeBlock(encodeBlock(block))
+		assert(
+			decoded.header.difficulty === difficulty,
+			`difficulty ${difficulty} berubah jadi ${decoded.header.difficulty}`,
+		)
+		assert(
+			prepareBlockForHashing(new Block(block)) ===
+				prepareBlockForHashing(new Block(decoded)),
+			`preimage berubah untuk difficulty ${difficulty}`,
+		)
+	}
+})
+
 await run('round-trip: metadata absen tetap absen', () => {
 	// `metadata` opsional di Joi. Absen di-encode sebagai list RLP KOSONG
 	// (0xc0), bukan tiga item berisi nol — itu yang membedakannya.

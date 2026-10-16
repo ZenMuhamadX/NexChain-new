@@ -10,7 +10,9 @@
  *   1. offline  — gate murni / LevelDB temp: `check` (tsc), `check:browser`, dan
  *      seluruh `check:*` + `genesis:check`. Tidak butuh node.
  *   2. local    — `wallet:smoke` (murni + `fake-indexeddb`, tanpa node).
- *   3. p2p      — `p2p:smoke`: skrip itu menyalakan TIGA node sendiri.
+ *   3. p2p      — `p2p:smoke` (menyalakan TIGA node sendiri) dan `p2p:fork`
+ *      (dua node terisolasi yang lalu dipertemukan untuk membuktikan reorg
+ *      cabang-terberat di jaringan hidup).
  *   4. live     — `miner:smoke`. Butuh node HIDUP, jadi skrip ini menyalakan
  *      SATU node sementara untuknya: data dir di folder temp OS + port RPC
  *      bebas (tidak bentrok dengan node dev yang mungkin sedang jalan),
@@ -194,6 +196,7 @@ const runLocalPhase = async (): Promise<void> => {
 
 const runP2pPhase = async (): Promise<void> => {
 	await runGate('smoke P2P (tiga node lokal)', 'p2p:smoke')
+	await runGate('smoke P2P fork/reorg (dua node lokal)', 'p2p:fork')
 }
 
 // ---------------------------------------------------------------------------

@@ -41,6 +41,14 @@
  *     11 metadata: [] bila absen, selain itu [ txCount, created_at, extraData ]
  *     12 transactions: [ payload tx, ... ]
  *
+ * ## `difficulty` juga float64
+ *
+ * `clampDifficulty` mengkuantisasi difficulty ke kelipatan 0.25 bit, jadi nilai
+ * seperti 21.5 sah dan benar-benar muncul di rantai nyata (retarget naik 2 bit
+ * saat jeda antar-blok nyaris nol). Encoding integer akan MENOLAK blok seperti
+ * itu dan mematikan pengiriman blok lewat P2P — karena itu ia memakai float64,
+ * sama seperti `size`.
+ *
  * ## `totalTransactionFees` WAJIB, bukan opsional
  *
  * Meski Joi menandainya opsional, `verifyReward` membandingkannya dengan
@@ -128,7 +136,11 @@ export const blockToRlpList = (block: blockStruct): RlpInput[] => {
 		hexToBytes(block.header.hash),
 		uint(block.header.nonce, 'header.nonce'),
 		stringToBytes(block.header.version),
-		uint(block.header.difficulty, 'header.difficulty'),
+		// `difficulty` BUKAN bilangan bulat: `clampDifficulty` mengkuantisasi ke
+		// kelipatan 0.25 bit (`QUANTUM_BITS`), jadi nilai seperti 21.5 sah dan
+		// memang muncul di rantai nyata. `uint` akan menolaknya dan menggagalkan
+		// pengiriman blok. float64 = round-trip eksak, sama seperti `size`.
+		float64ToBytes(block.header.difficulty, 'header.difficulty', LABEL),
 		// Opsional di Joi: absen → byte string kosong (bukan string kosong).
 		block.header.hashingAlgorithm === undefined
 			? new Uint8Array(0)
@@ -262,7 +274,7 @@ export const rlpListToBlock = (list: RlpInput): blockStruct => {
 			'header.version',
 			LABEL,
 		),
-		difficulty: bytesToNumber(
+		difficulty: bytesToFloat64(
 			item(headerItems, 5, 'header.difficulty'),
 			'header.difficulty',
 			LABEL,

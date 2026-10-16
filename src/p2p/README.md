@@ -65,6 +65,12 @@ Skema blok ada di `src/core/encoding/rlp/blockCodec.ts`, transaksi di
 `decodeBlock` menolak payload rusak keras (base64/RLP/skema), dan
 `syncManager` memperlakukannya sebagai pelanggaran wire → ban.
 
+Dua field header/body blok BUKAN bilangan bulat dan dikirim sebagai float64
+8 byte big-endian: `size` (`byte / 1024`) dan `difficulty`
+(`clampDifficulty` mengkuantisasi ke kelipatan 0.25 bit, jadi 21.5 sah).
+Encoding integer untuk keduanya akan MENOLAK blok nyata dan mematikan
+pengiriman blok.
+
 **Naik v1 → v2 tidak kompatibel.** `handshake.ts` menolak versi protokol yang
 berbeda secara FATAL, tanpa menawar turun-versi: semua node (termasuk peer di
 `NEX_P2P_PEERS`) harus naik serentak. `P2P_PROTOCOL_VERSION` didefinisikan di
