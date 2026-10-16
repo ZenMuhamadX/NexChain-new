@@ -45,6 +45,7 @@ import {
 	resetSyncState,
 } from 'src/core/events/syncState'
 import type { TxInterface } from 'src/types/transaction'
+import { loggingDebug } from 'src/logging/debug'
 import { logToConsole } from 'src/logging/logging'
 
 /** Pola hash 64 digit hex huruf kecil (konvensi wire SHA-256). */
@@ -567,7 +568,11 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 			// Penolakan non-fatal (mis. tembakan lintas karena race) diabaikan.
 			return
 		}
-		logToConsole(`P2P: blok baru diterima dari peer ${peer.connection.id}`)
+		// Tiap blok masuk (termasuk kejar-kejaran IBD) — cukup di debug.
+		loggingDebug(
+			'p2p:sync',
+			`P2P: blok baru diterima dari peer ${peer.connection.id}`,
+		)
 		// Kemajuan nyata: perbarui tinggi lokal + segarkan anggaran katup.
 		await noteProgress()
 		// Lanjut mengejar bila peer masih lebih maju dari kita.

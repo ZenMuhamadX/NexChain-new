@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
-import { logToConsole } from 'src/logging/logging'
+import { loggingDebug } from 'src/logging/debug'
 
 export const logRequest = (
 	req: Request,
@@ -13,7 +13,9 @@ export const logRequest = (
 		'-'
 	const ua = req.headers['user-agent'] || '-'
 	const rpcMethod = (req.body as any)?.method ?? '-'
-	logToConsole(
+	// Tiap request RPC (termasuk poll miner) — cukup di debug.
+	loggingDebug(
+		'rpc:middleware',
 		`${ip} ${req.method} ${req.path} Rpc-Method:${rpcMethod} UA:${ua}`,
 	)
 	next()

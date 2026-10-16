@@ -11,6 +11,7 @@
  * supaya promise yang gagal tidak pernah menjadi unhandled rejection yang
  * membunuh proses node.
  */
+import { loggingDebug } from 'src/logging/debug'
 import { logToConsole } from 'src/logging/logging'
 import { describeBindHost } from '../config.js'
 import {
@@ -207,7 +208,9 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 	const transportEvents: TransportEvents = {
 		onConnection: (connection, inbound) => {
 			const now = Date.now()
-			logToConsole(
+			// Berisik per koneksi — pindah ke debug supaya konsol tenang.
+			loggingDebug(
+				'p2p:peerManager',
 				`P2P: koneksi ${inbound ? 'masuk' : 'keluar'} ` +
 					`${connection.remoteAddress}:${connection.remotePort}`,
 			)
@@ -272,7 +275,9 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 			if (record === undefined) return
 			clearHandshakeTimer(record)
 			peers.delete(connection.id)
-			logToConsole(
+			// Putus peer bisa berulang (reconnect churn) — cukup di debug.
+			loggingDebug(
+				'p2p:peerManager',
 				`P2P: peer ${connection.remoteAddress}:${connection.remotePort} ` +
 					`tertutup (${reason})`,
 			)
@@ -282,7 +287,11 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 		onConnectError: (host, port, reason) => {
 			// Cukup dicatat: interval reconnect akan mencoba lagi nanti.
 			outbound.delete(`${host}:${port}`)
-			logToConsole(`P2P: gagal terhubung ke ${host}:${port} (${reason})`)
+			// Gagal dial berulang tiap reconnectIntervalMs — jangan banjiri konsol.
+			loggingDebug(
+				'p2p:peerManager',
+				`P2P: gagal terhubung ke ${host}:${port} (${reason})`,
+			)
 		},
 	}
 

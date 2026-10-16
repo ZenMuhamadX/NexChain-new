@@ -18,6 +18,7 @@ import { connectBlock } from './validation/connectBlock.js'
 import { isBroadcastSuppressed } from './broadcastGate.js'
 import { isTxHash } from 'src/core/encoding/rlp/txHash'
 import { subscribeBlocks, subscribeTxs } from 'src/core/events/nodeEvents'
+import { loggingDebug } from 'src/logging/debug'
 import { logToConsole } from 'src/logging/logging'
 import type { LocalChainStatus, PeerManager, SyncManager } from './types.js'
 
@@ -66,6 +67,7 @@ export const startP2P = async (
 		events: {
 			onPeerReady: (peer) => {
 				const status = peer.status
+				// Milestone handshake (dipakai smoke test) — tetap di info.
 				logToConsole(
 					`P2P: peer siap ${peer.connection.remoteAddress}:${peer.connection.remotePort}` +
 						(status ? ` (height ${status.bestHeight})` : ''),
@@ -76,7 +78,8 @@ export const startP2P = async (
 				syncHolder.current?.onPeerMessage(peer, message)
 			},
 			onPeerClosed: (peer, reason) => {
-				logToConsole(
+				loggingDebug(
+					'p2p:node',
 					`P2P: peer putus ${peer.connection.remoteAddress}:${peer.connection.remotePort} (${reason})`,
 				)
 				syncHolder.current?.onPeerClosed(peer)

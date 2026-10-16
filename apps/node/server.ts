@@ -11,11 +11,16 @@ import { Block } from 'src/core/block/blockModel'
 import { putAccount } from 'src/core/state/account/putAccount'
 import { saveBlock } from 'src/core/state/storage/block/saveBlock'
 import { logToConsole } from 'src/logging/logging'
+import { installFileLogging } from 'src/logging/fileSink'
 import { assertUnitConstants } from 'src/core/token/constants'
 import { DATA_DIR } from 'src/core/state/db/dataDir'
 import { checkBindAndAuth, hasConfiguredCredentials } from 'src/rpc/authLogic'
 import { startP2P } from 'src/p2p/node'
 import { recoverJournal } from 'src/core/state/journal/store'
+
+// Sink berkas dipasang PALING DULU supaya galat bind/auth di bawah ikut
+// tercatat ke berkas log harian.
+installFileLogging()
 
 // Verifikasi konstanta satuan SEBELUM menyentuh apa pun.
 //

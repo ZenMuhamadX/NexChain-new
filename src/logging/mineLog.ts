@@ -1,41 +1,25 @@
 /** @format */
 
-import winston from 'winston'
-import * as path from 'path'
-import fs from 'fs'
 import { Block } from 'src/core/block/blockModel'
-import { logToConsole } from './logging'
+import { emit } from './fileSink'
 
-// Define log directory and file paths
-const logDirPath = path.join(__dirname, '../logs')
-const logFilePath = path.join(logDirPath, 'mining_log.log')
+/**
+ * Cek flag --debug dengan aman (process tidak ada di browser).
+ */
+const hasDebugFlag = (): boolean =>
+	typeof process !== 'undefined' &&
+	Array.isArray(process.argv) &&
+	process.argv.includes('--debug')
 
-// Create directory if it doesn't exist
-if (!fs.existsSync(logDirPath)) {
-	fs.mkdirSync(logDirPath)
-}
-
-// Create Winston logger
-const logger = winston.createLogger({
-	level: 'info',
-	format: winston.format.combine(
-		winston.format.timestamp({
-			format: 'YYYY-MM-DD HH:mm:ss',
-		}),
-		winston.format.json(),
-	),
-	transports: [
-		new winston.transports.File({
-			filename: logFilePath,
-		}),
-	],
-})
-
-// Function to log mining status using Winston
+// Function to log mining status: satu baris ke konsol (info), dump blok
+// hanya ke berkas (debug) supaya konsol tidak kebanjiran.
 export const mineLog = (status: Block): void => {
 	try {
-		logToConsole(`Block ${status.block.header.hash} Created Succesfully`)
-		logger.info(JSON.stringify(status.block))
+		emit('info', `Block ${status.block.header.hash} Created Succesfully`)
+		emit('debug', JSON.stringify(status.block), {
+			namespace: 'mining',
+			toConsole: hasDebugFlag(),
+		})
 	} catch (error) {
 		console.error('Error saving mining log:', error)
 	}

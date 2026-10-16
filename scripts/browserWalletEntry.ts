@@ -14,7 +14,7 @@
  *   - sign/recover/verify (elliptic + EIP-155)
  *   - derive kunci mnemonic -> BIP32 via adapter `key/ecc.ts` (elliptic),
  *     menggantikan tiny-secp256k1 yang memakai .wasm gaya webpack
- *   - logging (fs/path/winston di-import lazy + specifier tak-literal)
+ *   - logging (fs/path di-import lazy + specifier tak-literal)
  *   - client-side tx validator + RPC client (fetch)
  *   - Phase B: createUnsignedTransaction + signTransaction (murni, tanpa I/O
  *     filesystem) — inilah yang dipakai wallet browser untuk menyusun &

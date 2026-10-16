@@ -1,4 +1,4 @@
-﻿import createDebug from 'debug'
+﻿import { emit } from './fileSink'
 
 /**
  * Cek flag --debug dengan aman.
@@ -11,7 +11,7 @@ const hasDebugFlag = (): boolean =>
 	process.argv.includes('--debug')
 
 /**
- * Membuat fungsi logger berbasis namespace yang hanya aktif jika `--debug` digunakan.
+ * Catat pesan debug: SELALU masuk berkas, ke konsol hanya bila `--debug`.
  * @param namespace - Namespace untuk log debug (contoh: "app:main")
  * @param message - Pesan yang akan di-log
  */
@@ -20,11 +20,19 @@ export const loggingDebug = (
 	message: string,
 	...args: any
 ) => {
-	const debug = createDebug(namespace)
+	const extra = (args as unknown[]).map(stringifyArg).join(' ')
+	emit('debug', extra ? `${message} ${extra}` : message, {
+		namespace,
+		toConsole: hasDebugFlag(),
+	})
+}
 
-	if (hasDebugFlag()) {
-		createDebug.enable(namespace) // Enable specific namespace
+// Satu argumen -> string: string apa adanya, sisanya JSON aman.
+const stringifyArg = (arg: unknown): string => {
+	if (typeof arg === 'string') return arg
+	try {
+		return JSON.stringify(arg) ?? String(arg)
+	} catch {
+		return String(arg)
 	}
-
-	return debug(`[${new Date().toISOString()}] ${message}`, ...args)
 }
