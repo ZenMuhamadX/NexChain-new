@@ -14,9 +14,11 @@
  *      yang terpotong 100 entri global. Sender dengan N > 100 tx pending
  *      tetap diharapkan nonce = akun.nonce + N; tx pengirim lain tidak
  *      mengubah harapan ini.
- *   3. **getPendingBalance aman** — alamat tidak valid MELEMPAR (bukan
- *      diam-diam 0), dan membaca reserve yang tidak ada TIDAK menulis apa
- *      pun (tanpa tulis-saat-baca).
+ *   3. **getPendingReserve turunan aman** — alamat tidak valid MELEMPAR
+ *      (bukan diam-diam 0); membaca reserve yang tidak ada menghasilkan 0
+ *      TANPA menulis apa pun; dan reserve mengikuti siklus hidup nyata
+ *      (admission via `saveMempool` me-reserve, `removeMemPool`
+ *      melepas) — tidak ada lagi counter `pendingBalance` tersimpan.
  *
  * Bagian 1 murni (tanpa DB). Bagian 2 & 3 menyentuh storage, jadi memakai
  * `NEX_DATA_DIR` sementara (LevelDB nyata di folder buangan) — modul
@@ -74,6 +76,7 @@ import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransaction'
 import { signTransaction } from 'src/crypto/signTransaction'
 import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
+import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import type { TxInterface } from 'src/types/transaction'
 import type { comTxInterface } from 'src/types/compositeTransaction'
@@ -88,7 +91,7 @@ ok(
 
 const MNEMONIC =
 	'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
-const { privateKey } = generateKeysFromMnemonic(MNEMONIC)
+const { privateKey, publicKey } = generateKeysFromMnemonic(MNEMONIC)
 const RECEIVER = `NxC${'22'.repeat(20)}`
 
 const buildSigned = (fee: number, data?: string): TxInterface => {
@@ -176,10 +179,14 @@ const { loadMempool } =
 const { validateTransactionNonce } =
 	await import('src/core/validation/module/isValidTxNonce')
 const { putAccount } = await import('src/core/state/account/putAccount')
-const { getPendingBalance } =
-	await import('src/core/transaction/getPendingBalance')
-const { setPendingBalance } =
-	await import('src/core/transaction/setPendingBalance')
+const { getAccount } = await import('src/core/state/account/getAccount')
+const { getPendingReserve } =
+	await import('src/core/transaction/getPendingReserve')
+const { sumCostBySender } =
+	await import('src/core/state/storage/mempool/mempoolIndex')
+const { removeMemPool } =
+	await import('src/core/state/storage/mempool/removeMempool')
+const { MemPool } = await import('src/core/transaction/memPool')
 const { processSender } =
 	await import('src/core/transaction/sender/processSender')
 const { rocksState } = await import('src/core/state/db/state')
@@ -281,75 +288,147 @@ ok(
 )
 
 // ---------------------------------------------------------------------------
-// 3a. Pelepasan reserve — processSender mengurangi pending & menjaga ≥ 0
+// 3a. Reserve turunan mengikuti siklus hidup nyata (admission → eksekusi →
+//     keluar-mempool) — tanpa counter tersimpan
 // ---------------------------------------------------------------------------
+//
+// Tidak ada lagi `setPendingBalance`: admission (`MemPool`, jalur produksi
+// yang sama dengan `nex_sendTransaction`) me-reserve secara IMPLISIT karena
+// `saveMempool` menulis tx + indeks pengirimnya atomik; eksekusi
+// (`processSender`) hanya mendebit saldo; pelepasan terjadi saat tx keluar
+// dari mempool (`removeMemPool`, seperti `processTransaction` tiap commit).
 
-console.log('\nGROUP 3a — pelepasan reserve pending (processSender):')
+console.log('\nGROUP 3a — reserve turunan mengikuti siklus hidup nyata:')
 
-const funded = `NxC${'cc'.repeat(20)}`
-await putAccount(funded, {
-	address: funded,
-	balance: 1_000_000,
+// Pengirim = pemilik MNEMONIC di atas — `from` adalah hasil ecrecover atas
+// tanda tangan, jadi alamatnya diturunkan dari kunci yang sama (bukan alamat
+// bebas yang tidak akan lolos `validateTransactionSignature`).
+const SENDER_C = generateAddressFromPublicKey(publicKey.slice(2))
+await putAccount(SENDER_C, {
+	address: SENDER_C,
+	balance: 100_000_000,
 	transactionCount: 0,
 	isContract: false,
 	lastTransactionDate: null,
 	nonce: 0,
 })
 
-// Reserve 5000 mewakili beberapa tx pending; eksekusi amount 3000 + fee 500
-// melepas tepat 3500 → sisa reserve 1500.
-await setPendingBalance({ address: funded, pendingAmount: 5000 })
-const beforeRelease = (await getPendingBalance(funded)).pendingAmount
-await processSender(funded, 3000, 500)
-const afterRelease = (await getPendingBalance(funded)).pendingAmount
+const buildValid = (
+	amount: number,
+	fee: number,
+	nonce: number,
+): TxInterface => {
+	const draft = createUnsignedTransaction(
+		{
+			amount,
+			format: 'nexu',
+			// `sender` hanya dipakai pemanggil untuk ambil nonce; tidak ikut tx.
+			sender: SENDER_C,
+			receiver: RECEIVER,
+			fee,
+		},
+		nonce,
+	)
+	if (!draft.status || !draft.tx) throw new Error('fixture 3a gagal dibangun')
+	return signTransaction(draft.tx, privateKey)
+}
+
+const pool = new MemPool()
+const txC1 = buildValid(100_000, 5_000, 0)
+const txC2 = buildValid(200_000, 5_000, 1)
+const COST_C1 = 100_000 + 5_000
+const COST_C2 = 200_000 + 5_000
+
 ok(
-	'processSender melepas tepat amount+fee dari reserve',
-	beforeRelease === 5000 && afterRelease === 1500,
-	`${beforeRelease} -> ${afterRelease}`,
+	'admission tx1 DITERIMA (jalur MemPool produksi)',
+	(await pool.addTransaction(txC1)).isValid === true,
+)
+ok(
+	'admission me-reserve tepat cost tx1 (implisit via indeks)',
+	(await getPendingReserve(SENDER_C)).pendingAmount === COST_C1,
+	`pending=${(await getPendingReserve(SENDER_C)).pendingAmount}`,
+)
+ok(
+	'admission tx2 DITERIMA (nonce = 0 + 1 pending)',
+	(await pool.addTransaction(txC2)).isValid === true,
+)
+const reservedBoth = (await getPendingReserve(SENDER_C)).pendingAmount
+ok(
+	'reserve = Σ cost kedua tx DAN identik dengan indeks',
+	reservedBoth === COST_C1 + COST_C2 &&
+		reservedBoth === (await sumCostBySender(SENDER_C)),
+	`pending=${reservedBoth}`,
 )
 
-// Pelepasan GANDA tidak boleh negatif (guard Math.max(...,0)).
-await setPendingBalance({ address: funded, pendingAmount: 1000 })
-await processSender(funded, 1500, 200) // lepas 1700 dari reserve 1000
-const clamped = (await getPendingBalance(funded)).pendingAmount
+// Eksekusi mendebit saldo TANPA menyentuh reserve — tx masih di mempool,
+// jadi dananya tetap terkunci (inilah mengapa pelepasan milik
+// `removeMemPool`, bukan `processSender`).
+await processSender(SENDER_C, 100_000, 5_000)
 ok(
-	'pelepasan melebihi reserve di-clamp ke 0 (tidak negatif)',
-	clamped === 0,
-	`${clamped}`,
+	'eksekusi mendebit tepat amount+fee dari saldo',
+	(await getAccount(SENDER_C))?.balance === 100_000_000 - COST_C1,
+	`balance=${(await getAccount(SENDER_C))?.balance}`,
+)
+ok(
+	'reserve BELUM turun setelah eksekusi (tx masih pending)',
+	(await getPendingReserve(SENDER_C)).pendingAmount === COST_C1 + COST_C2,
+)
+
+// Tx keluar dari mempool (seperti `processTransaction` tiap commit blok) →
+// reserve turun tepat sebesar cost tx itu, tanpa counter terpisah.
+await removeMemPool(txC1.txHash!)
+const afterFirst = (await getPendingReserve(SENDER_C)).pendingAmount
+ok(
+	'keluar-mempool melepas tepat cost tx1',
+	afterFirst === COST_C2,
+	`pending=${afterFirst}`,
+)
+ok(
+	'pembaca tetap identik dengan indeks setelah pelepasan',
+	afterFirst === (await sumCostBySender(SENDER_C)),
+)
+await processSender(SENDER_C, 200_000, 5_000)
+await removeMemPool(txC2.txHash!)
+ok(
+	'reserve → 0 setelah semua tx keluar dari mempool',
+	(await getPendingReserve(SENDER_C)).pendingAmount === 0,
 )
 
 // ---------------------------------------------------------------------------
-// 3b. getPendingBalance — alamat invalid melempar, tanpa tulis-saat-baca
+// 3b. getPendingReserve turunan — alamat invalid melempar, tanpa tulis
 // ---------------------------------------------------------------------------
+// Pembaca kini murni turunan indeks mempool: ia tidak menyentuh store state
+// sama sekali, jadi kunci `pendingBalance:<alamat>` TIDAK MUNGKIN muncul
+// dari pembacaan (atau dari mana pun — penulisnya sudah dihapus).
 
-console.log('\nGROUP 3b — getPendingBalance aman:')
+console.log('\nGROUP 3b — getPendingReserve aman:')
 
-const err1 = await caughtAsync(() => getPendingBalance('bukan-alamat'))
+const err1 = await caughtAsync(() => getPendingReserve('bukan-alamat'))
 ok(
 	'alamat sampah MELEMPAR (bukan diam-diam 0)',
 	err1 !== null && /alamat tidak valid/.test(err1.message),
 	err1?.message,
 )
-const err2 = await caughtAsync(() => getPendingBalance(`NxC${'ab'.repeat(10)}`)) // 23 char
+const err2 = await caughtAsync(() => getPendingReserve(`NxC${'ab'.repeat(10)}`)) // 23 char
 ok(
 	'alamat panjang salah MELEMPAR',
 	err2 !== null && /alamat tidak valid/.test(err2.message),
 )
-const err3 = await caughtAsync(() => getPendingBalance(''))
+const err3 = await caughtAsync(() => getPendingReserve(''))
 ok(
 	'alamat kosong MELEMPAR',
 	err3 !== null && /alamat tidak valid/.test(err3.message),
 )
 
-// Alamat sah tanpa reserve tersimpan -> 0, TANPA menulis kunci.
+// Alamat sah tanpa tx pending -> 0, TANPA menulis kunci.
 // Catatan: `rocksState.get` kunci hilang di sini RESOLVE `undefined`
 // (bukan reject), jadi normalisasi dulu sebelum dibandingkan.
 const virgin = `NxC${'dd'.repeat(20)}`
-const readBefore = (await getPendingBalance(virgin)).pendingAmount
+const readBefore = (await getPendingReserve(virgin)).pendingAmount
 const keyAfter =
 	(await rocksState.get(`pendingBalance:${virgin}`).catch(() => null)) ?? null
 ok(
-	'reserve hilang -> {pendingAmount:0} TANPA menulis kunci',
+	'tanpa tx pending -> {pendingAmount:0} TANPA menulis kunci',
 	readBefore === 0 && keyAfter === null,
 	`amount=${readBefore}, keyTersimpan=${keyAfter !== null}`,
 )

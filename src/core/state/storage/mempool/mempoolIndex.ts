@@ -67,9 +67,9 @@ const senderIndexGte = (from: string): string => `mpf:${from}:`
 /** Batas kanan range indeks per-pengirim — `:` + 1 === `;` (0x3A → 0x3B). */
 const senderIndexLt = (from: string): string => `mpf:${from};`
 
-/** Rentang SELURUH indeks (untuk rekonsiliasi). */
-const ALL_INDEX_GTE = 'mpf:'
-const ALL_INDEX_LT = 'mpf;'
+/** Rentang SELURUH indeks (untuk rekonsiliasi & sapuan). */
+export const ALL_INDEX_GTE = 'mpf:'
+export const ALL_INDEX_LT = 'mpf;'
 
 // ---------------------------------------------------------------------------
 // Antrean serial — satu untuk SEMUA operasi indeks/mempool
@@ -183,19 +183,94 @@ export const ensureMempoolIndex = (): Promise<void> => {
 }
 
 /**
+ * Ambil `cost` (amount+fee) dari nilai indeks yang tersimpan; `0` bila
+ * tidak terbaca.
+ *
+ * Nilai indeks ditulis `saveMempool` sebagai `JSON.stringify({ cost })`
+ * di atas `valueEncoding: 'json'` — Level mem-parse kembali jadi STRING
+ * saat dibaca (persis seperti entri mempool yang dibaca `rebuildBody`
+ * lewat `JSON.parse(value.toString())`). Tapi bila suatu penulis
+ * meletakkan objek langsung, bacanya sudah berupa objek — karena itu
+ * dukung KEDUANYA, meniru idiom `senderOf` di `removeMemPool.ts`.
+ */
+const costOf = (stored: unknown): number => {
+	try {
+		const parsed: unknown =
+			typeof stored === 'string' ? JSON.parse(stored) : stored
+		if (parsed !== null && typeof parsed === 'object') {
+			const cost = (parsed as { cost?: unknown }).cost
+			return typeof cost === 'number' ? cost : 0
+		}
+	} catch {
+		// nilai bukan JSON (sisa format sangat lama) — tanpa `cost`
+	}
+	return 0
+}
+
+/**
+ * Statistik SATU-pindai milik satu pengirim: jumlah tx pending DAN total
+ * reserve (`Σ cost`).
+ *
+ * Dipindai SEKALI dari range indeks (`mpf:<from>:` s/d `mpf:<from>;`) —
+ * sumber yang sama dengan `countPendingBySender` — supaya jumlah dan
+ * reserve tidak mungkin berbeda pendapat (tidak ada jendela di mana satu
+ * admission menyelinap di antara dua pindai terpisah). Fondasi non-breaking
+ * Gelombang 1 menuju reserve turunan per-pengirim: `pendingAmount` yang
+ * hari ini disimpan terpisah nantinya diganti nilai turunan ini.
+ */
+export const senderIndexStats = async (
+	from: string,
+): Promise<{ count: number; totalCost: number }> => {
+	await ensureMempoolIndex()
+	return runMempoolOp(async () => {
+		let count = 0
+		let totalCost = 0
+		for await (const [, value] of rocksMempool.iterator({
+			gte: senderIndexGte(from),
+			lt: senderIndexLt(from),
+			values: true,
+			keys: false,
+		})) {
+			count++
+			totalCost += costOf(value)
+		}
+		return { count, totalCost }
+	})
+}
+
+/**
+ * Total reserve turunan (`Σ cost` = amount+fee) milik satu pengirim.
+ *
+ * Dihitung dari indeks per-pengirim — SELALU konsisten dengan
+ * `countPendingBySender` karena keduanya satu pindai lewat
+ * `senderIndexStats`. Dipakai paritas pra-cutover melawan
+ * `pendingAmount` tersimpan (lihat `scripts/mempoolReserveCheck.ts`).
+ */
+export const sumCostBySender = async (from: string): Promise<number> =>
+	(await senderIndexStats(from)).totalCost
+
+/**
+ * Batas tx pending per-pengirim — KEBIJAKAN node, BUKAN konsensus.
+ *
+ * MENGAPA ada (Gelombang 4): tanpa batas, satu akun bisa menghabiskan
+ * seluruh slot pool global, dan pindai prefix reserve per-pengirim tidak
+ * berbatas. Angka 16 meniru `AccountSlots` geth. Node yang berbeda BOLEH
+ * memakai batas berbeda — isi mempool memang node-local (bukan fork),
+ * jadi ini tidak perlu (dan tidak boleh) jadi aturan validitas blok.
+ */
+export const MAX_PENDING_PER_SENDER = 16
+
+/**
  * Jumlah transaksi pending LENGKAP milik satu pengirim.
  *
  * Sumbernya indeks per-pengirim — TIDAK PERNAH `loadMempool` (yang
  * terpotong 100 secara global). Dipakai `validateTransactionNonce` dan
  * `nex_getNextNonce`; keduanya wajib melihat jumlah sebenarnya berapa pun
  * ukuran mempool.
+ *
+ * Mendelegasikan ke `senderIndexStats` supaya jumlah dan reserve (`Σ cost`)
+ * selalu berasal dari SATU pindai yang sama — tanda tangan dan perilaku
+ * tidak berubah.
  */
-export const countPendingBySender = async (from: string): Promise<number> => {
-	await ensureMempoolIndex()
-	return runMempoolOp(async () => {
-		const keys = await rocksMempool
-			.keys({ gte: senderIndexGte(from), lt: senderIndexLt(from) })
-			.all()
-		return keys.length
-	})
-}
+export const countPendingBySender = async (from: string): Promise<number> =>
+	(await senderIndexStats(from)).count

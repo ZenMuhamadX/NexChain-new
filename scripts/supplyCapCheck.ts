@@ -7,10 +7,10 @@
  *   1. konstanta satuan konsisten dan aman untuk aritmetika `number`;
  *   2. `assertNexuCapped` menerima tepat batas plafon, menolak batas+1;
  *   3. penjaga di titik TULIS menolak nilai rusak SEBELUM menyentuh DB —
- *      dan yang penting: `putAccount`/`setPendingBalance` punya `catch`
- *      yang menelan error, jadi guard harus berada di LUAR `try`. Bila
- *      guard salah tempat, tes ini tetap "melempar" tetapi karena alasan
- *      salah — karena itu setiap tes memeriksa PESAN errornya.
+ *      dan yang penting: `putAccount` punya `catch` yang menelan error,
+ *      jadi guard harus berada di LUAR `try`. Bila guard salah tempat,
+ *      tes ini tetap "melempar" tetapi karena alasan salah — karena itu
+ *      setiap tes memeriksa PESAN errornya.
  *
  * Skrip ini sengaja TIDAK pernah menulis storage. Nilai yang valid tidak
  * diuji lewat `putAccount` (akan membuka LevelDB dan berebut kunci dengan
@@ -18,7 +18,6 @@
  * `assertNexuCapped` di `check:amount`.
  */
 import { putAccount } from 'src/core/state/account/putAccount'
-import { setPendingBalance } from 'src/core/transaction/setPendingBalance'
 import { structBalance } from 'src/types/balance'
 import {
 	assertUnitConstants,
@@ -344,20 +343,13 @@ await expectReject('putAccount: balance NaN', () =>
 	putAccount(ADDR, balanceWith(Number.NaN)),
 )
 
-console.log('STAGE 3 — setPendingBalance (reserve mempool):')
-
-await expectReject('setPendingBalance: pendingAmount = plafon+1', () =>
-	setPendingBalance({
-		address: ADDR,
-		pendingAmount: MAX_SUPPLY_NEXU + 1,
-	}),
-)
-await expectReject('setPendingBalance: pendingAmount negatif', () =>
-	setPendingBalance({ address: ADDR, pendingAmount: -1 }),
-)
-await expectReject('setPendingBalance: pendingAmount unsafe (1e20)', () =>
-	setPendingBalance({ address: ADDR, pendingAmount: 1e20 }),
-)
+// STAGE `setPendingBalance` DIHAPUS (Gelombang 2): reserve mempool tidak
+// lagi disimpan sebagai kunci `pendingBalance:<alamat>`, melainkan
+// diturunkan dari indeks mempool per-pengirim (`Σ(amount+fee)` yang ditulis
+// atomik bersama tx) — sehingga tidak ada lagi titik tulis reserve yang
+// perlu diuji guard plafonnya. Plafon tiap tx tetap ditegakkan di admission
+// (`txInterfaceValidator` + `validateTransactionAmount/Fee`).
+// Lihat `bun run check:mempool-reserve` untuk invarian reserve turunan.
 
 console.log('')
 console.log(`============ ${pass} OK / ${fail} FAIL ============`)

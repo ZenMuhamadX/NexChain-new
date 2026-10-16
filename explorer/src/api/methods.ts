@@ -16,7 +16,7 @@ const client = new NexchainRpcClient(RPC_URL)
 /**
  * Tabel decode per-method — encoding backend memang tidak seragam:
  * - hex JSON  : getCurrentBlock, getBlockBy*, getBlockState, getAccount,
- *               getNonce, getNextNonce, getPendingBalance, getTransactionCount,
+ *               getNonce, getNextNonce, getPendingReserve, getTransactionCount,
  *               getTransactionByTxHash
  * - hex string : getBalance
  * - number    : getChainId, getBlockTransactionByHeight
@@ -68,9 +68,9 @@ export const rpc = {
 	getNextNonce: (address: string) =>
 		hexJson<number>('nex_getNextNonce', address),
 
-	getPendingBalance: (address: string) =>
+	getPendingReserve: (address: string) =>
 		hexJson<{ address: string; pendingAmount: number }>(
-			'nex_getPendingBalance',
+			'nex_getPendingReserve',
 			address,
 		),
 
