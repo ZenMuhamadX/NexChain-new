@@ -6,7 +6,7 @@ import { sumCostBySender } from 'src/core/state/storage/mempool/mempoolIndex'
  * `setPendingBalance.ts` yang DIHAPUS (Gelombang 2): tidak ada lagi modul
  * penulis `pendingBalance:<alamat>`, jadi tipe milik pembaca ini.
  */
-export interface pendingBalance {
+export interface pendingReserve {
 	address: string
 	pendingAmount: number
 }
@@ -38,11 +38,11 @@ export interface pendingBalance {
  * json-rpc mengubah throw menjadi respons error JSON-RPC — bukan kegagalan
  * HTTP).
  */
-export const getPendingBalance = async (
+export const getPendingReserve = async (
 	address: string,
-): Promise<pendingBalance> => {
+): Promise<pendingReserve> => {
 	if (!isValidAddress(address)) {
-		throw new Error(`getPendingBalance: alamat tidak valid: ${address}`)
+		throw new Error(`getPendingReserve: alamat tidak valid: ${address}`)
 	}
 	return { address, pendingAmount: await sumCostBySender(address) }
 }

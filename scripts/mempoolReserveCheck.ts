@@ -10,7 +10,7 @@
  *   (a) `sumCostBySender(from)` === Σ(amount+fee) tx pengirim itu;
  *   (b) `senderIndexStats(from).count === countPendingBySender(from)`
  *       (satu pindai, tidak mungkin berbeda pendapat);
- *   (c) pembaca turunan `getPendingBalance(addr).pendingAmount` identik
+ *   (c) pembaca turunan `getPendingReserve(addr).pendingAmount` identik
  *       dengan `sumCostBySender(addr)`, dan reserve TURUN tepat sebesar
  *       cost tx yang dibuang `removeMemPool` (pelepasan terjadi saat tx
  *       keluar dari mempool — bukan via counter terpisah).
@@ -49,8 +49,8 @@ const { removeMemPool } =
 	await import('src/core/state/storage/mempool/removeMempool')
 const { countPendingBySender, senderIndexStats, sumCostBySender } =
 	await import('src/core/state/storage/mempool/mempoolIndex')
-const { getPendingBalance } =
-	await import('src/core/transaction/getPendingBalance')
+const { getPendingReserve } =
+	await import('src/core/transaction/getPendingReserve')
 
 await rocksMempool.open()
 
@@ -140,27 +140,27 @@ ok(
 // ---------------------------------------------------------------------------
 // (c) pembaca turunan identik dengan indeks; pelepasan via removeMemPool
 // ---------------------------------------------------------------------------
-// Tidak ada lagi kunci `pendingBalance` tersimpan — `getPendingBalance`
+// Tidak ada lagi kunci `pendingBalance` tersimpan — `getPendingReserve`
 // murni menghitung dari indeks yang sama dengan `sumCostBySender`, dan
 // reserve "dilepas" dengan membuang tx (indeksnya ikut terhapus atomik).
 console.log('\nGROUP 3 — pembaca turunan + pelepasan via removeMemPool:')
 
 ok(
-	'getPendingBalance(A).pendingAmount === sumCostBySender(A)',
-	(await getPendingBalance(SENDER_A)).pendingAmount ===
+	'getPendingReserve(A).pendingAmount === sumCostBySender(A)',
+	(await getPendingReserve(SENDER_A)).pendingAmount ===
 		(await sumCostBySender(SENDER_A)),
-	`reader=${(await getPendingBalance(SENDER_A)).pendingAmount} derived=${await sumCostBySender(SENDER_A)}`,
+	`reader=${(await getPendingReserve(SENDER_A)).pendingAmount} derived=${await sumCostBySender(SENDER_A)}`,
 )
 ok(
-	'getPendingBalance(B).pendingAmount === sumCostBySender(B)',
-	(await getPendingBalance(SENDER_B)).pendingAmount ===
+	'getPendingReserve(B).pendingAmount === sumCostBySender(B)',
+	(await getPendingReserve(SENDER_B)).pendingAmount ===
 		(await sumCostBySender(SENDER_B)),
 )
 
 // Buang satu tx A — reserve harus TURUN tepat sebesar cost tx itu.
 const droppedCost = txsA[0]!.amount + txsA[0]!.fee
 await removeMemPool(txsA[0]!.txHash!)
-const afterDrop = (await getPendingBalance(SENDER_A)).pendingAmount
+const afterDrop = (await getPendingReserve(SENDER_A)).pendingAmount
 ok(
 	'reserve TURUN tepat sebesar cost tx yang dibuang',
 	afterDrop === expectedA - droppedCost,
@@ -177,11 +177,11 @@ await removeMemPool(txsA[2]!.txHash!)
 await removeMemPool(txB.txHash!)
 ok(
 	'reserve A → 0 setelah semua tx-nya dibuang',
-	(await getPendingBalance(SENDER_A)).pendingAmount === 0,
+	(await getPendingReserve(SENDER_A)).pendingAmount === 0,
 )
 ok(
 	'reserve B → 0 setelah tx-nya dibuang',
-	(await getPendingBalance(SENDER_B)).pendingAmount === 0,
+	(await getPendingReserve(SENDER_B)).pendingAmount === 0,
 )
 
 // ---------------------------------------------------------------------------

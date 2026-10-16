@@ -12,7 +12,7 @@ import { getAccount } from 'src/core/state/account/getAccount'
 import { addTxToMempool } from 'src/core/transaction/addTransactionToMempool'
 import { TxInterface } from 'src/types/transaction'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
-import { getPendingBalance } from 'src/core/transaction/getPendingBalance'
+import { getPendingReserve } from 'src/core/transaction/getPendingReserve'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
 import { countPendingBySender } from 'src/core/state/storage/mempool/mempoolIndex'
@@ -174,7 +174,7 @@ rpc.addMethod('nex_getPeerInfo', () => {
 // Account
 
 rpc.addMethod('nex_getPendingReserve', async (address: string) => {
-	return stringToHex(JSON.stringify(await getPendingBalance(address)))
+	return stringToHex(JSON.stringify(await getPendingReserve(address)))
 })
 
 rpc.addMethod('nex_getAccount', async (address: string) => {

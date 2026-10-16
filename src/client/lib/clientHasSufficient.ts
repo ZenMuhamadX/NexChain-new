@@ -1,7 +1,7 @@
 import { logToConsole } from 'src/logging/logging'
 import { rpcGetAccount } from 'src/client/rpc-client/controller/rpcGetAccount'
 import { structBalance } from 'src/types/balance'
-import { rpcGetPendingBalance } from 'src/client/rpc-client/controller/rpcGetPendingBalance'
+import { rpcGetPendingReserve } from 'src/client/rpc-client/controller/rpcGetPendingReserve'
 import { toNxc } from 'src/core/token/toNxc'
 
 /**
@@ -50,13 +50,13 @@ const checkStandardBalance = async (
 		return false
 	}
 	if (balance.balance >= amount + fee) {
-		const pendingBalance = await rpcGetPendingBalance(address)
+		const pendingReserve = await rpcGetPendingReserve(address)
 		const availableBalance =
-			balance.balance - (pendingBalance?.pendingAmount || 0)
+			balance.balance - (pendingReserve?.pendingAmount || 0)
 
 		if (availableBalance < amount + (fee || 0)) {
 			console.error(
-				`The previous transcation has not been confirmed, and your balance of ${toNxc(pendingBalance?.pendingAmount!)} NXC has been locked for that transaction. Additionally,your available balance is not sufient to complete this transaction`,
+				`The previous transcation has not been confirmed, and your balance of ${toNxc(pendingReserve?.pendingAmount!)} NXC has been locked for that transaction. Additionally,your available balance is not sufient to complete this transaction`,
 			)
 			return false
 		}

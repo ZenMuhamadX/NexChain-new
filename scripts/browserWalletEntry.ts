@@ -35,7 +35,10 @@ import { validateMnemonic } from 'src/crypto/validateMnemonic'
 import { ecc } from 'src/crypto/ecc'
 import { createSignature } from 'src/crypto/createSignature'
 import { signTransaction } from 'src/crypto/signTransaction'
-import { verifySignature, recoverSignerAddress } from 'src/crypto/verifySignature'
+import {
+	verifySignature,
+	recoverSignerAddress,
+} from 'src/crypto/verifySignature'
 import { CHAIN_ID, encodeV, decodeV } from 'src/crypto/chainId'
 import { sha256, hexToBytes } from 'src/core/encoding/sha256'
 import { keccak256 } from 'src/core/encoding/keccak256'
@@ -56,7 +59,10 @@ import {
 } from 'src/client/lib/createUnsignedTransaction'
 import { getNonce } from 'src/client/rpc-client/controller/rpcGetNonce'
 import { setRpcUrl, getRpcUrl } from 'src/client/rpc-client/lib/rpcClient'
-import { createWalletVault, PRIMARY_WALLET_ID } from 'src/client/wallet/walletVault'
+import {
+	createWalletVault,
+	PRIMARY_WALLET_ID,
+} from 'src/client/wallet/walletVault'
 import { createMemoryKV } from 'src/client/wallet/kv'
 import { createIdbKV } from 'src/client/wallet/idbKv'
 import {
@@ -65,7 +71,7 @@ import {
 	KDF_ITERATIONS,
 } from 'src/client/wallet/vaultCrypto'
 import { rpcGetAccount } from 'src/client/rpc-client/controller/rpcGetAccount'
-import { rpcGetPendingBalance } from 'src/client/rpc-client/controller/rpcGetPendingBalance'
+import { rpcGetPendingReserve } from 'src/client/rpc-client/controller/rpcGetPendingReserve'
 import { decodeHexJson } from 'src/client/rpc-client/lib/decodeHexJson'
 import { validateTransactionSignature } from 'src/core/validation/module/isValidTxSign'
 import { validateTransactionSenderReceiver } from 'src/core/validation/module/isValidTxSenderReciever'
@@ -96,7 +102,7 @@ export const browserWalletSurface = {
 	decryptSecret,
 	KDF_ITERATIONS,
 	rpcGetAccount,
-	rpcGetPendingBalance,
+	rpcGetPendingReserve,
 	decodeHexJson,
 	verifySignature,
 	recoverSignerAddress,

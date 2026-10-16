@@ -7,11 +7,7 @@
  * backend-nya memuat dependensi runtime (LevelDB) yang tak relevan bagi UI.
  */
 import type { structBalance } from 'src/types/balance'
-import type {
-	blockStruct,
-	blockSummary,
-	HexString,
-} from 'src/types/block'
+import type { blockStruct, blockSummary, HexString } from 'src/types/block'
 import type { TxInterface } from 'src/types/transaction'
 
 export type { blockStruct, blockSummary, HexString, structBalance, TxInterface }
@@ -35,7 +31,7 @@ export interface BlockState {
 	currentBlockSize: number
 }
 
-export interface PendingBalance {
+export interface PendingReserve {
 	address?: string
 	pendingAmount?: number
 }

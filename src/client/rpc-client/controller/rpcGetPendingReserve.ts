@@ -1,7 +1,7 @@
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { client } from '../lib/rpcClient'
 import { decodeHexJson } from '../lib/decodeHexJson'
-import { pendingBalance } from 'src/core/transaction/getPendingBalance'
+import { pendingReserve } from 'src/core/transaction/getPendingReserve'
 
 /**
  * Ambil saldo yang masih terkunci (pending) dari node.
@@ -10,11 +10,11 @@ import { pendingBalance } from 'src/core/transaction/getPendingBalance'
  * `pendingAmount` menjadi undefined dan diam-diam dianggap 0, sehingga
  * pembatasan saldo terkunci tidak pernah berlaku di sisi client.
  */
-export const rpcGetPendingBalance = async (
+export const rpcGetPendingReserve = async (
 	address: string,
-): Promise<pendingBalance | undefined> => {
+): Promise<pendingReserve | undefined> => {
 	if (!isValidAddress(address)) return undefined
-	return decodeHexJson<pendingBalance>(
+	return decodeHexJson<pendingReserve>(
 		await client.request('nex_getPendingReserve', address),
 	)
 }

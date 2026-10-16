@@ -1,13 +1,13 @@
 import { rpcRequest } from 'src/client/rpc-client/lib/rpcRequest'
 import { decodeHexJson } from 'src/client/rpc-client/lib/decodeHexJson'
 import { rpcGetAccount } from 'src/client/rpc-client/controller/rpcGetAccount'
-import { rpcGetPendingBalance } from 'src/client/rpc-client/controller/rpcGetPendingBalance'
+import { rpcGetPendingReserve } from 'src/client/rpc-client/controller/rpcGetPendingReserve'
 import { getNonce } from 'src/client/rpc-client/controller/rpcGetNonce'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { getRpcUrl, getRpcCredentials } from './rpcUrl'
 import type { TxInterface } from 'src/types/transaction'
 import type { structBalance } from 'src/types/balance'
-import type { pendingBalance } from 'src/core/transaction/getPendingBalance'
+import type { pendingReserve } from 'src/core/transaction/getPendingReserve'
 
 /**
  * Pembungkus RPC untuk UI wallet.
@@ -31,7 +31,7 @@ export const fetchAccount = (
 
 export const fetchPending = (
 	address: string,
-): Promise<pendingBalance | undefined> => rpcGetPendingBalance(address)
+): Promise<pendingReserve | undefined> => rpcGetPendingReserve(address)
 
 /** Nonce yang dibutuhkan transaksi berikutnya (`nex_getNextNonce`). */
 export const fetchNextNonce = (address: string): Promise<number> =>

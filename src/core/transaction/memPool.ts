@@ -3,7 +3,7 @@ import { saveTxHistory } from 'src/core/transaction/saveTxHistory'
 import { TxInterface } from 'src/types/transaction'
 import { logToConsole } from 'src/logging/logging'
 import { saveMempool } from 'src/core/state/storage/mempool/saveMemPool'
-import { getPendingBalance } from 'src/core/transaction/getPendingBalance'
+import { getPendingReserve } from 'src/core/transaction/getPendingReserve'
 import {
 	countPendingBySender,
 	MAX_PENDING_PER_SENDER,
@@ -76,7 +76,7 @@ export class MemPool {
 	 * Validasi keterjangkauan saldo terhadap reserve turunan.
 	 *
 	 * Reserve-nya TURUNAN dari indeks mempool per-pengirim
-	 * (`getPendingBalance` = Σ(amount+fee) tx pending pengirim ini) — bukan
+	 * (`getPendingReserve` = Σ(amount+fee) tx pending pengirim ini) — bukan
 	 * kunci tersimpan. Karena itu admission ini TIDAK menulis reserve apa
 	 * pun: `saveMempool` di bawah menulis tx BERSAMA entri indeksnya dalam
 	 * SATU batch atomik, sehingga reserve berikutnya otomatis menyertakan
@@ -108,9 +108,9 @@ export class MemPool {
 			return false
 		}
 
-		const pendingBalance = await getPendingBalance(transaction.from!)
+		const pendingReserve = await getPendingReserve(transaction.from!)
 		const availableBalance =
-			userBalance.balance - (pendingBalance.pendingAmount || 0)
+			userBalance.balance - (pendingReserve.pendingAmount || 0)
 
 		if (availableBalance < transaction.amount + (transaction.fee || 0)) {
 			logToConsole('Insufficient user balance for the transaction')

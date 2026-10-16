@@ -14,7 +14,7 @@
  *      yang terpotong 100 entri global. Sender dengan N > 100 tx pending
  *      tetap diharapkan nonce = akun.nonce + N; tx pengirim lain tidak
  *      mengubah harapan ini.
- *   3. **getPendingBalance turunan aman** — alamat tidak valid MELEMPAR
+ *   3. **getPendingReserve turunan aman** — alamat tidak valid MELEMPAR
  *      (bukan diam-diam 0); membaca reserve yang tidak ada menghasilkan 0
  *      TANPA menulis apa pun; dan reserve mengikuti siklus hidup nyata
  *      (admission via `saveMempool` me-reserve, `removeMemPool`
@@ -180,8 +180,8 @@ const { validateTransactionNonce } =
 	await import('src/core/validation/module/isValidTxNonce')
 const { putAccount } = await import('src/core/state/account/putAccount')
 const { getAccount } = await import('src/core/state/account/getAccount')
-const { getPendingBalance } =
-	await import('src/core/transaction/getPendingBalance')
+const { getPendingReserve } =
+	await import('src/core/transaction/getPendingReserve')
 const { sumCostBySender } =
 	await import('src/core/state/storage/mempool/mempoolIndex')
 const { removeMemPool } =
@@ -345,14 +345,14 @@ ok(
 )
 ok(
 	'admission me-reserve tepat cost tx1 (implisit via indeks)',
-	(await getPendingBalance(SENDER_C)).pendingAmount === COST_C1,
-	`pending=${(await getPendingBalance(SENDER_C)).pendingAmount}`,
+	(await getPendingReserve(SENDER_C)).pendingAmount === COST_C1,
+	`pending=${(await getPendingReserve(SENDER_C)).pendingAmount}`,
 )
 ok(
 	'admission tx2 DITERIMA (nonce = 0 + 1 pending)',
 	(await pool.addTransaction(txC2)).isValid === true,
 )
-const reservedBoth = (await getPendingBalance(SENDER_C)).pendingAmount
+const reservedBoth = (await getPendingReserve(SENDER_C)).pendingAmount
 ok(
 	'reserve = Σ cost kedua tx DAN identik dengan indeks',
 	reservedBoth === COST_C1 + COST_C2 &&
@@ -371,13 +371,13 @@ ok(
 )
 ok(
 	'reserve BELUM turun setelah eksekusi (tx masih pending)',
-	(await getPendingBalance(SENDER_C)).pendingAmount === COST_C1 + COST_C2,
+	(await getPendingReserve(SENDER_C)).pendingAmount === COST_C1 + COST_C2,
 )
 
 // Tx keluar dari mempool (seperti `processTransaction` tiap commit blok) →
 // reserve turun tepat sebesar cost tx itu, tanpa counter terpisah.
 await removeMemPool(txC1.txHash!)
-const afterFirst = (await getPendingBalance(SENDER_C)).pendingAmount
+const afterFirst = (await getPendingReserve(SENDER_C)).pendingAmount
 ok(
 	'keluar-mempool melepas tepat cost tx1',
 	afterFirst === COST_C2,
@@ -391,30 +391,30 @@ await processSender(SENDER_C, 200_000, 5_000)
 await removeMemPool(txC2.txHash!)
 ok(
 	'reserve → 0 setelah semua tx keluar dari mempool',
-	(await getPendingBalance(SENDER_C)).pendingAmount === 0,
+	(await getPendingReserve(SENDER_C)).pendingAmount === 0,
 )
 
 // ---------------------------------------------------------------------------
-// 3b. getPendingBalance turunan — alamat invalid melempar, tanpa tulis
+// 3b. getPendingReserve turunan — alamat invalid melempar, tanpa tulis
 // ---------------------------------------------------------------------------
 // Pembaca kini murni turunan indeks mempool: ia tidak menyentuh store state
 // sama sekali, jadi kunci `pendingBalance:<alamat>` TIDAK MUNGKIN muncul
 // dari pembacaan (atau dari mana pun — penulisnya sudah dihapus).
 
-console.log('\nGROUP 3b — getPendingBalance aman:')
+console.log('\nGROUP 3b — getPendingReserve aman:')
 
-const err1 = await caughtAsync(() => getPendingBalance('bukan-alamat'))
+const err1 = await caughtAsync(() => getPendingReserve('bukan-alamat'))
 ok(
 	'alamat sampah MELEMPAR (bukan diam-diam 0)',
 	err1 !== null && /alamat tidak valid/.test(err1.message),
 	err1?.message,
 )
-const err2 = await caughtAsync(() => getPendingBalance(`NxC${'ab'.repeat(10)}`)) // 23 char
+const err2 = await caughtAsync(() => getPendingReserve(`NxC${'ab'.repeat(10)}`)) // 23 char
 ok(
 	'alamat panjang salah MELEMPAR',
 	err2 !== null && /alamat tidak valid/.test(err2.message),
 )
-const err3 = await caughtAsync(() => getPendingBalance(''))
+const err3 = await caughtAsync(() => getPendingReserve(''))
 ok(
 	'alamat kosong MELEMPAR',
 	err3 !== null && /alamat tidak valid/.test(err3.message),
@@ -424,7 +424,7 @@ ok(
 // Catatan: `rocksState.get` kunci hilang di sini RESOLVE `undefined`
 // (bukan reject), jadi normalisasi dulu sebelum dibandingkan.
 const virgin = `NxC${'dd'.repeat(20)}`
-const readBefore = (await getPendingBalance(virgin)).pendingAmount
+const readBefore = (await getPendingReserve(virgin)).pendingAmount
 const keyAfter =
 	(await rocksState.get(`pendingBalance:${virgin}`).catch(() => null)) ?? null
 ok(
