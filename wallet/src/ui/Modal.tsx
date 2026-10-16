@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Icon } from './Icon'
 
 export type ModalVariant = 'default' | 'danger'
 
@@ -115,7 +114,7 @@ export const Modal = ({
 						<h2 id="modal-title">{title}</h2>
 					</div>
 					<button type="button" className="icon-button" onClick={onClose} aria-label="Tutup dialog">
-						<Icon name="lock" size={16} aria-hidden="true" />
+						<span aria-hidden="true">×</span>
 					</button>
 				</header>
 				<div className="modal-body">

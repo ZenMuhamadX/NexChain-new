@@ -72,7 +72,7 @@ export const History = ({
 		<div className="page-stack">
 			<div className="page-heading">
 				<div>
-								<p className="eyebrow">AKTIVITAS TRANSAKSI</p>
+					<p className="eyebrow">AKTIVITAS TRANSAKSI</p>
 					<h1>Riwayat</h1>
 					<p>Tinjau transaksi terkonfirmasi dan tertunda dari alamat ini.</p>
 				</div>
@@ -92,13 +92,18 @@ export const History = ({
 						<span className="empty-state__icon"><Icon name="clock" size={22} aria-hidden="true" /></span>
 						<h2>Belum ada transaksi</h2>
 						<p>Transaksi terkonfirmasi dan tertunda akan muncul di sini.</p>
-						{setTab ? <button type="button" className="button button--primary" onClick={() => setTab('kirim')}>Kirim NXC</button> : null}
+						{setTab ? (
+							<div className="quick-actions">
+								<button type="button" className="button button--primary" onClick={() => setTab('kirim')}>Kirim NXC</button>
+								<button type="button" className="button button--secondary" onClick={() => setTab('terima')}>Terima NXC</button>
+							</div>
+						) : null}
 					</div>
 				) : (
 					<>
 						<div className="table-wrap">
 							<table className="data-table">
-								<caption className="sr-only">Wallet transaction history</caption>
+								<caption className="sr-only">Riwayat transaksi wallet</caption>
 								<thead>
 									<tr>
 										<th scope="col">Transaksi</th>

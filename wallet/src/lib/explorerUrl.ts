@@ -47,13 +47,5 @@ const withPath = (base: string, path: string): string =>
 export const explorerTxUrl = (hash: string, base = getExplorerUrl()): string =>
 	withPath(base, `/tx/${encodeURIComponent(hash)}`)
 
-export const explorerAddressUrl = (
-	address: string,
-	base = getExplorerUrl(),
-): string => withPath(base, `/address/${encodeURIComponent(address)}`)
-
 export const explorerMempoolUrl = (base = getExplorerUrl()): string =>
 	withPath(base, '/mempool')
-
-export const explorerBlocksUrl = (base = getExplorerUrl()): string =>
-	withPath(base, '/blocks')

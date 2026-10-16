@@ -130,8 +130,13 @@ export const SetupWallet = ({
 							<Icon name={reveal ? 'eyeOff' : 'eye'} size={15} aria-hidden="true" />
 							{reveal ? 'Sembunyikan frasa' : 'Tampilkan frasa'}
 						</button>
-						{reveal ? <CopyButton text={mnemonic} ariaLabel="Salin frasa pemulihan" variant="secondary" /> : null}
+						{reveal && backedUp ? <CopyButton text={mnemonic} ariaLabel="Salin frasa pemulihan" variant="secondary" /> : null}
 					</div>
+					{reveal && !backedUp ? (
+						<p className="input-hint">
+							Menyalin ke clipboard dinonaktifkan sampai frasa dicadangkan — clipboard berisiko sebelum Anda punya salinan offline.
+						</p>
+					) : null}
 					<p id="mnemonic-help" className="input-hint">
 						Catatan kata-kata ini secara berurutan. Ini satu-satunya cara memulihkan wallet ini.
 					</p>

@@ -34,7 +34,9 @@ export const Settings = ({
 	const [explorerError, setExplorerError] = useState('')
 	const [testingRpc, setTestingRpc] = useState(false)
 	const [showMnemonic, setShowMnemonic] = useState(false)
+	const [revealPromptOpen, setRevealPromptOpen] = useState(false)
 	const [wipeOpen, setWipeOpen] = useState(false)
+	const [wipeAcknowledged, setWipeAcknowledged] = useState(false)
 	const [wipeBusy, setWipeBusy] = useState(false)
 
 	const saveRpc = (): void => {
@@ -235,16 +237,21 @@ export const Settings = ({
 						<div className="security-reveal">
 							<div className="security-reveal__heading">
 								<span className="label">Frasa pemulihan</span>
-								<CopyButton
-									text={mnemonic}
-									ariaLabel="Salin frasa pemulihan"
-									variant="secondary"
-								/>
+								{showMnemonic ? (
+									<CopyButton
+										text={mnemonic}
+										ariaLabel="Salin frasa pemulihan"
+										variant="secondary"
+									/>
+								) : null}
 							</div>
 							<button
 								type="button"
 								className="button button--secondary"
-								onClick={() => setShowMnemonic((value) => !value)}
+								onClick={() => {
+									if (showMnemonic) setShowMnemonic(false)
+									else setRevealPromptOpen(true)
+								}}
 							>
 								<Icon
 									name={showMnemonic ? 'eyeOff' : 'eye'}
@@ -304,19 +311,49 @@ export const Settings = ({
 			</section>
 
 			<Modal
+				open={revealPromptOpen}
+				onClose={() => setRevealPromptOpen(false)}
+				title="Tampilkan frasa pemulihan?"
+				confirmText="TAMPILKAN"
+				confirmLabel="Tampilkan frasa"
+				onConfirm={() => {
+					setShowMnemonic(true)
+					setRevealPromptOpen(false)
+				}}
+			>
+				<p>
+					Pastikan tidak ada orang lain yang melihat layar ini. Siapa pun yang
+					melihat frasa ini dapat menguasai seluruh dana di wallet Anda.
+				</p>
+			</Modal>
+
+			<Modal
 				open={wipeOpen}
-				onClose={() => !wipeBusy && setWipeOpen(false)}
+				onClose={() => {
+					if (wipeBusy) return
+					setWipeOpen(false)
+					setWipeAcknowledged(false)
+				}}
 				title="Hapus wallet ini?"
 				variant="danger"
 				confirmText="HAPUS"
 				confirmLabel="Hapus permanen"
 				confirmLoading={wipeBusy}
-				onConfirm={() => void confirmWipe()}
+				onConfirm={wipeAcknowledged ? () => void confirmWipe() : undefined}
 			>
-				<p>
-					Ini menghapus vault terenkripsi dari browser ini. Tanpa frasa
-					pemulihan cadangan, dana dalam wallet ini tidak dapat dipulihkan.
-				</p>
+				<div className="field">
+					<p>
+						Ini menghapus vault terenkripsi dari browser ini. Tanpa frasa
+						pemulihan cadangan, dana dalam wallet ini tidak dapat dipulihkan.
+					</p>
+					<label className={`check-card ${wipeAcknowledged ? 'check-card--checked' : ''}`}>
+						<input type="checkbox" checked={wipeAcknowledged} onChange={(event) => setWipeAcknowledged(event.target.checked)} />
+						<span>
+							<strong>Saya punya frasa pemulihan</strong>
+							<small>Saya mengerti wallet ini tidak bisa dipulihkan tanpa frasa itu.</small>
+						</span>
+					</label>
+				</div>
 			</Modal>
 		</div>
 	)

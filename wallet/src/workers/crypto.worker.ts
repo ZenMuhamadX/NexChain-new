@@ -21,8 +21,6 @@ if (typeof g.Buffer === 'undefined') {
 import { encryptSecret, decryptSecret } from 'src/client/wallet/vaultCrypto'
 import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
 import { signTransaction } from 'src/crypto/signTransaction'
-import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransaction'
-import type { comTxInterface } from 'src/types/compositeTransaction'
 import type { TxInterface } from 'src/types/transaction'
 import type { EncryptedBlob } from 'src/client/wallet/vaultCrypto'
 
@@ -35,11 +33,7 @@ interface WorkerRequest<T = any> {
 }
 
 type WorkerRequestType =
-	| 'ENCRYPT_SECRET'
-	| 'DECRYPT_SECRET'
-	| 'DERIVE_KEYS'
-	| 'SIGN_TRANSACTION'
-	| 'CREATE_UNSIGNED_TX'
+	'ENCRYPT_SECRET' | 'DECRYPT_SECRET' | 'DERIVE_KEYS' | 'SIGN_TRANSACTION'
 
 interface WorkerResponse<T = any> {
 	id: string
@@ -65,7 +59,6 @@ type EncryptPayload = {
 type DecryptPayload = { blob: EncryptedBlob; passphrase: string }
 type DeriveKeysPayload = { mnemonic: string }
 type SignTxPayload = { unsignedTx: TxInterface; privateKey: string }
-type CreateUnsignedTxPayload = { comTx: comTxInterface; nonce: number }
 
 // ---- Request Handlers ----
 
@@ -122,16 +115,6 @@ const handleSignTransaction = async (
 	return signTransaction(payload.unsignedTx, payload.privateKey)
 }
 
-const handleCreateUnsignedTx = async (
-	payload: CreateUnsignedTxPayload,
-): Promise<TxInterface> => {
-	const unsigned = createUnsignedTransaction(payload.comTx, payload.nonce)
-	if (!unsigned.status || !unsigned.tx) {
-		throw new Error(unsigned.error ?? 'Gagal menyusun transaksi')
-	}
-	return unsigned.tx
-}
-
 // ---- Message Router ----
 
 const handlers: Record<
@@ -142,7 +125,6 @@ const handlers: Record<
 	DECRYPT_SECRET: handleDecryptSecret,
 	DERIVE_KEYS: handleDeriveKeys,
 	SIGN_TRANSACTION: handleSignTransaction,
-	CREATE_UNSIGNED_TX: handleCreateUnsignedTx,
 }
 
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {

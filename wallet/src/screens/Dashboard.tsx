@@ -11,6 +11,7 @@ interface DashboardProps {
 	nonce: number
 	chainId?: number
 	loading: boolean
+	networkState: 'offline' | 'connecting' | 'connected'
 	refresh: () => void
 	setTab: (tab: Tab) => void
 }
@@ -22,6 +23,7 @@ export const Dashboard = ({
 	nonce,
 	chainId,
 	loading,
+	networkState,
 	refresh,
 	setTab,
 }: DashboardProps): React.JSX.Element => {
@@ -88,11 +90,6 @@ export const Dashboard = ({
 			</div>
 
 			<section className="card">
-				{/* <div className="card-header">
-					<div>
-						<h2>Detail akun</h2>
-					</div>
-				</div> */}
 				<div className="stat-grid">
 					<div className="stat-item">
 						<span className="stat-label">Tersedia</span>
@@ -111,7 +108,7 @@ export const Dashboard = ({
 					</div>
 					<div className="stat-item">
 						<span className="stat-label">Status node</span>
-						<strong className="status-value"><span className={`status-dot ${loading ? 'status-dot--warning' : 'status-dot--success'}`} />{loading ? 'Sinkron' : 'Online'}</strong>
+						<strong className="status-value"><span className={`status-dot ${networkState === 'connected' ? 'status-dot--success' : 'status-dot--warning'}`} />{networkState === 'connected' ? 'Online' : networkState === 'offline' ? 'Terputus' : 'Memuat…'}</strong>
 						<small>Diperbarui setiap 15 detik</small>
 					</div>
 				</div>

@@ -698,14 +698,6 @@ margin-top: 1rem;
 	line-height: 1;
 }
 
-.balance-display span {
-	margin-left: 0.35rem;
-	color: var(--text-muted);
-	font-size: 0.95rem;
-	font-weight: 600;
-	letter-spacing: 0;
-}
-
 .balance-alert,
 .balance-status {
 	display: inline-flex;
@@ -1864,7 +1856,7 @@ textarea.input {
 }
 
 .amount-display--large .amount-display__unit {
-	font-size: 0.3em;
+	font-size: 0.35em;
 }
 
 .amount-display--table {

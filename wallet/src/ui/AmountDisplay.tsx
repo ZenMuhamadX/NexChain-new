@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { NEXU_PER_NXC } from 'src/core/token/constants'
 import { formatNxcCompact, formatNxcExact, formatNexu } from '../lib/format'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
@@ -62,7 +63,7 @@ export const AmountDisplay = ({
 					<strong className="mono">{exact} NXC</strong>
 					<span className="amount-detail__label">Nilai internal</span>
 					<strong className="mono">{raw} nexu</strong>
-					<p>1 NXC = 1.000.000.000.000.000.000 nexu</p>
+					<p>1 NXC = {NEXU_PER_NXC.toLocaleString('id-ID')} nexu</p>
 				</div>
 			</Modal>
 		</span>

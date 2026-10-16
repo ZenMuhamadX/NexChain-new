@@ -9,6 +9,7 @@ import type { SendErrors, SendForm } from '../lib/sendFlow'
 import { errorMessage } from '../lib/format'
 import { explorerTxUrl } from '../lib/explorerUrl'
 import { fetchNextNonce } from '../lib/rpc'
+import { toNexu } from 'src/core/token/toNexu'
 import { Icon } from '../ui/Icon'
 import { AmountDisplay } from '../ui/AmountDisplay'
 import { CopyButton } from '../ui/CopyButton'
@@ -47,10 +48,22 @@ export const Send = ({
 	/** Fee hasil `previewAutoFee` — angka yang persis akan ditandatangani. */
 	const [feeNexu, setFeeNexu] = useState<number | null>(null)
 	const [result, setResult] = useState<SendResult | null>(null)
+	/** true saat tempel clipboard ditolak (izin/file://) — untuk pesan inline. */
+	const [pasteError, setPasteError] = useState('')
 	const update = (patch: Partial<SendForm>): void => {
 		const next = { ...form, ...patch }
 		setForm(next)
+		setPasteError('')
 		if (touched) setErrors(validateSendForm(next, sender))
+	}
+
+	const pasteReceiver = async (): Promise<void> => {
+		try {
+			const text = await navigator.clipboard.readText()
+			if (text.trim()) update({ receiver: text.trim() })
+		} catch {
+			setPasteError('Tidak dapat membaca clipboard — tempel manual (Ctrl+V).')
+		}
 	}
 
 	const closeReview = (): void => {
@@ -127,6 +140,15 @@ export const Send = ({
 	}
 
 	const trackUrl = result?.txHash ? explorerTxUrl(result.txHash) : ''
+
+	// Dialog review hanya terbuka setelah validasi lolos, jadi parse ini aman;
+	// fallback 0 menjaga render tetap utuh bila state berubah setelahnya.
+	let amountNexu = 0
+	try {
+		amountNexu = toNexu(form.amountNxc)
+	} catch {
+		amountNexu = 0
+	}
 
 	return (
 		<div className="page-stack">
@@ -207,13 +229,25 @@ export const Send = ({
 								value={form.receiver}
 								onChange={(event) => update({ receiver: event.target.value })}
 							/>
-							{touched && errors.receiver ? (
+							<button
+								type="button"
+								className="text-button"
+								onClick={() => void pasteReceiver()}
+							>
+								<Icon name="copy" size={13} aria-hidden="true" />
+								Tempel dari clipboard
+							</button>
+							{errors.receiver ? (
 								<p className="input-error">{errors.receiver}</p>
-							) : (
+							) : null}
+							{pasteError ? (
+								<p className="input-error">{pasteError}</p>
+							) : null}
+							{!touched || errors.receiver ? (
 								<p className="input-hint">
 									Alamat diawali NxC atau NxS dan terdiri dari 43 karakter.
 								</p>
-							)}
+							) : null}
 						</div>
 					</div>
 
@@ -356,7 +390,14 @@ export const Send = ({
 					</div>
 					<div>
 						<span>Jumlah</span>
-						<strong>{form.amountNxc} NXC</strong>
+						<strong>
+							<AmountDisplay
+								nexu={amountNexu}
+								size="inline"
+								detailLabel="Rincian"
+								ariaLabel="Lihat detail jumlah"
+							/>
+						</strong>
 					</div>
 					<div>
 						<span>Biaya jaringan</span>
@@ -369,6 +410,21 @@ export const Send = ({
 									size="inline"
 									detailLabel="Rincian"
 									ariaLabel="Lihat detail biaya jaringan"
+								/>
+							)}
+						</strong>
+					</div>
+					<div>
+						<span>Total akan dibebankan</span>
+						<strong>
+							{feeNexu === null ? (
+								'Dihitung otomatis'
+							) : (
+								<AmountDisplay
+									nexu={amountNexu + feeNexu}
+									size="inline"
+									detailLabel="Rincian"
+									ariaLabel="Lihat detail total yang dibebankan"
 								/>
 							)}
 						</strong>

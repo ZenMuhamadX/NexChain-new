@@ -62,7 +62,10 @@ const ALLOWED_KEY = /^[a-z0-9][a-z0-9._-]{0,63}$/
 
 /** Dev murni: muat dari Vite dev server. Selain itu: berkas build. */
 const isDev = process.argv.includes('--dev')
-const DEV_SERVER_URL = process.env.NEX_DEV_SERVER ?? 'http://localhost:5174'
+// Entry shell pindah ke shells/desktop/ (refactor penggabungan wallet-ui) —
+// root server tidak lagi punya index.html sendiri, jadi path-nya eksplisit.
+const DEV_SERVER_URL =
+	process.env.NEX_DEV_SERVER ?? 'http://localhost:5174/shells/desktop/'
 
 let walletDir = ''
 let mainWindow = null

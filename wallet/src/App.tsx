@@ -252,6 +252,7 @@ export const App = (): React.JSX.Element => {
 						nonce={nonce}
 						chainId={chainId}
 						loading={loading}
+						networkState={networkState}
 						refresh={() => void refresh(wallet.address)}
 						setTab={setTab}
 					/>

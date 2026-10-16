@@ -287,22 +287,8 @@ const main = async (): Promise<void> => {
 		ok(badRejected, 'key/validateMnemonic: frasa sampah DITOLAK')
 
 		// Guard: nol default-import bip39 di seluruh root module yang di-alias UI.
-		const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
-		const scanDirs = [
-			'account',
-			'base',
-			'client',
-			'common',
-			'interface',
-			'key',
-			'logging',
-			'nexchain',
-			'p2p',
-			'rpc',
-			'scripts',
-			'sign',
-			'wallet',
-		]
+		const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
+		const scanDirs = ['src', 'scripts', 'wallet/src', 'wallet/scripts']
 		let offender = ''
 		for (const dir of scanDirs) {
 			const abs = join(repoRoot, dir)
