@@ -1,9 +1,14 @@
 /**
- * Kontrak pesan P2P NexChain (protokol v1).
+ * Kontrak pesan P2P NexChain (protokol v2).
  *
  * Semua pesan adalah objek JSON dengan field `type` sebagai diskriminan.
  * Modul ini SENGAJA murni (tanpa I/O, tanpa Node API) supaya bisa dipakai
  * bareng oleh transport, sync, dan tooling uji.
+ *
+ * Badan blok & transaksi TIDAK lagi dikirim sebagai JSON mentah: keduanya
+ * dibawa sebagai string base64 berisi RLP (`encodeBlock`/`encodeTx`), sehingga
+ * nama field tidak diulang di setiap pesan. Konvensi: `block` → `payload`
+ * base64, `tx` → `payload` base64 RLP bertipe `0x02`.
  *
  * Konvensi rentang hash (dua ruang terpisah, JANGAN disamakan):
  *   - `block`  → 64 digit hex huruf kecil (SHA-256)
@@ -18,7 +23,7 @@
 import { isTxHash } from 'src/core/encoding/rlp/txHash'
 
 /** Versi protokol wire. Naikkan bila skema pesan berubah tidak-kompatibel. */
-export const P2P_PROTOCOL_VERSION = 1
+export const P2P_PROTOCOL_VERSION = 2
 
 /** Batas jumlah hash dalam satu `inv` / item dalam satu `getdata`. */
 export const MAX_INV_BATCH = 256
@@ -84,12 +89,13 @@ export interface GetDataMessage {
 }
 
 /**
- * Badan blok — dikirim apa adanya sebagai JSON (`Block`), mengikuti bentuk
- * yang disimpan LevelDB hari ini. Nanti bisa dievaluasi ke codec biner.
+ * Badan blok — string base64 berisi RLP blok (`encodeBlock` di
+ * `src/core/encoding/hex/block/`). Menggantikan JSON mentah `Block` sejak
+ * protokol v2.
  */
 export interface BlockMessage {
 	type: 'block'
-	block: unknown
+	payload: string
 }
 
 /** Transaksi — string base64 RLP hasil `encodeTx` (kontrak wire yang sama). */
@@ -109,7 +115,7 @@ export type P2PMessage =
 	| BlockMessage
 	| TxMessage
 
-/** Nama-nama pesan yang dikenal protokol v1. */
+/** Nama-nama pesan yang dikenal protokol v2. */
 export const MESSAGE_TYPES = [
 	'version',
 	'verack',
@@ -130,6 +136,19 @@ const isHex64 = (value: unknown): value is string =>
 
 const isNonEmptyString = (value: unknown): value is string =>
 	typeof value === 'string' && value.length > 0
+
+/**
+ * Bentuk string base64 (kanonik, padding baku).
+ *
+ * Fail-closed terhadap payload `block`: isi blok diverifikasi di
+ * `connectBlock`, tetapi bentuk pembungkusnya diperiksa di sini supaya peer
+ * yang mengirim sampah ditandai sejak lapisan protokol — bukan setelah
+ * `atob`/RLP gagal di tengah decode.
+ */
+const isBase64 = (value: unknown): value is string =>
+	isNonEmptyString(value) &&
+	value.length % 4 === 0 &&
+	/^[A-Za-z0-9+/]+={0,2}$/.test(value)
 
 const isSafeInt = (value: unknown): value is number =>
 	typeof value === 'number' && Number.isSafeInteger(value)
@@ -236,8 +255,8 @@ export const parseMessage = (raw: unknown): P2PMessage | undefined => {
 			return { type: 'getdata', items }
 		}
 		case 'block': {
-			if (!isRecord(raw.block)) return undefined
-			return { type: 'block', block: raw.block }
+			if (!isBase64(raw.payload)) return undefined
+			return { type: 'block', payload: raw.payload }
 		}
 		case 'tx': {
 			if (!isNonEmptyString(raw.payload)) return undefined

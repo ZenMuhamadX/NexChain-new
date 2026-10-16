@@ -27,7 +27,7 @@ mengikuti kebijakan RPC.
 | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `config.ts`                  | Baca `NEX_P2P_*` dari env. Default aman (mati, loopback).                                            |
 | `types.ts`                   | **Kontrak** lintas modul (tipe + antarmuka). Semua modul hanya bicara lewat sini.                    |
-| `protocol/messages.ts`       | Skema pesan v1 + `parseMessage` (fail-closed).                                                       |
+| `protocol/messages.ts`       | Skema pesan v2 + `parseMessage` (fail-closed).                                                       |
 | `protocol/handshake.ts`      | Aturan `version`/`verack` (murni, bisa diuji tanpa socket).                                          |
 | `transport/framing.ts`       | Framing TCP: length-prefix 4 byte BE + JSON UTF-8.                                                   |
 | `transport/connection.ts`    | Satu `PeerConnection` di atas socket Bun.                                                            |
@@ -45,12 +45,30 @@ di sisi core) supaya `nex_getWork` dapat membacanya tanpa mengimpor `src/p2p/`.
 Snapshot peer disimpan serupa di `src/core/events/peerState.ts` supaya
 `nex_getPeerInfo` bisa membacanya tanpa mengimpor `src/p2p/`.
 
-## Protokol v1
+## Protokol v2
 
 Framing: `[uint32 BE length][JSON UTF-8]`.
 
 Pesan: `version`, `verack`, `ping`, `pong`, `getblocks`, `inv`, `getdata`,
-`block` (JSON `Block` apa adanya), `tx` (base64 RLP lewat `encodeTx`).
+`block`, `tx`.
+
+Badan blok & transaksi dibawa sebagai string `base64(rlp(...))`, bukan JSON
+mentah — nama field tidak lagi diulang di setiap pesan:
+
+| Pesan   | `payload`                                 |
+| ------- | ----------------------------------------- |
+| `block` | `base64(rlp(block))` — `encodeBlock`      |
+| `tx`    | `base64(0x02 ‖ rlp(signed))` — `encodeTx` |
+
+Skema blok ada di `src/core/encoding/rlp/blockCodec.ts`, transaksi di
+`txCodec.ts`; pembungkus base64 di `src/core/encoding/hex/{block,tx}/`.
+`decodeBlock` menolak payload rusak keras (base64/RLP/skema), dan
+`syncManager` memperlakukannya sebagai pelanggaran wire → ban.
+
+**Naik v1 → v2 tidak kompatibel.** `handshake.ts` menolak versi protokol yang
+berbeda secara FATAL, tanpa menawar turun-versi: semua node (termasuk peer di
+`NEX_P2P_PEERS`) harus naik serentak. `P2P_PROTOCOL_VERSION` didefinisikan di
+satu tempat (`protocol/messages.ts`).
 
 Alur sinkronisasi: peer menyambung → tukar `version`/`verack` (chain id +
 genesis harus sama) → node yang tertinggal mengirim `getblocks` (locator dari

@@ -35,6 +35,8 @@ import type { PeerState, SyncManager, SyncManagerOptions } from '../types.js'
 import { getHistoryByTxHash } from 'src/core/block/query/onChain/Transaction/getHistoryByTxHash'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
+import { decodeBlock } from 'src/core/encoding/hex/block/decodeBlock'
+import { encodeBlock } from 'src/core/encoding/hex/block/encodeBlock'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
 import { addTxToMempool } from 'src/core/transaction/addTransactionToMempool'
 import {
@@ -44,6 +46,7 @@ import {
 	markSyncing,
 	resetSyncState,
 } from 'src/core/events/syncState'
+import type { blockStruct } from 'src/types/block'
 import type { TxInterface } from 'src/types/transaction'
 import { loggingDebug } from 'src/logging/debug'
 import { logToConsole } from 'src/logging/logging'
@@ -57,24 +60,6 @@ const STOP_HASH = '0'.repeat(64)
 /** Penjelasan error singkat untuk log. */
 const formatError = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error)
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === 'object' && value !== null && !Array.isArray(value)
-
-/**
- * Ambil hash dari objek blok mentah (`{ block: { header: { hash } } }`).
- *
- * Hanya mengembalikan nilai bila benar-benar 64 hex — bentuk lain diabaikan
- * daripada dipercaya, karena objek ini datang dari jaringan.
- */
-const extractBlockHash = (raw: unknown): string | undefined => {
-	if (!isRecord(raw)) return undefined
-	if (!isRecord(raw.block)) return undefined
-	const header = raw.block.header
-	if (!isRecord(header)) return undefined
-	const hash = header.hash
-	return typeof hash === 'string' && HEX64.test(hash) ? hash : undefined
-}
 
 /**
  * Apakah transaksi sudah dieksekusi (ada di riwayat rantai).
@@ -535,7 +520,10 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 				if (item.kind === 'block') {
 					const block = await tryGetBlockByHash(item.hash)
 					if (block !== undefined) {
-						gateway.send(peer.connection.id, { type: 'block', block })
+						gateway.send(peer.connection.id, {
+							type: 'block',
+							payload: encodeBlock(block.block),
+						})
 					}
 					return true
 				}
@@ -553,11 +541,28 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 	}
 
 	/**
-	 * Terima blok: commit lewat `connectBlock`, lalu kejar rantai dan relai
-	 * hashnya ke peer LAIN. Pelanggaran fatal mem-ban pengirim.
+	 * Terima blok: decode payload RLP, commit lewat `connectBlock`, lalu kejar
+	 * rantai dan relai hashnya ke peer LAIN.
+	 *
+	 * Payload yang tidak bisa di-decode adalah pelanggaran WIRE, bukan sekadar
+	 * balapan — perlakukannya sama seperti "bentuk blok tidak valid" di
+	 * `connectBlock`: ban pengirim.
 	 */
-	const handleBlock = async (peer: PeerState, raw: unknown): Promise<void> => {
-		const result = await connectBlock(raw)
+	const handleBlock = async (
+		peer: PeerState,
+		payload: string,
+	): Promise<void> => {
+		let block: blockStruct
+		try {
+			block = decodeBlock(payload)
+		} catch (error) {
+			gateway.ban(
+				peer.connection.remoteAddress,
+				`payload blok tidak bisa di-decode: ${formatError(error)}`,
+			)
+			return
+		}
+		const result = await connectBlock(block)
 		if (!result.ok) {
 			if (result.fatal) {
 				gateway.ban(
@@ -577,13 +582,11 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		await noteProgress()
 		// Lanjut mengejar bila peer masih lebih maju dari kita.
 		requestSync(peer)
-		const hash = extractBlockHash(raw)
-		if (hash !== undefined) {
-			gateway.broadcast(
-				{ type: 'inv', kind: 'block', hashes: [hash] },
-				peer.connection.id,
-			)
-		}
+		// Hash hasil decode sudah lolos `connectBlock` (verifyHashLength).
+		gateway.broadcast(
+			{ type: 'inv', kind: 'block', hashes: [block.header.hash] },
+			peer.connection.id,
+		)
 	}
 
 	/**
@@ -633,7 +636,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 				await handleGetData(peer, message.items)
 				break
 			case 'block':
-				await handleBlock(peer, message.block)
+				await handleBlock(peer, message.payload)
 				break
 			case 'tx':
 				await handleTx(peer, message.payload)

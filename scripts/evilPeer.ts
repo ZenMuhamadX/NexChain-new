@@ -5,12 +5,13 @@
  * Jalankan:
  *   bun run scripts/evilPeer.ts -- <skenario> --host <h> --port <p>
  *
- * Enam skenario, masing-masing menyoroti SATU pertahanan node:
+ * Tujuh skenario, masing-masing menyoroti SATU pertahanan node:
  *
  *   1. bad-genesis    — kirim `version` dengan genesisHash jaringan lain.
  *                       Node wajib MENUTUP + MEM-BAN (identitas jaringan).
- *   2. bad-version    — kirim `version` dengan protocolVersion di luar v1.
- *                       Node wajib menutup + ban (v1 tidak menawar turun).
+ *   2. bad-version    — kirim `version` dengan protocolVersion di luar versi
+ *                       sekarang. Node wajib menutup + ban (tidak menawar
+ *                       turun-versi).
  *   3. oversize       — frame dengan prefix panjang > `maxMessageBytes`.
  *                       Node wajib menutup SEBELUM payload dialokasikan.
  *   4. garbage        — payload frame bukan JSON valid.
@@ -22,6 +23,9 @@
  *                       tetapi `previousBlockHash` tidak menempel ke tip.
  *                       Node wajib MENOLAK TANPA memutus (penolakan non-
  *                       fatal — bukan pelanggaran).
+ *   7. garbage-block  — pesan `block` dengan `payload` base64 SAH tetapi isi
+ *                       RLP-nya bukan blok. Node wajib menutup + ban
+ *                       (payload wire tidak bisa di-decode).
  *
  * Sifat observasi:
  *   - Skenario yang valid SELALU exit 0: skrip ini tidak memutuskan
@@ -29,8 +33,9 @@
  *     (baris `status` dibaca sebagai informatif, bukan hasil gate).
  *   - Jendela pengamatan ~4 detik per skenario (plus handshake).
  *   - Node MEM-BAN alamat kita (`NEX_P2P_BAN_MS`, default 1 jam) setelah
- *     pelanggaran FATAL (skenario 1–5). Karena itu jalankan SATU skenario
- *     per node segar — atau mulai dari `fork-block` yang tidak mem-ban.
+ *     pelanggaran FATAL (skenario 1–5 dan 7). Karena itu jalankan SATU
+ *     skenario per node segar — atau mulai dari `fork-block` yang tidak
+ *     mem-ban.
  *   - Kegagalan sambung pun exit 0, tetapi dicetak keras sebagai
  *     PERHATIAN supaya tidak disalahartikan sebagai "pertahanan bekerja".
  *
@@ -65,6 +70,8 @@ import { meetsDifficulty } from 'src/core/consensus/difficulty'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
 import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
+import { encodeBlock } from 'src/core/encoding/hex/block/encodeBlock'
+import { uint8ToBase64 } from 'src/core/encoding/hex/base64/uint8ToBase64'
 import type { LocalChainStatus } from 'src/p2p/types'
 
 // ---------------------------------------------------------------------------
@@ -356,6 +363,7 @@ const SCENARIOS: string[] = [
 	'oversize',
 	'garbage',
 	'fake-pow-block',
+	'garbage-block',
 	'fork-block',
 ]
 
@@ -506,12 +514,28 @@ const main = async (): Promise<void> => {
 			}
 			case 'fake-pow-block': {
 				if (await handshake(peer)) {
-					peer.send({ type: 'block', block: buildFakePowBlock() })
+					peer.send({
+						type: 'block',
+						payload: encodeBlock(buildFakePowBlock()),
+					})
 				} else {
 					note = 'handshake gagal — observasi tidak representatif'
 				}
 				expectClose = true
 				expectation = 'menutup + mem-ban (PoW blok tiruan tidak valid)'
+				break
+			}
+			case 'garbage-block': {
+				if (await handshake(peer)) {
+					// Base64 SAH (lolos `parseMessage`) tetapi byte-nya bukan
+					// RLP blok — menguji jalur "payload tidak bisa di-decode".
+					const junk = uint8ToBase64(new Uint8Array([0xff, 0xff, 0x00]))
+					peer.send({ type: 'block', payload: junk })
+				} else {
+					note = 'handshake gagal — observasi tidak representatif'
+				}
+				expectClose = true
+				expectation = 'menutup + mem-ban (payload blok tidak bisa di-decode)'
 				break
 			}
 			case 'fork-block': {
@@ -526,7 +550,10 @@ const main = async (): Promise<void> => {
 						HANDSHAKE_WAIT_MS,
 					)
 					if (sawGetData) {
-						peer.send({ type: 'block', block: buildForkBlock().block })
+						peer.send({
+							type: 'block',
+							payload: encodeBlock(buildForkBlock().block),
+						})
 					} else {
 						note = 'node tidak menjawab getdata — observasi terbatas'
 					}

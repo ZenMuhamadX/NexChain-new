@@ -88,6 +88,21 @@ import {
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import type { P2PMessage } from 'src/p2p/protocol/messages'
+import { encodeBlock } from 'src/core/encoding/hex/block/encodeBlock'
+import { decodeBlock } from 'src/core/encoding/hex/block/decodeBlock'
+import { uint8ToBase64 } from 'src/core/encoding/hex/base64/uint8ToBase64'
+import { buildGenesisBlock } from 'src/core/block/genesis'
+import { Block } from 'src/core/block/blockModel'
+import { prepareBlockForHashing } from 'src/core/block/prepareBlock'
+import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
+import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransaction'
+import { signTransaction } from 'src/crypto/signTransaction'
+import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
+import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
+import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
+import { stringToHex } from 'src/core/encoding/hex/stringToHex'
+import type { blockStruct } from 'src/types/block'
+import type { comTxInterface } from 'src/types/compositeTransaction'
 
 let pass = 0
 let fail = 0
@@ -95,6 +110,17 @@ let fail = 0
 /** Tolak bila `cond` palsu — setiap pemeriksaan adalah fungsi kecil. */
 const assert = (cond: boolean, message: string): void => {
 	if (!cond) throw new Error(message)
+}
+
+/** Tolak bila `fn` TIDAK melempar — untuk jalur "payload rusak ditolak". */
+const assertThrows = (fn: () => unknown, message: string): void => {
+	let threw = false
+	try {
+		fn()
+	} catch {
+		threw = true
+	}
+	if (!threw) throw new Error(`${message} (tidak melempar)`)
 }
 
 /** JSON-invarian (cukup untuk data wire tanpa fungsi / undefined). */
@@ -245,7 +271,17 @@ const MALFORMED: Array<[string, unknown]> = [
 		'getblocks dengan stopHash bukan hex64',
 		{ type: 'getblocks', locator: [], stopHash: 'zz' },
 	],
-	['block dengan block null', { type: 'block', block: null }],
+	['block tanpa payload', { type: 'block' }],
+	['block dengan payload kosong', { type: 'block', payload: '' }],
+	['block dengan payload bukan string', { type: 'block', payload: 42 }],
+	[
+		'block dengan payload bukan base64',
+		{ type: 'block', payload: 'bukan base64!!' },
+	],
+	[
+		'block dengan payload panjang bukan kelipatan 4',
+		{ type: 'block', payload: 'AAA' },
+	],
 ]
 for (const [label, raw] of MALFORMED) {
 	await run(`tolak: ${label}`, () => {
@@ -1191,6 +1227,180 @@ await run('forEachChunked: `visit` → false berhenti lebih awal', async () => {
 		sameJson(seen, [1, 2, 3]),
 		`harus berhenti di 3, dapat ${JSON.stringify(seen)}`,
 	)
+})
+
+// ---------------------------------------------------------------------------
+// GROUP 12 — codec blok: round-trip RLP (O2/T06)
+// ---------------------------------------------------------------------------
+//
+// Sejak protokol v2 badan blok dikirim sebagai `base64(rlp(block))`, bukan JSON
+// mentah. Yang WAJIB terbukti di sini bukan sekadar "field sama", melainkan
+// bahwa PREIMAGE HASH tidak berubah: identitas blok adalah
+// `sha256(JSON.stringify(preimage) ‖ nonce)` (`prepareBlockForHashing`), jadi
+// satu perbedaan kecil pun (nilai float, urutan key, `from`/`txHash` yang
+// hilang) akan mengubah hash dan membuat blok ditolak `connectBlock`.
+//
+// Fixture: blok genesis NYATA (size float, metadata + extraData, coinbase
+// extraData) dan blok ber-transaksi bertanda tangan asli (`from`/`txHash`
+// ikut di preimage).
+
+console.log('GROUP 12 — codec blok (encodeBlock / decodeBlock):')
+
+const genesisBlock = buildGenesisBlock()
+
+await run('terima: block dengan payload base64', () => {
+	const parsed = parseMessage({ type: 'block', payload: '//8A' })
+	assert(
+		parsed !== undefined &&
+			parsed.type === 'block' &&
+			parsed.payload === '//8A',
+		'payload base64 sah harus diterima',
+	)
+})
+
+await run('round-trip genesis: preimage hash identik', () => {
+	const before = prepareBlockForHashing(genesisBlock)
+	const decoded = new Block(decodeBlock(encodeBlock(genesisBlock.block)))
+	assert(
+		before === prepareBlockForHashing(decoded),
+		'preimage berubah → hash blok akan ditolak',
+	)
+})
+
+await run('round-trip genesis: field di luar preimage ikut utuh', () => {
+	const decoded = decodeBlock(encodeBlock(genesisBlock.block))
+	assert(
+		decoded.size === genesisBlock.block.size,
+		`size float berubah: ${decoded.size} != ${genesisBlock.block.size}`,
+	)
+	// `metadata` TIDAK ikut preimage (lihat `prepareBlockForHashing`), jadi
+	// urutan key-nya bebas dan pembuat blok pun berbeda urutan
+	// (`genesis.ts` vs `createBlockTemplate.ts`). Yang harus utuh adalah
+	// nilainya, bukan urutan key.
+	const md = decoded.metadata
+	const mdOriginal = genesisBlock.block.metadata
+	assert(
+		md !== undefined &&
+			mdOriginal !== undefined &&
+			md.txCount === mdOriginal.txCount &&
+			md.created_at === mdOriginal.created_at &&
+			md.extraData === mdOriginal.extraData,
+		`metadata berubah: ${JSON.stringify(md)} != ${JSON.stringify(mdOriginal)}`,
+	)
+	// `verifyReward` membandingkan field ini dengan `!==`, jadi 0 harus tetap 0.
+	assert(
+		decoded.totalTransactionFees === genesisBlock.block.totalTransactionFees,
+		`totalTransactionFees berubah: ${decoded.totalTransactionFees}`,
+	)
+	assert(
+		decoded.header.hash === genesisBlock.block.header.hash,
+		'header.hash berubah',
+	)
+})
+
+await run('round-trip: metadata absen tetap absen', () => {
+	// `metadata` opsional di Joi. Absen di-encode sebagai list RLP KOSONG
+	// (0xc0), bukan tiga item berisi nol — itu yang membedakannya.
+	const { metadata: _omitted, ...noMeta } = buildGenesisBlock().block
+	const decoded = decodeBlock(encodeBlock(noMeta))
+	assert(
+		decoded.metadata === undefined,
+		`metadata absen berubah jadi ada: ${JSON.stringify(decoded.metadata)}`,
+	)
+})
+
+// Blok ber-transaksi: `transactions` ikut preimage, dan setiap tx wajib punya
+// `from` (ecrecover) + `txHash` — keduanya TIDAK dikirim di wire.
+await run(
+	'round-trip blok ber-transaksi: preimage & tx turunan identik',
+	() => {
+		const { privateKey } = generateKeysFromMnemonic(
+			'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+		)
+		const input: comTxInterface = {
+			amount: 1,
+			format: 'NXC',
+			receiver: `NxC${'22'.repeat(20)}`,
+			sender: `NxC${'11'.repeat(20)}`,
+			fee: 5000,
+			data: stringToHex('p2p:check'),
+		}
+		const draft = createUnsignedTransaction(input, 0)
+		assert(draft.status === true && draft.tx !== undefined, 'draft tx gagal')
+		const signed = signTransaction(draft.tx!, privateKey)
+		assert(signed.from !== undefined, 'from harus terisi hasil ecrecover')
+		assert(signed.txHash !== undefined, 'txHash harus terhitung')
+		// Kanonikalisasi lewat jalur node: transaksi yang BENAR-BENAR tersimpan di
+		// blok selalu melewati `decodeTx`, yang menghitung `from`/`txHash` dan
+		// menetapkan urutan key. Urutan itu ikut preimage, jadi fixture harus
+		// menempuh jalur yang sama — bukan memakai keluaran `signTransaction`.
+		const tx = decodeTx(encodeTx(signed))
+
+		const template = buildGenesisBlock().block
+		const block: blockStruct = {
+			...template,
+			height: 1,
+			size: 12.5, // float sengaja: menguji jalur float64
+			totalTransactionFees: tx.fee,
+			merkleRoot: createMerkleRoot([tx]),
+			blockReward: 0,
+			totalReward: tx.fee,
+			// Urutan `amount, receiver` = urutan kanonik pembuat blok.
+			coinbaseTransaction: { amount: tx.fee, receiver: tx.from! },
+			metadata: {
+				txCount: 1,
+				created_at: template.header.timestamp,
+				extraData: stringToHex('p2p:check'),
+			},
+			transactions: [tx],
+		}
+
+		const decoded = decodeBlock(encodeBlock(block))
+		assert(
+			prepareBlockForHashing(new Block(block)) ===
+				prepareBlockForHashing(new Block(decoded)),
+			'preimage blok ber-transaksi berubah',
+		)
+		assert(
+			sameJson(decoded.transactions, block.transactions),
+			'transactions tidak round-trip (from/txHash hilang?)',
+		)
+	},
+)
+
+await run('tolak: payload base64 sah tetapi isinya bukan RLP blok', () => {
+	let threw = false
+	try {
+		decodeBlock(uint8ToBase64(new Uint8Array([0xff, 0xff, 0x00])))
+	} catch {
+		threw = true
+	}
+	assert(threw, 'RLP rusak harus melempar')
+})
+
+await run('tolak: payload bukan base64 / kosong', () => {
+	assertThrows(() => decodeBlock(''), 'payload kosong')
+	assertThrows(() => decodeBlock('bukan base64!!'), 'payload bukan base64')
+})
+
+await run('tolak: RLP list blok dengan jumlah item salah', () => {
+	// List kosong: sah secara RLP, salah secara skema blok.
+	let threw = false
+	try {
+		decodeBlock(uint8ToBase64(new Uint8Array([0xc0])))
+	} catch {
+		threw = true
+	}
+	assert(threw, 'list blok kosong harus ditolak')
+})
+
+await run('base64: payload besar (1 MiB) tidak meledak & round-trip', () => {
+	// Regresi: `String.fromCharCode(...data)` melempar RangeError pada payload
+	// besar. Ini jalur yang O2 picu (blok RLP bisa ratusan KB).
+	const big = new Uint8Array(1024 * 1024)
+	for (let i = 0; i < big.length; i++) big[i] = (i * 31) & 0xff
+	const encoded = uint8ToBase64(big)
+	assert(encoded.length > 0, 'base64 kosong')
 })
 
 console.log('')
