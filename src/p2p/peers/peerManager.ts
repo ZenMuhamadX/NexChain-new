@@ -12,6 +12,7 @@
  * membunuh proses node.
  */
 import { logToConsole } from 'src/logging/logging'
+import { describeBindHost } from '../config.js'
 import {
 	buildVersionMessage,
 	checkVersionMessage,
@@ -376,7 +377,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 		)
 		server = listener
 		logToConsole(
-			`P2P: listener aktif di ${config.bindHost}:${listener.port} ` +
+			`P2P: listener aktif di ${describeBindHost(config.bindHost)}:${listener.port} ` +
 				`(peer bootstrap: ${config.peers.length})`,
 		)
 		// Dial awal segera; interval reconnect mengulang yang gagal nanti.

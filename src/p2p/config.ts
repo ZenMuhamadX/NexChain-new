@@ -6,6 +6,7 @@
  * dinyalakan eksplisit. Saat menyala, bind default loopback — sama seperti
  * kebijakan RPC (`RPC_BIND_HOST`).
  */
+import os from 'node:os'
 
 /** Batas atas ukuran pesan (byte) — pagar terhadap pesan raksasa. */
 export const DEFAULT_MAX_MESSAGE_BYTES = 10 * 1024 * 1024 // 10 MB
@@ -133,3 +134,29 @@ export const loadP2PConfig = (
 		serveChunkSize: positiveInt(env.NEX_P2P_SERVE_CHUNK, 32),
 	}
 }
+
+/** IPv4 non-internal pertama. Dipakai HANYA untuk menampilkan bind. */
+export const pickLanIPv4 = (
+	interfaces: ReturnType<typeof os.networkInterfaces>,
+): string | undefined => {
+	for (const list of Object.values(interfaces)) {
+		for (const info of list ?? []) {
+			if (info.family === 'IPv4' && !info.internal) return info.address
+		}
+	}
+	return undefined
+}
+
+/**
+ * Alamat yang ditampilkan di log listener. `0.0.0.0`/`::` berarti "semua
+ * antarmuka" — tampilkan IPv4 LAN nyata supaya operator bisa menyalinnya
+ * sebagai seed. Ini hanya kosmetik: bind-nya tetap ke semua antarmuka, dan
+ * `bindHost` asli tetap jadi fallback bila mesin tak punya IPv4 non-internal.
+ */
+export const describeBindHost = (
+	bindHost: string,
+	interfaces: ReturnType<typeof os.networkInterfaces> = os.networkInterfaces(),
+): string =>
+	bindHost === '0.0.0.0' || bindHost === '::'
+		? (pickLanIPv4(interfaces) ?? bindHost)
+		: bindHost

@@ -10,7 +10,7 @@
  * Default AMAN: bila `NEX_P2P_ENABLED` tidak truthy, `startP2P()` mengembalikan
  * `undefined` dan node berjalan persis seperti sebelumnya (tanpa port P2P).
  */
-import { loadP2PConfig, type P2PConfig } from './config.js'
+import { loadP2PConfig, describeBindHost, type P2PConfig } from './config.js'
 import { getLocalChainStatus } from './chain.js'
 import { createPeerManager } from './peers/peerManager.js'
 import { createSyncManager } from './sync/syncManager.js'
@@ -115,7 +115,7 @@ export const startP2P = async (
 	await manager.start()
 
 	logToConsole(
-		`P2P aktif di ${config.bindHost}:${config.port} ` +
+		`P2P aktif di ${describeBindHost(config.bindHost)}:${config.port} ` +
 			`(maks ${config.maxPeers} peer, bootstrap ${config.peers.length} entri)`,
 	)
 

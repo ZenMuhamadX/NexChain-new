@@ -56,6 +56,8 @@ import {
 	loadP2PConfig,
 	parsePeerList,
 	DEFAULT_MAX_MESSAGE_BYTES,
+	describeBindHost,
+	pickLanIPv4,
 } from 'src/p2p/config'
 import {
 	buildVersionMessage,
@@ -500,6 +502,74 @@ await run(
 		assert(
 			zero.serveChunkSize === 32,
 			`0 harus jatuh ke default 32, dapat ${zero.serveChunkSize}`,
+		)
+	},
+)
+
+// ---------------------------------------------------------------------------
+// GROUP 4b — tampilan bind: `0.0.0.0` → IPv4 LAN nyata
+// ---------------------------------------------------------------------------
+
+console.log('GROUP 4b — describeBindHost / pickLanIPv4:')
+
+const fakeIfaces = (
+	entries: Record<
+		string,
+		Array<{ address: string; family: string; internal: boolean }>
+	>,
+): ReturnType<typeof import('node:os').networkInterfaces> =>
+	entries as unknown as ReturnType<typeof import('node:os').networkInterfaces>
+
+await run(
+	'pickLanIPv4: IPv4 non-internal pertama, lewati internal & IPv6',
+	() => {
+		const ifaces = fakeIfaces({
+			lo: [{ address: '127.0.0.1', family: 'IPv4', internal: true }],
+			eth0: [
+				{ address: 'fe80::1', family: 'IPv6', internal: false },
+				{ address: '192.168.1.5', family: 'IPv4', internal: false },
+			],
+		})
+		assert(
+			pickLanIPv4(ifaces) === '192.168.1.5',
+			`harus 192.168.1.5, dapat ${pickLanIPv4(ifaces)}`,
+		)
+		assert(
+			pickLanIPv4(fakeIfaces({})) === undefined,
+			'tanpa antarmuka harus undefined',
+		)
+		assert(
+			pickLanIPv4(
+				fakeIfaces({
+					lo: [{ address: '127.0.0.1', family: 'IPv4', internal: true }],
+				}),
+			) === undefined,
+			'hanya loopback harus undefined',
+		)
+	},
+)
+
+await run(
+	'describeBindHost: 0.0.0.0/:: → IP LAN, loopback/nama apa adanya, fallback',
+	() => {
+		const ifaces = fakeIfaces({
+			eth0: [{ address: '192.168.1.5', family: 'IPv4', internal: false }],
+		})
+		assert(
+			describeBindHost('0.0.0.0', ifaces) === '192.168.1.5',
+			`0.0.0.0 harus jadi IP LAN, dapat ${describeBindHost('0.0.0.0', ifaces)}`,
+		)
+		assert(
+			describeBindHost('::', ifaces) === '192.168.1.5',
+			`:: harus jadi IP LAN, dapat ${describeBindHost('::', ifaces)}`,
+		)
+		assert(
+			describeBindHost('127.0.0.1', ifaces) === '127.0.0.1',
+			'loopback harus dibiarkan apa adanya',
+		)
+		assert(
+			describeBindHost('0.0.0.0', fakeIfaces({})) === '0.0.0.0',
+			'tanpa IPv4 LAN harus fallback ke nilai asli (jangan cetak kosong)',
 		)
 	},
 )
