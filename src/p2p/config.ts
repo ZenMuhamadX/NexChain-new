@@ -45,6 +45,12 @@ export interface P2PConfig {
 	 * mining selamanya. Lihat `src/core/events/syncState.ts`.
 	 */
 	syncTimeoutMs: number
+	/**
+	 * Banyak item yang dilayani per giliran sebelum `yieldToLoop()` (pacing).
+	 * Mencegah satu permintaan peer memonopoli event loop — RPC/UI tetap
+	 * responsif saat IBD. Default 32 (±8 giliran untuk batch `MAX_INV_BATCH`).
+	 */
+	serveChunkSize: number
 }
 
 const TRUTHY = new Set(['1', 'true', 'yes', 'on'])
@@ -124,5 +130,6 @@ export const loadP2PConfig = (
 		// Floor 1000 ms: nilai lebih kecil (termasuk 0/negatif) jatuh ke default
 		// 60_000 — mencegah katup pengaman mati karena salah setel.
 		syncTimeoutMs: positiveInt(env.NEX_P2P_SYNC_TIMEOUT_MS, 60_000, 1_000),
+		serveChunkSize: positiveInt(env.NEX_P2P_SERVE_CHUNK, 32),
 	}
 }

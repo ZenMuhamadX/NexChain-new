@@ -24,6 +24,7 @@
  */
 import { isBroadcastSuppressed, runSuppressed } from '../broadcastGate.js'
 import { getBlockHashByHeight, hasBlock, tryGetBlockByHash } from '../chain.js'
+import { forEachChunked } from '../scheduling.js'
 import {
 	type GetDataItem,
 	type InvMessage,
@@ -434,16 +435,18 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 			}
 		}
 		const status = await getLocalStatus()
-		const hashes: string[] = []
-		for (
-			let height = forkHeight + 1;
-			height <= status.bestHeight && hashes.length < MAX_INV_BATCH;
-			height++
-		) {
-			const hash = await getBlockHashByHeight(height)
-			if (hash === undefined) break
-			hashes.push(hash)
+		const last = Math.min(status.bestHeight, forkHeight + MAX_INV_BATCH)
+		const heights: number[] = []
+		for (let height = forkHeight + 1; height <= last; height++) {
+			heights.push(height)
 		}
+		const hashes: string[] = []
+		await forEachChunked(heights, config.serveChunkSize, async (height) => {
+			const hash = await getBlockHashByHeight(height)
+			if (hash === undefined) return false
+			hashes.push(hash)
+			return true
+		})
 		gateway.send(peer.connection.id, { type: 'inv', kind: 'block', hashes })
 	}
 
@@ -457,10 +460,15 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 			// terjawab — bersihkan agar tidak menyumbat probe berikutnya.
 			awaitingInv.delete(peer.connection.id)
 			const missingBlocks: string[] = []
-			for (const hash of message.hashes) {
-				if (missingBlocks.length >= MAX_INV_BATCH) break
-				if (!(await hasBlock(hash))) missingBlocks.push(hash)
-			}
+			await forEachChunked(
+				message.hashes,
+				config.serveChunkSize,
+				async (hash) => {
+					if (missingBlocks.length >= MAX_INV_BATCH) return false
+					if (!(await hasBlock(hash))) missingBlocks.push(hash)
+					return true
+				},
+			)
 			if (missingBlocks.length === 0) {
 				// Tidak ada satu pun hash yang belum kita punya. `notifyCaughtUp`
 				// sendiri yang memutuskan apakah ini bukti cukup (harus punya tip
@@ -490,12 +498,17 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 			if (tx.txHash !== undefined) pending.add(tx.txHash)
 		}
 		const missingTxs: string[] = []
-		for (const hash of message.hashes) {
-			if (missingTxs.length >= MAX_INV_BATCH) break
-			if (pending.has(hash)) continue
-			if (await isExecuted(hash)) continue
-			missingTxs.push(hash)
-		}
+		await forEachChunked(
+			message.hashes,
+			config.serveChunkSize,
+			async (hash) => {
+				if (missingTxs.length >= MAX_INV_BATCH) return false
+				if (pending.has(hash)) return true
+				if (await isExecuted(hash)) return true
+				missingTxs.push(hash)
+				return true
+			},
+		)
 		if (missingTxs.length === 0) return
 		gateway.send(peer.connection.id, {
 			type: 'getdata',
@@ -509,23 +522,28 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		items: GetDataItem[],
 	): Promise<void> => {
 		let mempool: TxInterface[] | undefined
-		for (const item of items.slice(0, MAX_INV_BATCH)) {
-			if (item.kind === 'block') {
-				const block = await tryGetBlockByHash(item.hash)
-				if (block !== undefined) {
-					gateway.send(peer.connection.id, { type: 'block', block })
+		await forEachChunked(
+			items.slice(0, MAX_INV_BATCH),
+			config.serveChunkSize,
+			async (item) => {
+				if (item.kind === 'block') {
+					const block = await tryGetBlockByHash(item.hash)
+					if (block !== undefined) {
+						gateway.send(peer.connection.id, { type: 'block', block })
+					}
+					return true
 				}
-				continue
-			}
-			if (mempool === undefined) mempool = await loadMempool()
-			const entry = mempool.find((tx) => tx.txHash === item.hash)
-			if (entry !== undefined) {
-				gateway.send(peer.connection.id, {
-					type: 'tx',
-					payload: encodeTx(entry),
-				})
-			}
-		}
+				if (mempool === undefined) mempool = await loadMempool()
+				const entry = mempool.find((tx) => tx.txHash === item.hash)
+				if (entry !== undefined) {
+					gateway.send(peer.connection.id, {
+						type: 'tx',
+						payload: encodeTx(entry),
+					})
+				}
+				return true
+			},
+		)
 	}
 
 	/**
