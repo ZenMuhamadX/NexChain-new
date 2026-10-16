@@ -266,6 +266,11 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 	 * jalan keluar terakhir.
 	 */
 	const notifyCaughtUp = async (peer: PeerState): Promise<void> => {
+		// Latch: bukti "menyusul" cukup diperiksa SEKALI. Siklus sync berkala
+		// memanggil ini lagi tiap `syncIntervalMs`; tanpa penjaga, log dan
+		// pemindaian `hasBlock` terulang terus. `beginOrContinueSync` sudah
+		// memakai penjaga yang sama.
+		if (getSyncStatus().phase === 'synced') return
 		let localHeight: number | undefined
 		try {
 			localHeight = (await getLocalStatus()).bestHeight
