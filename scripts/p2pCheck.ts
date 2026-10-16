@@ -37,6 +37,9 @@
  *      yang dibaca `nex_getPeerInfo` (salinan, bukan referensi state p2p).
  *  10. **Arah dependensi** — `src/core/**` TIDAK boleh mengimpor `src/p2p/**`
  *      (p2p adalah konsumen core, bukan sebaliknya).
+ *  11. **Pacing serve** — `yieldToLoop` menyerahkan batas makrotask dan
+ *      `forEachChunked` menyisipkan yield tepat di antara chunk (bukan setelah
+ *      item terakhir), supaya loop layanan tak memonopoli event loop bersama RPC.
  */
 import {
 	encodeFrame,
@@ -62,6 +65,7 @@ import {
 } from 'src/p2p/protocol/handshake'
 import { runSuppressed, isBroadcastSuppressed } from 'src/p2p/broadcastGate'
 import { BanList } from 'src/p2p/peers/banList'
+import { forEachChunked, yieldToLoop } from 'src/p2p/scheduling'
 import { isTxHash, TX_HASH_PREFIX } from 'src/core/encoding/rlp/txHash'
 import {
 	getSyncStatus,
@@ -474,6 +478,31 @@ await run('syncTimeoutMs: default 60000, floor 1000', () => {
 		`di bawah floor harus jatuh ke default 60000, dapat ${tooLow.syncTimeoutMs}`,
 	)
 })
+
+await run(
+	'serveChunkSize: default 32, env valid dipakai, tak sah → default',
+	() => {
+		const def = loadP2PConfig({} as NodeJS.ProcessEnv)
+		assert(
+			def.serveChunkSize === 32,
+			`default harus 32, dapat ${def.serveChunkSize}`,
+		)
+		const custom = loadP2PConfig({
+			NEX_P2P_SERVE_CHUNK: '8',
+		} as NodeJS.ProcessEnv)
+		assert(
+			custom.serveChunkSize === 8,
+			`nilai valid harus 8, dapat ${custom.serveChunkSize}`,
+		)
+		const zero = loadP2PConfig({
+			NEX_P2P_SERVE_CHUNK: '0',
+		} as NodeJS.ProcessEnv)
+		assert(
+			zero.serveChunkSize === 32,
+			`0 harus jatuh ke default 32, dapat ${zero.serveChunkSize}`,
+		)
+	},
+)
 
 // ---------------------------------------------------------------------------
 // GROUP 5 — handshake: identitas jaringan & versi protokol
@@ -976,6 +1005,121 @@ await run('pemindai arah dependensi benar-benar bekerja (self-test)', () => {
 	assert(
 		importSpecifiers("await import('src/p2p/chain')").length === 1,
 		'import() dinamis harus terdeteksi',
+	)
+})
+
+// ---------------------------------------------------------------------------
+// GROUP 11 — pacing serve: `yieldToLoop` + `forEachChunked` (S5/T04)
+// ---------------------------------------------------------------------------
+//
+// Node = satu proses; RPC/UI berbagi event loop dengan P2P. Loop layanan
+// (`getblocks`/`getdata`/`inv`) yang panjang tanpa yield menahan `nex_getWork`
+// dan timer. Helper ini yang memastikan giliran diserahkan tiap chunk.
+
+console.log('GROUP 11 — pacing serve (yieldToLoop / forEachChunked):')
+
+/** Fungsi tanpa efek — `visit`/`yieldFn` yang tidak relevan bagi tes. */
+const noop = (): boolean => true
+const noYield = async (): Promise<void> => {}
+
+await run('yieldToLoop benar-benar menyerahkan batas makrotask', async () => {
+	const order: string[] = []
+	setImmediate(() => order.push('macro'))
+	await yieldToLoop()
+	order.push('after')
+	assert(
+		order[0] === 'macro',
+		`setImmediate harus jalan lebih dulu, dapat ${JSON.stringify(order)}`,
+	)
+})
+
+await run(
+	'forEachChunked: urutan item dipertahankan, semua diproses',
+	async () => {
+		const seen: number[] = []
+		await forEachChunked(
+			[1, 2, 3, 4, 5],
+			2,
+			(n) => {
+				seen.push(n)
+				return true
+			},
+			noYield,
+		)
+		assert(
+			sameJson(seen, [1, 2, 3, 4, 5]),
+			`urutan salah: ${JSON.stringify(seen)}`,
+		)
+	},
+)
+
+await run(
+	'forEachChunked: yield tepat DI ANTARA chunk, bukan setelah akhir',
+	async () => {
+		let yields = 0
+		const counter = async (): Promise<void> => {
+			yields++
+		}
+		await forEachChunked([1, 2, 3, 4, 5, 6], 2, noop, counter)
+		assert(yields === 2, `6 item / chunk 2 → 2 yield, dapat ${yields}`)
+		yields = 0
+		await forEachChunked([1, 2, 3, 4], 2, noop, counter)
+		assert(yields === 1, `4 item / chunk 2 → 1 yield, dapat ${yields}`)
+		yields = 0
+		await forEachChunked([1, 2], 5, noop, counter)
+		assert(yields === 0, `2 item / chunk 5 → 0 yield, dapat ${yields}`)
+	},
+)
+
+await run(
+	'forEachChunked: chunkSize tak sah dijepit ke 1 (tetap ada yield)',
+	async () => {
+		let yields = 0
+		const counter = async (): Promise<void> => {
+			yields++
+		}
+		await forEachChunked([1, 2, 3], 0, noop, counter)
+		assert(yields === 2, `chunkSize 0 → per-item (2 yield), dapat ${yields}`)
+		yields = 0
+		await forEachChunked([1, 2, 3], Number.NaN, noop, counter)
+		assert(yields === 2, `chunkSize NaN → per-item (2 yield), dapat ${yields}`)
+	},
+)
+
+await run('forEachChunked: daftar kosong → 0 visit, 0 yield', async () => {
+	let visits = 0
+	let yields = 0
+	await forEachChunked(
+		[],
+		4,
+		() => {
+			visits++
+			return true
+		},
+		async () => {
+			yields++
+		},
+	)
+	assert(
+		visits === 0 && yields === 0,
+		`kosong harus tanpa efek, dapat visit=${visits} yield=${yields}`,
+	)
+})
+
+await run('forEachChunked: `visit` → false berhenti lebih awal', async () => {
+	const seen: number[] = []
+	await forEachChunked(
+		[1, 2, 3, 4, 5],
+		2,
+		(n) => {
+			seen.push(n)
+			return n !== 3
+		},
+		noYield,
+	)
+	assert(
+		sameJson(seen, [1, 2, 3]),
+		`harus berhenti di 3, dapat ${JSON.stringify(seen)}`,
 	)
 })
 

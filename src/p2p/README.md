@@ -37,6 +37,7 @@ mengikuti kebijakan RPC.
 | `validation/connectBlock.ts` | Validasi blok asing + jalur cabang (branch pool → reorg), lalu `commitBlock`.                        |
 | `sync/syncManager.ts`        | Protokol `getblocks`/`inv`/`getdata`/`block`/`tx`; menandai status sync; re-announce mempool.        |
 | `broadcastGate.ts`           | Menekan siaran ganda saat memproses item masuk.                                                      |
+| `scheduling.ts`              | Pacing loop layanan: `yieldToLoop` + `forEachChunked` (serahkan giliran ke event loop tiap chunk).   |
 | `node.ts`                    | Orkestrator: `startP2P()`. Satu-satunya tempat semua dirangkai.                                      |
 
 Status sinkronisasi sendiri disimpan di `src/core/events/syncState.ts` (netral,
@@ -136,6 +137,22 @@ kumulatif terbanyak (`Σ 2^difficulty`), bukan tinggi terpanjang.
   mempool: sekali saat peer selesai handshake (`onPeerReady`) dan berkala tiap
   60 detik. Peer yang belum punya tx lalu meminta lewat `getdata` seperti biasa.
 
+## Pacing layanan (S5/T04)
+
+Node adalah SATU proses: RPC (`nex_getWork`, explorer, wallet) dan P2P berbagi
+event loop. Loop layanan `getblocks`/`getdata`/`inv` mengiterasi sampai
+`MAX_INV_BATCH` (256) item, dan `await` penyimpanan LevelDB hanya beresolusi
+lewat **microtask** — yang dikuras habis sebelum event loop memeriksa
+socket/timer. Tanpa jeda, satu permintaan peer yang besar bisa membuat
+`nex_getWork` timeout dan UI tersendat.
+
+`sync/syncManager.ts` karena itu memakai `forEachChunked` dari `scheduling.ts`:
+memproses item per `NEX_P2P_SERVE_CHUNK` (default 32) lalu memanggil
+`yieldToLoop()` (batas **makrotask**, `setImmediate`) di antara chunk. Urutan
+item dan isi pesan tak berubah — hanya ada titik serah-giliran. Ini versi
+sederhana dari _send queue_ + _token bucket_ Bitcoin; backpressure socket
+sendiri belum ditangani (follow-up).
+
 ## Aturan keamanan yang penting
 
 - **`connectBlock` menerima blok yang tidak menempel ke tip HANYA sebagai
@@ -152,8 +169,8 @@ kumulatif terbanyak (`Σ 2^difficulty`), bukan tinggi terpanjang.
 ## Uji
 
 - `bun run check:p2p` — gerbang offline (framing, pesan, config, handshake, ban,
-  status sync/IBD termasuk fase `forked`, snapshot observability peer, dan arah
-  dependensi `core ↛ p2p`).
+  status sync/IBD termasuk fase `forked`, snapshot observability peer, pacing
+  serve `yieldToLoop`/`forEachChunked`, dan arah dependensi `core ↛ p2p`).
 - `bun run check:reorg` — gerbang reorg (fork choice, branch pool, penelusuran
   nenek moyang, reorg penuh lewat LevelDB nyata, batas kedalaman, `invalidateFrom`).
 - `bun run p2p:smoke` — tiga node localhost; node kedua harus menyusul tinggi
