@@ -64,6 +64,17 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 	let pingTimer: ReturnType<typeof setInterval> | undefined
 	let reconnectTimer: ReturnType<typeof setInterval> | undefined
 
+	/**
+	 * Kunci endpoint pada peta `outbound`. Untuk dial keluar ini adalah
+	 * `host:port` KONFIGURASI (`dialKey`) — BUKAN `remoteAddress`, yang sudah
+	 * berupa IP hasil resolusi. Memakai `remoteAddress` membuat seed berupa
+	 * hostname tersangkut: `onClose` menghapus kunci yang tak pernah ada, jadi
+	 * `dialBootstrapPeers` melewatinya selamanya (reconnect mati) atau, bila
+	 * kuncinya sempat lepas, mendial ulang tiap interval sampai menumpuk.
+	 */
+	const endpointKeyOf = (connection: PeerConnection): string =>
+		connection.dialKey ?? `${connection.remoteAddress}:${connection.remotePort}`
+
 	/** Lepas timer handshake bila masih terpasang. */
 	const clearHandshakeTimer = (record: PeerRecord): void => {
 		if (record.handshakeTimer === undefined) return
@@ -269,7 +280,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 			// Lepas kunci dial keluar bila ini koneksi outbound, bahkan bila
 			// rekamannya tidak pernah terbentuk (koneksi ditolak lebih dulu).
 			if (!connection.inbound) {
-				outbound.delete(`${connection.remoteAddress}:${connection.remotePort}`)
+				outbound.delete(endpointKeyOf(connection))
 			}
 			const record = peers.get(connection.id)
 			if (record === undefined) return
@@ -347,9 +358,9 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 
 	/**
 	 * Dial semua bootstrap peer yang layak: tidak dibanned, belum punya
-	 * koneksi, dan belum ada dial keluar berjalan. Perbandingan host memakai
-	 * string mentah (`127.0.0.1` dan `localhost` dianggap berbeda) supaya
-	 * deterministik.
+	 * koneksi, dan belum ada dial keluar berjalan. Pencocokan memakai
+	 * `endpointKeyOf` — endpoint KONFIGURASI, jadi seed berupa hostname
+	 * (`peer.example.com`) tetap dikenali walau `remoteAddress`-nya IP.
 	 */
 	const dialBootstrapPeers = (): void => {
 		if (peers.size >= config.maxPeers) return
@@ -358,9 +369,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 			if (banned.isBanned(endpoint.host)) continue
 			if (outbound.has(key)) continue
 			const connected = [...peers.values()].some(
-				(record) =>
-					record.connection.remoteAddress === endpoint.host &&
-					record.connection.remotePort === endpoint.port,
+				(record) => endpointKeyOf(record.connection) === key,
 			)
 			if (connected) continue
 			const handle = connectOutbound(

@@ -27,6 +27,12 @@ export interface TcpConnectionOptions {
 	id: string
 	/** Apakah koneksi masuk dari listener. */
 	inbound: boolean
+	/**
+	 * `host:port` yang didial (koneksi keluar saja). Lihat
+	 * `PeerConnection.dialKey` — inilah identitas yang dipakai peer manager,
+	 * karena `remoteAddress` sudah berupa alamat hasil resolusi.
+	 */
+	dialKey?: string | undefined
 	/** Batas ukuran pesan (byte) untuk encode dan decode. */
 	maxMessageBytes: number
 	/** Pemilik koneksi (peer manager) — semua peristiwa diteruskan ke sini. */
@@ -43,6 +49,7 @@ export class TcpConnection implements PeerConnection {
 	readonly inbound: boolean
 	readonly remoteAddress: string
 	readonly remotePort: number
+	readonly dialKey: string | undefined
 
 	private readonly socket: Bun.Socket<undefined>
 	private readonly maxMessageBytes: number
@@ -62,6 +69,7 @@ export class TcpConnection implements PeerConnection {
 		// Socket yang baru saja mati bisa saja belum punya alamat remote.
 		this.remoteAddress = socket.remoteAddress || 'unknown'
 		this.remotePort = socket.remotePort || 0
+		this.dialKey = options.dialKey
 		this.maxMessageBytes = options.maxMessageBytes
 		this.events = options.events
 		this.decoder = new FrameDecoder(options.maxMessageBytes)

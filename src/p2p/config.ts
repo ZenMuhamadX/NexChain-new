@@ -89,10 +89,10 @@ export const parsePeerList = (raw: string | undefined): PeerEndpoint[] => {
 			continue
 		}
 		const rawHost = trimmed.slice(0, idx)
-		// `localhost` dinormalkan ke `127.0.0.1`: peer manager memakai
-		// `host:port` sebagai kunci dial keluar dan mencocokkannya dengan
-		// `remoteAddress` socket. Tanpa normalisasi, seed `localhost` tidak
-		// akan pernah cocok dan reconnect gagal senyap.
+		// `localhost` dinormalkan ke `127.0.0.1` supaya seed cocok dengan
+		// `remoteAddress` koneksi MASUK dari loopback. Koneksi keluar tidak
+		// lagi bergantung pada ini: peer manager memakai `dialKey` (endpoint
+		// konfigurasi apa adanya), jadi hostname mana pun aman.
 		const host = rawHost.toLowerCase() === 'localhost' ? '127.0.0.1' : rawHost
 		const port = Number(trimmed.slice(idx + 1))
 		if (!host || !Number.isSafeInteger(port) || port < 1 || port > 65535) {

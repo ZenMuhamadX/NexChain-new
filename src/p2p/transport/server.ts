@@ -171,6 +171,9 @@ export const connectOutbound = (
 						const wrapper = new TcpConnection(socket, {
 							id: nextConnectionId(),
 							inbound: false,
+							// Identitas peer outbound = endpoint KONFIGURASI, bukan
+							// `remoteAddress` (yang sudah berupa IP hasil resolusi).
+							dialKey: `${options.host}:${options.port}`,
 							maxMessageBytes: options.maxMessageBytes,
 							events,
 						})

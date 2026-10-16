@@ -32,6 +32,13 @@ export interface PeerConnection {
 	readonly remoteAddress: string
 	readonly remotePort: number
 	readonly inbound: boolean
+	/**
+	 * `host:port` yang DIDIAL untuk koneksi keluar; `undefined` untuk koneksi
+	 * masuk. `remoteAddress` adalah alamat hasil resolusi DNS, jadi untuk seed
+	 * berupa hostname keduanya BERBEDA. Peer manager harus memakai ini — bukan
+	 * `remoteAddress` — sebagai identitas peer outbound.
+	 */
+	readonly dialKey?: string | undefined
 	isOpen(): boolean
 	send(message: P2PMessage): void
 	close(reason?: DisconnectReason): void

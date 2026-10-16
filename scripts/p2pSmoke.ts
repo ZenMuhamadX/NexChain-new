@@ -29,6 +29,12 @@
  *      benar, dan katup pengaman `NEX_P2P_SYNC_TIMEOUT_MS` membuka mining
  *      setelah timeout. Node C sengaja tak bisa menyusul agar hasilnya
  *      deterministik (bukan balapan handshake).
+ *   7. Reconnect dengan seed berupa HOSTNAME (bukan IP): `peerManager` harus
+ *      memakai endpoint KONFIGURASI sebagai identitas dial keluar. Bila ia
+ *      memakai `remoteAddress` (IP hasil resolusi), kunci peta `outbound`
+ *      tersangkut dan node berhenti mencoba selamanya — diam-diam. Skenario
+ *      ini memakai socket loopback telanjang (tanpa node), jadi cepat dan
+ *      deterministik.
  *
  * Smoke ini SENGAJA menyentuh LevelDB, port, dan mutasi rantai — bukan
  * pengganti `check:p2p` yang offline. Proses anak dan direktori sementara
@@ -36,11 +42,14 @@
  * memegang kunci file sampai prosesnya benar-benar keluar — lihat
  * `dataDirCheck.ts`).
  */
+/// <reference types="bun-types" />
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { createPowHasher } from 'src/core/consensus/Pow'
+import { loadP2PConfig } from 'src/p2p/config'
+import { createPeerManager } from 'src/p2p/peers/peerManager'
 import { meetsDifficulty } from 'src/core/consensus/difficulty'
 import { hexToString } from 'src/core/encoding/hex/hexToString'
 import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
@@ -663,6 +672,57 @@ try {
 		'nex_getWork kembali normal setelah syncing selesai',
 		workC.status === true && typeof workC.jobId === 'string',
 		workC.error ?? 'ok',
+	)
+
+	// 7. Reconnect dengan seed hostname. Listener telanjang ini menerima lalu
+	//    LANGSUNG memutus tiap koneksi, sehingga `onClose` harus melepas kunci
+	//    `outbound` agar interval reconnect mendial lagi. Bila kuncinya
+	//    dihitung dari `remoteAddress` (`127.0.0.1`) sementara dial memakai
+	//    `localhost`, kunci tak pernah terlepas → hanya 1 dial selamanya.
+	let dialCount = 0
+	const probeListener = Bun.listen<undefined>({
+		hostname: '127.0.0.1',
+		port: 0,
+		socket: {
+			data() {},
+			open(socket) {
+				dialCount++
+				socket.end()
+			},
+		},
+	})
+	const probeManager = createPeerManager({
+		config: {
+			...loadP2PConfig({}),
+			enabled: true,
+			port: 0,
+			// `localhost` TIDAK dinormalkan di sini: skenario ini menguji peer
+			// manager, bukan `parsePeerList`. Yang penting host ≠ alamat remote.
+			peers: [{ host: 'localhost', port: probeListener.port }],
+			maxPeers: 2,
+			reconnectIntervalMs: 150,
+			pingIntervalMs: 60_000,
+		},
+		getLocalStatus: async () => ({
+			chainId: 26,
+			genesisHash: '0'.repeat(64),
+			bestHeight: 0,
+			bestHash: '0'.repeat(64),
+		}),
+		events: {
+			onPeerReady() {},
+			onPeerMessage() {},
+			onPeerClosed() {},
+		},
+	})
+	await probeManager.start()
+	await delay(800)
+	probeManager.stop()
+	probeListener.stop(true)
+	check(
+		'reconnect: seed hostname didial ulang setelah koneksi putus',
+		dialCount >= 2,
+		`dial=${dialCount}`,
 	)
 } catch (error) {
 	fail++
