@@ -8,7 +8,7 @@ tanpa seed, tanpa private key, tanpa database.
 
 ```bash
 # 1. node harus hidup lebih dulu (dari root repo)
-bun run rpc:start            # RPC di http://localhost:8000/rpc
+bun run node:start            # RPC di http://localhost:8000/rpc
 
 # 2. jalankan UI
 bun install                  # di dalam miner-ui/

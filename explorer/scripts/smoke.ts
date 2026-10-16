@@ -4,7 +4,7 @@
  *
  * Jalankan dari folder explorer/:
  *     bun run smoke
- * (butuh server RPC hidup: bun run rpc:start)
+ * (butuh server RPC hidup: bun run node:start)
  *
  * Selain jalur happy-path, test ini mengunci signature "tidak ditemukan"
  * khas backend (Bun + Level) yang diverifikasi lewat probe:

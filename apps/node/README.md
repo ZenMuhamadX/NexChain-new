@@ -4,7 +4,7 @@ Server JSON-RPC NexChain. Ini proses utama yang menjalankan blockchain.
 
 ## Entry point
 
-- `server.ts` — dijalankan oleh `bun run rpc:start` (script root:
+- `server.ts` — dijalankan oleh `bun run node:start` (script root:
   `bun run apps/node/server.ts`). Membuat genesis bila DB kosong, lalu melayani
   `POST /rpc`.
 
@@ -12,7 +12,7 @@ Server JSON-RPC NexChain. Ini proses utama yang menjalankan blockchain.
 
 ```bash
 cp .env.example .env
-bun run rpc:start
+bun run node:start
 ```
 
 ## Bergantung pada

@@ -69,7 +69,7 @@ Baca dulu bentuk data sebelum logikanya.
 
 ## 10. Titik jalan (entry points)
 
-- `apps/node/server.ts` — jalankan node (`bun run rpc:start`).
+- `apps/node/server.ts` — jalankan node (`bun run node:start`).
 - `apps/miner/miner.ts` — miner CLI (`bun run apps/miner/miner.ts "<addr>"`).
 - `apps/miner/runMiner.ts` — library `runMiner` (bisa dipanggil dari skrip E2E).
 

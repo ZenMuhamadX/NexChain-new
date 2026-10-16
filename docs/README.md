@@ -51,7 +51,7 @@ arsitektur *"inti terpisah + miner independen + frontend terpisah"*:
 
 | Folder         | Tanggung jawab                                                              |
 | -------------- | -------------------------------------------------------------------------- |
-| `apps/node/`   | **Node**. `server.ts` menjalankan HTTP JSON-RPC di `POST /rpc`, membuat genesis bila kosong. Jalankan: `bun run rpc:start`. |
+| `apps/node/`   | **Node**. `server.ts` menjalankan HTTP JSON-RPC di `POST /rpc`, membuat genesis bila kosong. Jalankan: `bun run node:start`. |
 | `apps/miner/`  | **Miner eksternal**. `miner.ts` (CLI interaktif) dan `runMiner.ts` (library `runMiner`). Jalankan: `bun run apps/miner/miner.ts "<alamatNxC>"`. |
 
 ## Cara menjalankan (devnet lokal)
@@ -61,7 +61,7 @@ arsitektur *"inti terpisah + miner independen + frontend terpisah"*:
 cp .env.example .env
 
 # 2. jalankan node (terminal A)
-bun run rpc:start
+bun run node:start
 
 # 3. jalankan miner eksternal (terminal B)
 bun run apps/miner/miner.ts "NxC…alamatRewardKamu"

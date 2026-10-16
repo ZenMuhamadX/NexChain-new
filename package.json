@@ -30,7 +30,7 @@
 		"pow:bench": "bun run scripts/powBench.ts",
 		"genesis:check": "bun run scripts/genesisCheck.ts",
 		"genesis:solve": "bun run scripts/genesisCheck.ts --solve",
-		"rpc:start": "bun run apps/node/server.ts",
+		"node:start": "bun run apps/node/server.ts",
 		"explorer:dev": "bun run --cwd explorer dev",
 		"explorer:build": "bun run --cwd explorer build",
 		"wallet:dev": "bun run --cwd wallet dev",

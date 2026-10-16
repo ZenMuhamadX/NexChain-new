@@ -7,7 +7,7 @@
  * (menambang satu blok, mengubah state rantai).
  *
  * Pakai:
- *   bun run rpc:start        # di terminal lain
+ *   bun run node:start        # di terminal lain
  *   bun run miner:smoke
  */
 import { hashWithNonce } from 'src/core/consensus/Pow'

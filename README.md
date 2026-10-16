@@ -15,7 +15,7 @@ Nexchain is a new generation decentralized blockchain designed to provide a simp
 
 Arsitektur mining mengikuti standar Bitcoin: **blok tidak ditandatangani siapa pun** — hanya transaksi yang ditandatangani (oleh pengirimnya). Node **tidak memiliki wallet** dan tidak pernah menghitung PoW sendiri:
 
-- `bun run rpc:start` → node menyusun template blok, miner eksternal menerima job lewat `nex_getWork` (wajib mengirim `minerAddress`), mencari nonce, lalu mengirim solusi ke `nex_submitWork`.
+- `bun run node:start` → node menyusun template blok, miner eksternal menerima job lewat `nex_getWork` (wajib mengirim `minerAddress`), mencari nonce, lalu mengirim solusi ke `nex_submitWork`.
 - Miner eksternal: `bun run apps/miner/miner.ts "NxC…"` atau `apps/miner/runMiner.ts` (keyless, murni HTTP).
 - Integritas rantai diverifikasi lewat PoW + hash chain + merkle + struktur (lihat `src/core/consensus/verify/verifyIntegrity.ts`) — tanpa pemeriksaan signature blok.
 

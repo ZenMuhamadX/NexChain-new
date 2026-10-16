@@ -105,7 +105,7 @@ export class NexchainRpcClient {
 			}
 			throw new RpcClientError(
 				'network',
-				'Cannot reach the NexChain RPC. Make sure the server is running: bun run rpc:start',
+				'Cannot reach the NexChain RPC. Make sure the server is running: bun run node:start',
 			)
 		}
 
