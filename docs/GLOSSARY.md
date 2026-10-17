@@ -45,7 +45,7 @@ Istilah yang muncul berulang di kode & dokumentasi.
 - **JSON-RPC** — protokol panggilan jarak jauh. Endpoint node: `POST /rpc`.
 - **`nex_getWork`** — miner meminta template blok + target kesulitan.
 - **`nex_submitWork`** — miner mengirim header blok terselesaikan; node memverifikasi & menandatangani.
-- **`nex_getBalance`** — tanya saldo (hex string).
+- **`nex_getBalance`** — tanya saldo (string polos ber-unit, mis. "100.0 NXC").
 - **`nex_getChainId`** — tanya chain ID (numerik).
 
 ## Lainnya

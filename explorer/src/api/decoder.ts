@@ -18,36 +18,6 @@ export function hexToString(hex: string): string {
 	return output
 }
 
-/** Decode hasil RPC berformat hex → JSON. */
-export function decodeHexJson<T>(value: unknown): T {
-	if (typeof value !== 'string') {
-		throw new RpcClientError(
-			'invalid-response',
-			'Expected a hex-encoded JSON response from the NexChain RPC.',
-		)
-	}
-	try {
-		return JSON.parse(hexToString(value)) as T
-	} catch (error) {
-		if (error instanceof RpcClientError) throw error
-		throw new RpcClientError(
-			'decode',
-			'The hex response did not contain valid JSON.',
-		)
-	}
-}
-
-/** Decode hasil RPC berformat hex → string biasa (mis. saldo "… NXC"). */
-export function decodeHexString(value: unknown): string {
-	if (typeof value !== 'string') {
-		throw new RpcClientError(
-			'invalid-response',
-			'Expected a hex-encoded string response from the NexChain RPC.',
-		)
-	}
-	return hexToString(value)
-}
-
 /**
  * Decode field hex berisi teks (mis. `extraData`, `coinbase.extraData`).
  * Kembalikan null bila bukan teks printable — caller lalu menampilkan

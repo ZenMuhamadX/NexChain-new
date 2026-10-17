@@ -27,8 +27,8 @@
 
 ## RPC contracts
 
-- RPC results are deliberately heterogeneous: legacy account/state methods return hex-encoded JSON, `nex_getBalance` returns a hex string, `nex_getChainId` is numeric, and newer explorer/mempool methods return plain JSON. `nex_getSyncStatus` and `nex_getPeerInfo` also return plain JSON (not hex). When adding or changing a method, update the matching decoder in `explorer/src/api/methods.ts` and the relevant smoke coverage.
-- Two traps worth repeating for miner clients: `nex_getAccount` returns hex **with a `0x` prefix**, so decode it with `hexToString`/`decodeHexJson` — `Buffer.from(hex, 'hex')` silently yields an empty string because it stops at `x`. `nex_getWork`/`nex_submitWork` return plain JSON, and `nex_getWork` echoes `minerAddress` plus an `expiresAt` epoch-ms the client should count down (`JOB_TTL_MS` is 5 minutes in `src/core/consensus/jobStore.ts`).
+- All RPC results are now plain JSON (no hex envelope); explorer/mempool/peer methods were already plain. When adding or changing a method, update the matching decoder in `explorer/src/api/methods.ts` and the relevant smoke coverage.
+- Two traps worth repeating for miner clients: `nex_getWork`/`nex_submitWork` return plain JSON, and `nex_getWork` echoes `minerAddress` plus an `expiresAt` epoch-ms the client should count down (`JOB_TTL_MS` is 5 minutes in `src/core/consensus/jobStore.ts`).
 
 ## P2P layer (`src/p2p/`)
 

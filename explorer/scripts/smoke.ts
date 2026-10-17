@@ -34,7 +34,7 @@ const describe = (e: unknown): string =>
 		? `${(e as { kind?: string }).kind ?? '?'}: ${e.message}`
 		: String(e)
 
-// 1) block state: hex JSON → object
+// 1) block state: JSON polos → object
 const state = await rpc.getBlockState()
 check(
 	'getBlockState → object terdecode',

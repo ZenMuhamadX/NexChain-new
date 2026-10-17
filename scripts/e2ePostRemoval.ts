@@ -31,7 +31,6 @@ import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransact
 import { signTransaction } from 'src/crypto/signTransaction'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { client } from 'src/client/rpc-client/lib/rpcClient'
-import { decodeHexJson } from 'src/client/rpc-client/lib/decodeHexJson'
 import type { TxInterface } from 'src/types/transaction'
 
 // ---------------------------------------------------------------------------
@@ -59,8 +58,7 @@ const rpcCall = <T>(method: string, params?: unknown): Promise<T> =>
 const hexJson = async <T>(
 	method: string,
 	params?: unknown,
-): Promise<T | undefined> =>
-	decodeHexJson<T>(await rpcCall<unknown>(method, params))
+): Promise<T | undefined> => (await rpcCall<T>(method, params)) ?? undefined
 
 interface BlockStateLite {
 	currentBlockHeight?: number

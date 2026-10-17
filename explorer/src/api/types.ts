@@ -47,12 +47,12 @@ export interface HistoryEntry extends TxInterface {
 }
 
 /**
- * Respons `nex_getTransactionsByAddress`: objek JSON polos, tetapi tiap item
- * `history` berupa hex string yang harus di-decode per item.
+ * Respons `nex_getTransactionsByAddress`: objek JSON polos berisi
+ * array `HistoryEntry` apa adanya.
  */
 export interface TransactionHistory {
 	count?: number
-	history?: (string | HistoryEntry)[]
+	history?: HistoryEntry[]
 }
 
 /* ---- payload JSON-RPC ---- */

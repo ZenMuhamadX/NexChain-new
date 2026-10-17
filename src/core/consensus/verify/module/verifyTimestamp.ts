@@ -86,7 +86,7 @@ export const getPreviousTimestamps = async (
 ): Promise<number[]> => {
 	const timestamps: number[] = []
 	for (let h = Math.max(0, height - MTP_WINDOW); h < height; h++) {
-		const block = (await getBlockByHeight(h, 'json')) as Block | undefined
+		const block = (await getBlockByHeight(h)) as Block | undefined
 		if (!block) continue
 		timestamps.push(block.block.header.timestamp)
 	}

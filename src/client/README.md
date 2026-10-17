@@ -6,7 +6,7 @@ pemanggil RPC, dan vault browser.
 ## Sub-modul
 
 - `lib/` — `createTransaction.ts`, `createUnsignedTransaction.ts`, `clientValidateTx.ts`, `clientHasSufficient.ts`.
-- `rpc-client/` — `controller/` (handler `POST/sendTx`, `rpcGetAccount`, `rpcGetNonce`, `rpcGetPendingReserve`) + `lib/` (`rpcClient.ts`, `rpcRequest.ts`, `decodeHexJson.ts`).
+- `rpc-client/` — `controller/` (handler `POST/sendTx`, `rpcGetAccount`, `rpcGetNonce`, `rpcGetPendingReserve`) + `lib/` (`rpcClient.ts`, `rpcRequest.ts`).
 - `wallet/` — `vaultCrypto.ts`, `walletVault.ts`, `kv.ts`, `idbKv.ts` (penyimpanan sisi klien).
 
 ## Hubungan

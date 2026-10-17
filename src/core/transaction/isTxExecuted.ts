@@ -30,8 +30,7 @@ interface HistoryWithBlockRef {
 export const isTxExecuted = async (txHash: string): Promise<boolean> => {
 	if (!txHash) return false
 	try {
-		const history = await getHistoryByTxHash(txHash, 'json')
-		if (typeof history === 'string') return false // enc hex — bukan objek
+		const history = await getHistoryByTxHash(txHash)
 		const withMeta = history as HistoryWithBlockRef
 		return typeof withMeta.metadata?.blockHeight === 'number'
 	} catch {

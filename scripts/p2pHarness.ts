@@ -15,8 +15,6 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 import { createPowHasher } from 'src/core/consensus/Pow'
 import { meetsDifficulty } from 'src/core/consensus/difficulty'
-import { hexToString } from 'src/core/encoding/hex/hexToString'
-import type { HexString } from 'src/types/block'
 
 /** Batas waktu boot node: RPC menjawab DAN genesis sudah tertulis. */
 export const BOOT_TIMEOUT_MS = 30_000
@@ -98,19 +96,16 @@ export interface ChainState {
 /**
  * Baca state rantai lewat `nex_getBlockState`.
  *
- * Responsnya `stringToHex(JSON.stringify(state))` — hex DENGAN prefix `0x`
- * (lihat `src/rpc/method.ts`). `hexToString` adalah dekoder kanonik yang juga
- * dipakai UI; `Buffer.from(hex, 'hex')` akan senyap menghasilkan string
- * kosong karena berhenti di karakter 'x'.
+ * Responsnya objek JSON polos (lihat `src/rpc/method.ts`). Guard KETAT: selain
+ * objek (mis. string ber-envelope hex lama) dianggap tak terbaca, sehingga
+ * smoke gagal TERLIHAT, bukan diam-diam diamati `height=undefined`.
  */
 export const readState = async (
 	url: string,
 ): Promise<ChainState | undefined> => {
-	const raw = await rpc<string | null>(url, 'nex_getBlockState')
-	if (typeof raw !== 'string' || raw.length === 0) return undefined
-	const parsed: unknown = JSON.parse(hexToString(raw as HexString))
-	if (parsed === null || typeof parsed !== 'object') return undefined
-	return parsed as ChainState
+	const raw = await rpc<unknown>(url, 'nex_getBlockState')
+	if (raw === null || typeof raw !== 'object') return undefined
+	return raw as ChainState
 }
 
 /** Subset field entri mempool yang dibaca smoke ini. */
@@ -127,17 +122,14 @@ export const readMempool = async (url: string): Promise<MempoolEntry[]> => {
 /**
  * Nonce berikutnya untuk sebuah alamat (`nex_getNextNonce`).
  *
- * Responsnya `stringToHex(JSON.stringify(number))` — hex DENGAN prefix `0x`,
- * jadi didekode lewat `hexToString` lalu `JSON.parse`, sama seperti `readState`.
+ * Responsnya angka JSON polos — guard ketat: selain `number` dianggap 0.
  */
 export const readNextNonce = async (
 	url: string,
 	address: string,
 ): Promise<number> => {
-	const raw = await rpc<string>(url, 'nex_getNextNonce', address)
-	if (typeof raw !== 'string' || raw.length === 0) return 0
-	const parsed: unknown = JSON.parse(hexToString(raw as HexString))
-	return typeof parsed === 'number' ? parsed : 0
+	const raw = await rpc<unknown>(url, 'nex_getNextNonce', address)
+	return typeof raw === 'number' ? raw : 0
 }
 
 /** Subset status sinkronisasi yang dibaca smoke ini (`nex_getSyncStatus`). */

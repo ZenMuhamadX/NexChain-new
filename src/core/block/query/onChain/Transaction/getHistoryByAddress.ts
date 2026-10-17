@@ -5,7 +5,6 @@ import { rocksHistory } from 'src/core/state/db/history'
 
 export const getHistoryByAddress = async (
 	address: string,
-	enc: 'json' | 'hex',
 ): Promise<{ history: TxInterface[]; count: number }> => {
 	try {
 		const txHashesStr = (await rocksHistory
@@ -21,7 +20,7 @@ export const getHistoryByAddress = async (
 		const parseTxHash = JSON.parse(decodeFromBytes(txHashes!))
 
 		const histories = await Promise.all(
-			parseTxHash.map((txHash: string) => getHistoryByTxHash(txHash, enc)),
+			parseTxHash.map((txHash: string) => getHistoryByTxHash(txHash)),
 		)
 
 		// Filter out undefined histories

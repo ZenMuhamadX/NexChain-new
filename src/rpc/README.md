@@ -10,7 +10,6 @@ Implementasi protokol JSON-RPC node. Dipakai oleh `apps/node/server.ts`.
 
 ## Konvensi hasil
 
-Sengaja heterogen: method state lama mengembalikan JSON hex-encoded,
-`nex_getBalance` hex string, `nex_getChainId` numerik, method explorer/mempool
-baru JSON polos. Bila menambah method, perbarui decoder di
-`explorer/src/api/methods.ts` dan smoke coverage terkait.
+Semua hasil RPC sekarang JSON polos (tanpa envelope hex). Bila menambah
+method, perbarui decoder di `explorer/src/api/methods.ts` dan smoke coverage
+terkait.

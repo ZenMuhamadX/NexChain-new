@@ -19,7 +19,7 @@
  *   - Phase B: createUnsignedTransaction + signTransaction (murni, tanpa I/O
  *     filesystem) — inilah yang dipakai wallet browser untuk menyusun &
  *     menanda-tangani transaksi
- *   - decode hex-JSON + nex_getNextNonce (perbaikan validasi saldo & nonce)
+ *   - nex_getNextNonce (perbaikan validasi saldo & nonce)
  *   - Phase E : konfigurasi URL RPC
  *   - Phase C : vault wallet browser — IndexedDB (`idb`) + Web Crypto
  *     (PBKDF2-SHA256 -> AES-GCM). Satu-satunya tempat mnemonic disimpan di
@@ -72,7 +72,6 @@ import {
 } from 'src/client/wallet/vaultCrypto'
 import { rpcGetAccount } from 'src/client/rpc-client/controller/rpcGetAccount'
 import { rpcGetPendingReserve } from 'src/client/rpc-client/controller/rpcGetPendingReserve'
-import { decodeHexJson } from 'src/client/rpc-client/lib/decodeHexJson'
 import { validateTransactionSignature } from 'src/core/validation/module/isValidTxSign'
 import { validateTransactionSenderReceiver } from 'src/core/validation/module/isValidTxSenderReciever'
 import { validateTransactionAmount } from 'src/core/validation/module/isValidTxAmount'
@@ -103,7 +102,6 @@ export const browserWalletSurface = {
 	KDF_ITERATIONS,
 	rpcGetAccount,
 	rpcGetPendingReserve,
-	decodeHexJson,
 	verifySignature,
 	recoverSignerAddress,
 	CHAIN_ID,

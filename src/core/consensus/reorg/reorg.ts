@@ -88,7 +88,7 @@ const readLocalSegment = async (
 ): Promise<Block[]> => {
 	const out: Block[] = []
 	for (let h = fromHeight; h <= toHeight; h++) {
-		const block = asBlock(await getBlockByHeight(h, 'json'))
+		const block = asBlock(await getBlockByHeight(h))
 		if (block) out.push(block)
 	}
 	return out
@@ -220,7 +220,7 @@ export const switchToBranch = async (
 	}
 
 	// Cabang harus menempel PERSIS ke blok lokal di forkHeight.
-	const fork = asBlock(await getBlockByHeight(forkHeight, 'json'))
+	const fork = asBlock(await getBlockByHeight(forkHeight))
 	if (
 		!fork ||
 		fork.block.header.hash !== branch[0].block.header.previousBlockHash
@@ -249,7 +249,7 @@ export const switchToBranch = async (
 	// (1) Kumpulkan tx dari blok lokal yang akan dibalik (menurun).
 	const orphaned: TxInterface[] = []
 	for (let h = tipHeight; h > forkHeight; h--) {
-		const block = asBlock(await getBlockByHeight(h, 'json'))
+		const block = asBlock(await getBlockByHeight(h))
 		if (!block) continue
 		for (const tx of block.block.transactions) orphaned.push(tx)
 	}

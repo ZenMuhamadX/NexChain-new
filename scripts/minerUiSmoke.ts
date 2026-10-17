@@ -12,11 +12,9 @@
  */
 import { hashWithNonce } from 'src/core/consensus/Pow'
 import { meetsDifficulty } from 'src/core/consensus/difficulty'
-import { hexToString } from 'src/core/encoding/hex/hexToString'
 import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
 import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
 import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
-import type { HexString } from 'src/types/block'
 
 const RPC_URL = process.env.NEX_RPC_URL ?? 'http://localhost:8000/rpc'
 const HASH_CHUNK = 50_000
@@ -206,13 +204,11 @@ const main = async (): Promise<void> => {
 	ok(`nex_getRecentBlocks \u2192 tip #${tip.height}, minerId cocok`)
 
 	// 7. Hadiah harus terkredit.
-	// Respons `nex_getAccount` adalah `stringToHex(JSON.stringify(akun))` —
-	// hex DENGAN prefix `0x`, jadi harus lewat `hexToString` (dekoder
-	// kanonik yang juga dipakai UI lewat `decodeHexJson`).
-	const rawAccount = await rpc<string>('nex_getAccount', address)
-	const account = JSON.parse(
-		hexToString(rawAccount as HexString),
-	) as AccountSummary
+	// Respons `nex_getAccount` objek JSON polos — guard ketat (bukan objek → gagal terlihat).
+	const account = await rpc<AccountSummary>('nex_getAccount', address)
+	if (account === null || typeof account !== 'object') {
+		throw new SmokeFailure('nex_getAccount tidak mengembalikan objek')
+	}
 	if (!(account.balance > 0)) {
 		throw new SmokeFailure(
 			'saldo hadiah tidak bertambah setelah blok ter-commit',

@@ -13,7 +13,6 @@ import { addTxToMempool } from 'src/core/transaction/addTransactionToMempool'
 import { TxInterface } from 'src/types/transaction'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
 import { getPendingReserve } from 'src/core/transaction/getPendingReserve'
-import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
 import { countPendingBySender } from 'src/core/state/storage/mempool/mempoolIndex'
 import { blockSummary } from 'src/types/block'
@@ -54,7 +53,7 @@ const fetchBlockRange = async (
 		(h) => h >= 0,
 	)
 	const blocks = await Promise.all(
-		heights.map((h) => getBlockByHeight(h, 'json').catch(() => undefined)),
+		heights.map((h) => getBlockByHeight(h).catch(() => undefined)),
 	)
 	return blocks
 		.filter((block): block is Block => block !== undefined && block !== null)
@@ -101,29 +100,29 @@ rpc.addMethod('echo', (message: any) => {
 // Block
 
 rpc.addMethod('nex_getBlockByHash', async (hash: string): Promise<any> => {
-	return await getBlockByHash(hash!, 'hex')
+	return await getBlockByHash(hash!)
 })
 
 rpc.addMethod('nex_getBlockByHeight', async (blockNumber: number) => {
-	return await getBlockByHeight(blockNumber!, 'hex')
+	return await getBlockByHeight(blockNumber!)
 })
 
 rpc.addMethod('nex_getBlockTransactionByHeight', async (height: number) => {
-	const block = (await getBlockByHeight(height, 'json')) as Block
+	const block = (await getBlockByHeight(height)) as Block
 	return block.block.transactions.length
 })
 
 rpc.addMethod('nex_getBlockTransactionByHash', async (hash: string) => {
-	const block = (await getBlockByHash(hash, 'json')) as Block
+	const block = (await getBlockByHash(hash)) as Block
 	return block.block.transactions.length
 })
 
 rpc.addMethod('nex_getBlockState', async () => {
-	return stringToHex(JSON.stringify(await getBlockState()))
+	return await getBlockState()
 })
 
 rpc.addMethod('nex_getCurrentBlock', async () => {
-	return await getCurrentBlock('hex')
+	return await getCurrentBlock()
 })
 
 rpc.addMethod('nex_getChainId', async () => {
@@ -132,7 +131,7 @@ rpc.addMethod('nex_getChainId', async () => {
 
 // Explorer: daftar blok terbaru (dihitung dari currentBlockHeight di state)
 // Params: number(count) | {count} | [count] | kosong
-// Return: blockSummary[] JSON polos (bukan hex)
+// Return: blockSummary[] JSON polos
 rpc.addMethod('nex_getRecentBlocks', async (params?: unknown) => {
 	const state = await getBlockState()
 	if (!state) return []
@@ -144,7 +143,7 @@ rpc.addMethod('nex_getRecentBlocks', async (params?: unknown) => {
 
 // Explorer: pagination blok dari height `from` ke bawah
 // Params: {from, count} | [from, count] | number(from)
-// Return: blockSummary[] JSON polos (bukan hex)
+// Return: blockSummary[] JSON polos
 rpc.addMethod('nex_getBlocksRange', async (params?: unknown) => {
 	const { from, count } = parseRangeParams(params)
 	if (from === undefined) return []
@@ -152,7 +151,7 @@ rpc.addMethod('nex_getBlocksRange', async (params?: unknown) => {
 })
 
 // Explorer: transaksi yang masih menunggu di mempool (maks 100)
-// Return: TxInterface[] JSON polos (bukan hex)
+// Return: TxInterface[] JSON polos
 rpc.addMethod('nex_getMempool', async () => {
 	return await loadMempool()
 })
@@ -174,11 +173,11 @@ rpc.addMethod('nex_getPeerInfo', () => {
 // Account
 
 rpc.addMethod('nex_getPendingReserve', async (address: string) => {
-	return stringToHex(JSON.stringify(await getPendingReserve(address)))
+	return await getPendingReserve(address)
 })
 
 rpc.addMethod('nex_getAccount', async (address: string) => {
-	return stringToHex(JSON.stringify(await getAccount(address)))
+	return await getAccount(address)
 })
 
 rpc.addMethod('nex_getBalance', async (address: string) => {
@@ -188,13 +187,13 @@ rpc.addMethod('nex_getBalance', async (address: string) => {
 	// ke 18 digit — menghasilkan ekor seperti "100.00049999999901" untuk
 	// saldo yang sebenarnya bulat. `formatNxcWithUnit` memotong string di
 	// posisi titik desimal yang tepat.
-	return stringToHex(formatNxcWithUnit(account?.balance!))
+	return formatNxcWithUnit(account?.balance!)
 })
 
 // Nonce akun (angka polos, agar mudah dipakai wallet client)
 rpc.addMethod('nex_getNonceAccount', async (address: string) => {
 	const account = await getAccount(address)
-	return stringToHex(JSON.stringify(account?.nonce ?? 0))
+	return account?.nonce ?? 0
 })
 
 /**
@@ -218,22 +217,22 @@ rpc.addMethod('nex_getNonceAccount', async (address: string) => {
 rpc.addMethod('nex_getNextNonce', async (address: string) => {
 	const account = await getAccount(address)
 	const pendingCount = await countPendingBySender(address)
-	return stringToHex(JSON.stringify((account?.nonce ?? 0) + pendingCount))
+	return (account?.nonce ?? 0) + pendingCount
 })
 
 // Transaction
 
 rpc.addMethod('nex_getTransactionCount', async (address: string) => {
 	const account = (await getAccount(address)) as structBalance
-	return stringToHex(JSON.stringify(account?.transactionCount))
+	return account?.transactionCount
 })
 
 rpc.addMethod('nex_getTransactionByTxHash', async (txHash: string) => {
-	return await getHistoryByTxHash(txHash, 'hex')
+	return await getHistoryByTxHash(txHash)
 })
 
 rpc.addMethod('nex_getTransactionsByAddress', async (address: string) => {
-	return await getHistoryByAddress(address, 'hex')
+	return await getHistoryByAddress(address)
 })
 
 rpc.addMethod('nex_sendTransaction', async (data: string) => {

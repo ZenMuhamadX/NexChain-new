@@ -172,22 +172,18 @@ console.log('\nGROUP 5 — klasifikasi P2P connectBlock (nonce FATAL):')
 const SENDER_P2P = `NxC${'9p'.repeat(20)}`
 await fund(SENDER_P2P)
 {
-	const { prepareBlockForHashing } =
-		await import('src/core/block/prepareBlock')
+	const { prepareBlockForHashing } = await import('src/core/block/prepareBlock')
 	const { createPowHasher } = await import('src/core/consensus/Pow')
 	const { meetsDifficulty } = await import('src/core/consensus/difficulty')
-	const { verifyPow } = await import(
-		'src/core/consensus/verify/module/verifyPow'
-	)
-	const { verifyBlockHash } = await import(
-		'src/core/consensus/verify/module/verifyBlockHash'
-	)
-	const { getCurrentBlock: getTip } = await import(
-		'src/core/block/query/onChain/block/getCurrentBlock'
-	)
+	const { verifyPow } =
+		await import('src/core/consensus/verify/module/verifyPow')
+	const { verifyBlockHash } =
+		await import('src/core/consensus/verify/module/verifyBlockHash')
+	const { getCurrentBlock: getTip } =
+		await import('src/core/block/query/onChain/block/getCurrentBlock')
 	const { connectBlock } = await import('src/p2p/validation/connectBlock')
 
-	const tipBefore = (await getTip('json')) as Block
+	const tipBefore = (await getTip()) as Block
 	const tipHashBefore = tipBefore.block.header.hash
 	// Template di atas tip, berisi tx nonce-lompat (nonce akun 0, tx nonce 5).
 	const bad = await createBlockTemplate(
@@ -247,7 +243,7 @@ await fund(SENDER_P2P)
 		(res.reason ?? '').toLowerCase().includes('nonce'),
 		res.reason ?? '(tanpa alasan)',
 	)
-	const tipAfter = (await getTip('json')) as Block
+	const tipAfter = (await getTip()) as Block
 	ok(
 		'tip tak berubah (blok tidak ter-commit)',
 		tipAfter.block.header.hash === tipHashBefore,

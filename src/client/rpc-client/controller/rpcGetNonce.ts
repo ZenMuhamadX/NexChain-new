@@ -1,10 +1,7 @@
 ﻿import { rpcRequest } from '../lib/rpcRequest'
-import { decodeHexJson } from '../lib/decodeHexJson'
 
-const toNonce = (raw: unknown): number => {
-	const value = decodeHexJson<number>(raw)
-	return typeof value === 'number' && Number.isFinite(value) ? value : 0
-}
+const toNonce = (raw: unknown): number =>
+	typeof raw === 'number' && Number.isFinite(raw) ? raw : 0
 
 /**
  * Query nonce yang DIPERLUKAN oleh transaksi berikutnya.

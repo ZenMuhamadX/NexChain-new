@@ -99,7 +99,7 @@ app.listen(PORT, HOST, async () => {
 	// proses berhenti di tengah) membuat rantai lama tertimpa tanpa peringatan.
 	let genesis: Block | undefined
 	try {
-		genesis = (await getBlockByHeight(0, 'json')) as Block | undefined
+		genesis = (await getBlockByHeight(0)) as Block | undefined
 	} catch (error) {
 		console.error(
 			`Gagal membaca genesis dari "${DATA_DIR}" — node berhenti supaya tidak ` +

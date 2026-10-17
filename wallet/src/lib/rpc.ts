@@ -1,5 +1,4 @@
 import { rpcRequest } from 'src/client/rpc-client/lib/rpcRequest'
-import { decodeHexJson } from 'src/client/rpc-client/lib/decodeHexJson'
 import { rpcGetAccount } from 'src/client/rpc-client/controller/rpcGetAccount'
 import { rpcGetPendingReserve } from 'src/client/rpc-client/controller/rpcGetPendingReserve'
 import { getNonce } from 'src/client/rpc-client/controller/rpcGetNonce'
@@ -12,8 +11,7 @@ import type { pendingReserve } from 'src/core/transaction/getPendingReserve'
 /**
  * Pembungkus RPC untuk UI wallet.
  *
- * Semua pembacaan yang dikodekan hex-JSON lewat `decodeHexJson` (BUG-A) —
- * tanpa itu balance/nonce berupa string dan validasi client selalu gagal.
+ * Semua hasil RPC kini JSON polos.
  * `nex_getMempool` / `nex_sendRawTransaction` mengembalikan JSON polos.
  *
  * Param tanpa-argumen memakai `''` karena `client.request` json-rpc-2.0
@@ -38,7 +36,7 @@ export const fetchNextNonce = (address: string): Promise<number> =>
 	getNonce(address)
 
 export const fetchChainId = async (): Promise<number | undefined> =>
-	decodeHexJson<number>(await rpcRequest('nex_getChainId', ''))
+	(await rpcRequest('nex_getChainId', '')) as number | undefined
 
 export const fetchMempool = async (): Promise<TxInterface[]> => {
 	const raw = await rpcRequest('nex_getMempool', '')
@@ -77,12 +75,11 @@ export interface HistoryRow {
  */
 export const fetchHistory = async (address: string): Promise<HistoryRow[]> => {
 	const raw = (await rpcRequest('nex_getTransactionsByAddress', address)) as
-		{ count?: number; history?: (string | HistoryEntry)[] } | undefined
+		{ count?: number; history?: HistoryEntry[] } | undefined
 
 	const confirmed: HistoryEntry[] = []
 	for (const item of raw?.history ?? []) {
-		const entry =
-			typeof item === 'string' ? decodeHexJson<HistoryEntry>(item) : item
+		const entry = item
 		if (entry) confirmed.push(entry)
 	}
 

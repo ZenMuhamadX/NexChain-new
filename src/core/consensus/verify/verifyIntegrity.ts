@@ -103,8 +103,7 @@ const verifyRange = async (
 	let prevHeight = seed.prevHeight
 
 	while (true) {
-		const block = (await getBlockByHeight(currentHeight, 'json')) as
-			Block | undefined
+		const block = (await getBlockByHeight(currentHeight)) as Block | undefined
 		if (!block) {
 			logToConsole('Chain integrity verified.')
 			return true
@@ -235,8 +234,7 @@ export const verifyChainIncremental = async (): Promise<boolean> => {
 
 	// Marker tetap sah? Blok di `marker.height` HARUS ada dan ber-hash SAMA.
 	// Hash-keyed: setelah reorg, blok di height itu berganti → marker basi.
-	const anchor = (await getBlockByHeight(marker.height, 'json')) as
-		Block | undefined
+	const anchor = (await getBlockByHeight(marker.height)) as Block | undefined
 	if (anchor === undefined || anchor.block.header.hash !== marker.hash) {
 		return await verifyChainIntegrity()
 	}

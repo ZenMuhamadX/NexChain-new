@@ -68,7 +68,7 @@ export const createBlockTemplate = async (
 	walletMiner: string,
 	parent?: Block,
 ): Promise<Block> => {
-	const latestBlock = parent ?? ((await getCurrentBlock('json')) as Block)
+	const latestBlock = parent ?? ((await getCurrentBlock()) as Block)
 	if (!latestBlock) {
 		throw new Error('Latest block is undefined.')
 	}

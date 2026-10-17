@@ -1,12 +1,10 @@
 import { Block } from 'src/core/block/blockModel'
 import { getBlockByHash } from './getBlockByHash'
-import { HexString } from 'src/types/block'
 import { rocksState } from 'src/core/state/db/state'
 
 export const getBlockByHeight = async (
 	height: number,
-	enc: 'json' | 'hex',
-): Promise<Block | undefined | HexString> => {
+): Promise<Block | undefined> => {
 	// `level` v10 mengembalikan `undefined` untuk key yang tidak ada (tidak
 	// melempar), jadi `undefined` di sini berarti blok pada height itu
 	// BENAR-BENAR tidak ada.
@@ -20,5 +18,5 @@ export const getBlockByHeight = async (
 		fillCache: true,
 	})
 	if (!blockHash) return undefined
-	return await getBlockByHash(blockHash as string, enc)
+	return await getBlockByHash(blockHash as string)
 }

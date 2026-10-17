@@ -225,7 +225,7 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 			}
 		}
 
-		const genesis = await getBlockByHeight(0, 'json')
+		const genesis = await getBlockByHeight(0)
 		if (!genesis) {
 			return {
 				status: false,
@@ -376,7 +376,7 @@ const executeSubmit = async (rawParams?: unknown): Promise<SubmitResult> => {
 
 		// Job basi: tip sudah bergerak (miner lain menang / blok lain masuk).
 		// Dilakukan DALAM queue serial sehingga tidak mungkin balapan.
-		const tip = (await getCurrentBlock('json')) as Block
+		const tip = (await getCurrentBlock()) as Block
 		if (
 			tip.block.header.hash !== job.previousBlockHash ||
 			tip.block.height !== job.height - 1

@@ -164,7 +164,7 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 	// 10. Tip lokal + induk (boleh blok lokal atau blok pooled).
 	let tip: Block | undefined
 	try {
-		tip = (await getCurrentBlock('json')) as Block
+		tip = (await getCurrentBlock()) as Block
 	} catch {
 		tip = undefined
 	}

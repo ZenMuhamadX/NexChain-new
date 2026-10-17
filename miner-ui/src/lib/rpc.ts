@@ -1,5 +1,4 @@
 import { rpcRequest } from 'src/client/rpc-client/lib/rpcRequest'
-import { decodeHexJson } from 'src/client/rpc-client/lib/decodeHexJson'
 import { getRpcUrl, getRpcCredentials } from './rpcUrl'
 import type { structBalance } from 'src/types/balance'
 
@@ -12,9 +11,7 @@ import type { structBalance } from 'src/types/balance'
  *   - `nex_getRecentBlocks`  → tip height / status koneksi
  * ditambah `nex_getChainId` (probe) dan `nex_getAccount` (saldo hadiah).
  *
- * Semuanya mengembalikan JSON polos KECUALI `nex_getAccount` yang
- * hex-JSON (lihat catatan heterogenitas di AGENTS.md), karena itu
- * `decodeHexJson` dipakai di sana.
+ * Semua hasil RPC kini JSON polos.
  *
  * Dua dari metode di atas (`nex_getWork` / `nex_submitWork`) adalah method
  * TULIS — bila node menyetel `RPC_USER`/`RPC_PASSWORD` ia menuntut HTTP Basic,
@@ -157,12 +154,13 @@ export const getRecentBlocks = async (count = 1): Promise<BlockSummary[]> => {
 }
 
 export const getChainId = async (): Promise<number | undefined> =>
-	decodeHexJson<number>(await rpcRequest('nex_getChainId', ''))
+	(await rpcRequest('nex_getChainId', '')) as number | undefined
 
 export const getAccount = async (
 	address: string,
 ): Promise<structBalance | undefined> =>
-	decodeHexJson<structBalance>(await rpcRequest('nex_getAccount', address))
+	((await rpcRequest('nex_getAccount', address)) as
+		structBalance | null | undefined) ?? undefined
 
 /**
  * Validasi alamat penerima hadiah memakai aturan KANONIK node

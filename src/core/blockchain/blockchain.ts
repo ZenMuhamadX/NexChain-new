@@ -106,10 +106,8 @@ export class BlockChains {
 			// Genesis (height 0) dikecualikan: ditulis lewat jalur bootstrap,
 			// bukan commitBlock.
 			if (block.block.height > 0) {
-				const parent = (await getBlockByHeight(
-					block.block.height - 1,
-					'json',
-				)) as Block | undefined
+				const parent = (await getBlockByHeight(block.block.height - 1)) as
+					Block | undefined
 				if (parent) {
 					const expected = expectedDifficulty(
 						parent.block.header.difficulty,

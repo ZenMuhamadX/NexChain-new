@@ -297,7 +297,7 @@ try {
 			state1?.totalIssued === 500,
 		JSON.stringify(state1),
 	)
-	const tip1 = (await getCurrentBlock('json')) as Block
+	const tip1 = (await getCurrentBlock()) as Block
 	ok(
 		'getCurrentBlock membaca balik blok tersimpan (blockState ↔ blockHash konsisten)',
 		tip1.block.header.hash === H1 && tip1.block.height === 1,
@@ -334,7 +334,7 @@ try {
 			state2?.totalIssued === 1000,
 		`totalIssued=${state2?.totalIssued}`,
 	)
-	const tip2 = (await getCurrentBlock('json')) as Block
+	const tip2 = (await getCurrentBlock()) as Block
 	ok(
 		'tip terbaca = blok height 2',
 		tip2.block.height === 2 && tip2.block.header.hash === H2,

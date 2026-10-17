@@ -1,16 +1,13 @@
 import { Block } from 'src/core/block/blockModel'
 import { getBlockState } from 'src/core/state/storage/state/getState'
-import { HexString } from 'src/types/block'
 import { getBlockByHash } from './getBlockByHash'
 
-export const getCurrentBlock = async (
-	enc: 'json' | 'hex',
-): Promise<Block | HexString> => {
+export const getCurrentBlock = async (): Promise<Block | undefined> => {
 	const stateData = await getBlockState()
 	if (!stateData) {
 		throw new Error('Block state not found')
 	}
-	const latestBlock = await getBlockByHash(stateData?.currentBlockHash, enc)
+	const latestBlock = await getBlockByHash(stateData?.currentBlockHash)
 	if (!latestBlock) {
 		throw new Error('Block not found')
 	}

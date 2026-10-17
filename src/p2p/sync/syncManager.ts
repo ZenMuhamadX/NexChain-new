@@ -69,7 +69,7 @@ const formatError = (error: unknown): string =>
  */
 const isExecuted = async (txHash: string): Promise<boolean> => {
 	try {
-		await getHistoryByTxHash(txHash, 'json')
+		await getHistoryByTxHash(txHash)
 		return true
 	} catch {
 		return false

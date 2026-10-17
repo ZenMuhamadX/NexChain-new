@@ -55,7 +55,7 @@ export const tryGetBlockByHash = async (
 ): Promise<Block | undefined> => {
 	if (typeof hash !== 'string' || hash.length === 0) return undefined
 	try {
-		const block = (await getBlockByHash(hash, 'json')) as Block
+		const block = (await getBlockByHash(hash)) as Block
 		return block ?? undefined
 	} catch {
 		return undefined
@@ -68,7 +68,7 @@ export const tryGetBlockByHeight = async (
 ): Promise<Block | undefined> => {
 	if (!Number.isSafeInteger(height) || height < 0) return undefined
 	try {
-		const block = (await getBlockByHeight(height, 'json')) as Block | undefined
+		const block = (await getBlockByHeight(height)) as Block | undefined
 		return block ?? undefined
 	} catch {
 		return undefined

@@ -42,7 +42,7 @@ export const findLocalBlockByHash = async (
 ): Promise<Block | undefined> => {
 	if (typeof hash !== 'string' || hash.length === 0) return undefined
 	try {
-		return asBlock(await getBlockByHash(hash, 'json'))
+		return asBlock(await getBlockByHash(hash))
 	} catch {
 		return undefined
 	}
