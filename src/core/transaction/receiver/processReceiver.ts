@@ -7,35 +7,28 @@ export const processReceiver = async (
 	recieverAddress: string,
 	amount: number,
 ) => {
-	const oldData = await getAccount(recieverAddress).catch()
+	// `getAccount` mengembalikan akun-nol semu untuk alamat valid yang belum
+	// ada — jadi kredit pertama = penciptaan akun (seperti Ethereum), TANPA
+	// cabang "akun baru" khusus. Sisa kasus di sini hanya alamat tidak valid
+	// atau error baca DB; keduanya MELEMPAR (fail-closed) alih-alih menulis
+	// akun dari nol — cabang lama bisa MENIMPA saldo penerima dengan `amount`.
+	const oldData = await getAccount(recieverAddress).catch(() => undefined)
 	if (!oldData) {
-		const newData: structBalance = {
-			address: recieverAddress,
-			balance: amount,
-			transactionCount: 1,
-			isContract: false,
-			lastTransactionDate: generateTimestampz(),
-			// BUG-E2: akun baru mulai dari nonce 0, bukan 1. Nonce berarti
-			// "jumlah transaksi keluaran yang sudah terkonfirmasi".
-			nonce: 0,
-		}
-		await putAccount(recieverAddress, newData)
-		return
+		throw new Error(
+			`processReceiver: akun ${recieverAddress} tidak terbaca ` +
+				`(alamat tidak valid atau error DB) — transaksi dibatalkan.`,
+		)
 	}
-	const oldBalance = oldData?.balance as number
 	const newData: structBalance = {
 		address: recieverAddress,
-		balance: oldBalance + amount,
-		transactionCount: oldData?.transactionCount! + 1, // Mengupdate timesTransaction
+		balance: oldData.balance + amount,
+		transactionCount: (oldData.transactionCount ?? 0) + 1,
 		isContract: false,
 		lastTransactionDate: generateTimestampz(),
-		// BUG-E2 (diperbaiki): penerima TIDAK mengirim transaksi, jadi nonce
-		// keluarannya tidak boleh berubah. Sebelumnya `oldData.nonce + 1`
-		// membuat nonce berarti "transaksi masuk + keluar", padahal
-		// validateTransactionNonce mengandalkan nonce = transaksi keluaran saja.
-		// Akibatnya penerima yang tidak pernah mengirim bisa punya nonce > 0,
-		// dan nonce terus berubah tiap menerima dana (lemah terhadap replay
-		// bila digabung dengan hadiah blok yang mereset nonce ke 0).
+		// BUG-E2: penerima TIDAK mengirim transaksi, jadi nonce keluarannya
+		// tidak boleh berubah. Nonce = jumlah transaksi keluaran terkonfirmasi;
+		// `oldData.nonce + 1` dulu membuat nonce berarti "masuk + keluar",
+		// melemahkan anti-replay terhadap hadiah blok yang mereset nonce ke 0.
 		nonce: oldData.nonce ?? 0,
 	}
 	await putAccount(recieverAddress, newData)

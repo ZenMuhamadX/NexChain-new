@@ -66,6 +66,8 @@ const { writeBlockHash } =
 const { saveTxHistory } = await import('src/core/transaction/saveTxHistory')
 const { getBlockState } = await import('src/core/state/storage/state/getState')
 const { getAccount } = await import('src/core/state/account/getAccount')
+const { processReceiver } =
+	await import('src/core/transaction/receiver/processReceiver')
 const { chains } = await import('src/core/block/initBlock')
 const { createBlockTemplate } =
 	await import('src/core/block/createBlockTemplate')
@@ -150,6 +152,17 @@ try {
 	threwPut = guard.isJournalGuardError(error)
 }
 ok('putAccount kunci tak terdaftar → JournalGuardError', threwPut)
+
+// processReceiver: kredit pertama akun VALID lewat akun-nol semu (bukan cabang
+// khusus). Alamat yang tak bisa dibaca harus MELEMPAR, bukan menulis akun dari
+// nol. Bukan JournalGuardError — guard-nya ada SEBELUM putAccount.
+let receiverThrew = false
+try {
+	await processReceiver('not-an-address', 5)
+} catch (error) {
+	receiverThrew = !guard.isJournalGuardError(error)
+}
+ok('processReceiver alamat tidak valid → gagal-closed', receiverThrew)
 
 let threwHistory = false
 try {
