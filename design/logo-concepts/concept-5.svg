@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="c5t c5d">
+  <title id="c5t">NexChain — Balok Heks</title>
+  <desc id="c5d">Balok isometrik bertiga muka dengan mata rantai tertembus di muka depan, melambangkan blok ledger yang dirantai.</desc>
+
+  <defs>
+    <!-- lubang mata rantai pada muka depan -->
+    <mask id="c5maskFront" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect x="0" y="0" width="256" height="256" fill="#ffffff"/>
+      <circle cx="128" cy="158" r="27" fill="none" stroke="#000000" stroke-width="14"/>
+    </mask>
+  </defs>
+
+  <!-- muka atas -->
+  <path fill="#00c9a7" d="M128,55 L200,91 L128,127 L56,91 Z"/>
+
+  <!-- muka depan (kiri + kanan) -->
+  <g mask="url(#c5maskFront)">
+    <path fill="#05628f" d="M56,91 L128,127 L128,201 L56,165 Z"/>
+    <path fill="#0784c3" d="M200,91 L128,127 L128,201 L200,165 Z"/>
+  </g>
+</svg>

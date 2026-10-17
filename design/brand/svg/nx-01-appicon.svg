@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="NexChain Monogram N — app icon">
+  <rect width="256" height="256" rx="56" fill="#0b1620"/>
+  <g transform="translate(26.18,26.18) scale(0.79545)">
+    <polygon points="42,40 86,40 214,216 170,216" fill="#00c9a7"/>
+    <rect x="42" y="40" width="44" height="176" fill="#ffffff"/>
+    <rect x="170" y="40" width="44" height="176" fill="#ffffff"/>
+  </g>
+</svg>

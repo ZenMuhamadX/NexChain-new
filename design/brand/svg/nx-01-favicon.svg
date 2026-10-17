@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="NexChain Monogram N — favicon">
+  <rect width="32" height="32" rx="7" fill="#0b1620"/>
+  <g transform="translate(0.73,0.73) scale(0.11932)">
+    <polygon points="42,40 86,40 214,216 170,216" fill="#ffffff"/>
+    <rect x="42" y="40" width="44" height="176" fill="#ffffff"/>
+    <rect x="170" y="40" width="44" height="176" fill="#ffffff"/>
+  </g>
+</svg>

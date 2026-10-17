@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="NexChain Nex Flow — favicon">
+  <rect width="32" height="32" rx="7" fill="#0b1620"/>
+  <g transform="translate(2.29,2.29) scale(0.10709)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>

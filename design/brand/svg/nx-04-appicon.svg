@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="NexChain Tumpukan Blok — app icon">
+  <rect width="256" height="256" rx="56" fill="#0b1620"/>
+  <g transform="translate(34.67,34.67) scale(0.72917)">
+    <rect x="32" y="164" width="128" height="40" rx="12" fill="#ffffff"/>
+    <rect x="64" y="108" width="128" height="40" rx="12" fill="#ffffff"/>
+    <rect x="96" y="52" width="128" height="40" rx="12" fill="#00c9a7"/>
+  </g>
+</svg>

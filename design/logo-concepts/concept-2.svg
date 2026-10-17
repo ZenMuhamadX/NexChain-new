@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="c2t c2d">
+  <title id="c2t">NexChain — Tri-Link</title>
+  <desc id="c2d">Tiga mata rantai identik saling mengait membentuk siklus tertutup, melambangkan rantai blok sekaligus jaringan node.</desc>
+
+  <defs>
+    <!-- Potong cincin B di tempat cincin A melintang, dan cincin C di tempat cincin B melintang,
+         sehingga susunannya benar-benar mengait (atas-bawah-atas), bukan sekadar tumpukan. -->
+    <mask id="c2maskB" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect x="0" y="0" width="256" height="256" fill="#ffffff"/>
+      <circle cx="128" cy="95" r="40" fill="none" stroke="#000000" stroke-width="16"/>
+    </mask>
+    <mask id="c2maskC" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect x="0" y="0" width="256" height="256" fill="#ffffff"/>
+      <circle cx="166.1" cy="161" r="40" fill="none" stroke="#000000" stroke-width="16"/>
+    </mask>
+  </defs>
+
+  <circle cx="128" cy="95" r="40" fill="none" stroke="#00c9a7" stroke-width="16"/>
+  <circle cx="166.1" cy="161" r="40" fill="none" stroke="#0784c3" stroke-width="16" mask="url(#c2maskB)"/>
+  <circle cx="89.9" cy="161" r="40" fill="none" stroke="#05628f" stroke-width="16" mask="url(#c2maskC)"/>
+</svg>

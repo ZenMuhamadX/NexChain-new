@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="c3t c3d">
+  <title id="c3t">NexChain — Monogram N</title>
+  <desc id="c3d">Huruf N geometris: dua batang vertikal bersudut chamfer sebagai ujung mata rantai, dan diagonal berwarna mint sebagai mata rantai tengah.</desc>
+
+  <!-- batang N -->
+  <path fill="#0784c3" d="M62,48 L92,48 L164,154.8 L164,48 L194,48 L194,208 L163.3,208 L92,102.3 L92,208 L62,208 Z"/>
+
+  <!-- mata rantai diagonal -->
+  <path fill="#00c9a7" d="M92,48 L164,154.8 L164,208 L92,102.3 Z"/>
+</svg>

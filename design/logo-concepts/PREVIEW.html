@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NexChain — Konsep Logo (Preview)</title>
+<style>
+  :root {
+    --ease: cubic-bezier(.22, 1, .36, 1);
+  }
+  html[data-theme="dark"] {
+    --bg: #10151b;
+    --bg-2: #161d25;
+    --tile: #212529;
+    --tile-line: #2c353f;
+    --ink: #f2f5f7;
+    --muted: #93a1ad;
+    --accent: #00c9a7;
+    --accent-2: #0784c3;
+  }
+  html[data-theme="light"] {
+    --bg: #eef1f5;
+    --bg-2: #ffffff;
+    --tile: #f4f6f8;
+    --tile-line: #d7dee6;
+    --ink: #10151b;
+    --muted: #5b6873;
+    --accent: #00a98d;
+    --accent-2: #0784c3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 28px 72px;
+    background:
+      radial-gradient(1100px 520px at 12% -10%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%),
+      radial-gradient(900px 480px at 92% 0%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 62%),
+      var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+    transition: background .5s var(--ease), color .35s var(--ease);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  header {
+    display: flex; flex-wrap: wrap; gap: 18px 28px;
+    align-items: flex-end; justify-content: space-between;
+    padding-bottom: 22px; margin-bottom: 34px;
+    border-bottom: 1px solid var(--tile-line);
+  }
+  h1 {
+    margin: 0; font-size: 30px; letter-spacing: -.02em; font-weight: 700;
+  }
+  h1 span { color: var(--accent); }
+  .sub { margin: 6px 0 0; color: var(--muted); font-size: 14px; max-width: 62ch; }
+  .toggle {
+    display: inline-flex; border: 1px solid var(--tile-line); border-radius: 999px;
+    overflow: hidden; background: var(--bg-2);
+  }
+  .toggle button {
+    appearance: none; border: 0; background: transparent; color: var(--muted);
+    font: inherit; font-size: 13px; font-weight: 600; padding: 9px 20px; cursor: pointer;
+    transition: color .25s var(--ease), background .25s var(--ease);
+  }
+  .toggle button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+  .concept {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 26px;
+    padding: 26px;
+    margin-bottom: 22px;
+    border: 1px solid var(--tile-line);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+    backdrop-filter: blur(2px);
+    opacity: 0; transform: translateY(14px);
+    animation: rise .6s var(--ease) forwards;
+  }
+  .concept:nth-child(2) { animation-delay: .05s }
+  .concept:nth-child(3) { animation-delay: .1s }
+  .concept:nth-child(4) { animation-delay: .15s }
+  .concept:nth-child(5) { animation-delay: .2s }
+  .concept:nth-child(6) { animation-delay: .25s }
+  @keyframes rise { to { opacity: 1; transform: none } }
+
+  .head h2 {
+    margin: 0 0 4px; font-size: 19px; letter-spacing: -.01em;
+    display: flex; align-items: baseline; gap: 9px;
+  }
+  .head h2 b {
+    font-size: 12px; font-weight: 700; letter-spacing: .14em;
+    color: var(--accent); text-transform: uppercase;
+  }
+  .head p { margin: 0; color: var(--muted); font-size: 13.5px; }
+  .swatches { display: flex; gap: 7px; margin-top: 16px; }
+  .swatches i {
+    width: 26px; height: 26px; border-radius: 7px; display: block;
+    border: 1px solid rgba(127,127,127,.28);
+  }
+  .swatches span { color: var(--muted); font-size: 11px; align-self: center; margin-left: 4px; }
+
+  .tiles {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    align-items: end;
+  }
+  .cell {
+    background: var(--tile);
+    border: 1px solid var(--tile-line);
+    border-radius: 14px;
+    padding: 18px 14px 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    transition: transform .35s var(--ease), border-color .35s var(--ease);
+  }
+  .cell:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .cell .slot {
+    height: 200px; display: grid; place-items: center; width: 100%;
+  }
+  .cell img { display: block; image-rendering: auto; }
+  .cell small {
+    color: var(--muted); font-size: 11px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+  }
+  .cell .mono { filter: brightness(0); }
+  html[data-theme="dark"] .cell .mono { filter: brightness(0) invert(1); }
+  .cell .s16 { width: 16px; height: 16px; }
+  .cell .s64 { width: 64px; height: 64px; }
+  .cell .s256 { width: 256px; height: 256px; }
+
+  footer {
+    margin-top: 34px; color: var(--muted); font-size: 12.5px;
+    display: flex; flex-wrap: wrap; gap: 6px 18px;
+  }
+  code {
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
+    padding: 2px 6px; border-radius: 6px; font-size: 12px;
+  }
+  @media (max-width: 780px) {
+    .concept { grid-template-columns: 1fr; }
+    .cell .s256 { width: 180px; height: 180px; }
+    .cell .slot { height: 160px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>NexChain — <span>Konsep Logo</span></h1>
+      <p class="sub">Lima arah bentuk yang berbeda. Periksa keterbacaan di ukuran kecil (16&nbsp;px) dan versi satu warna (monokrom) — keduanya dipakai untuk favicon, ikon aplikasi, dan ukir/laser.</p>
+    </div>
+    <div class="toggle" role="group" aria-label="Latar belakang">
+      <button id="btnDark" aria-pressed="true">Gelap</button>
+      <button id="btnLight" aria-pressed="false">Terang</button>
+    </div>
+  </header>
+
+  <!-- 1 -->
+  <section class="concept">
+    <div class="head">
+      <h2><b>01</b> Tangga Heks</h2>
+      <p>Tiga blok heksagonal naik diagonal, dihubungkan dua mata rantai pendek.</p>
+      <div class="swatches">
+        <i style="background:#0784c3"></i><i style="background:#00c9a7"></i><span>#0784c3 · #00c9a7</span>
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="cell"><div class="slot"><img class="s256" src="concept-1.svg" alt="Tangga Heks 256px"></div><small>256 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64" src="concept-1.svg" alt="Tangga Heks 64px"></div><small>64 px</small></div>
+      <div class="cell"><div class="slot"><img class="s16" src="concept-1.svg" alt="Tangga Heks 16px"></div><small>16 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64 mono" src="concept-1.svg" alt="Tangga Heks monokrom"></div><small>Monokrom</small></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="concept">
+    <div class="head">
+      <h2><b>02</b> Tri-Link</h2>
+      <p>Tiga mata rantai mengait membentuk siklus — rantai blok yang juga jaringan node.</p>
+      <div class="swatches">
+        <i style="background:#00c9a7"></i><i style="background:#0784c3"></i><i style="background:#05628f"></i><span>#00c9a7 · #0784c3 · #05628f</span>
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="cell"><div class="slot"><img class="s256" src="concept-2.svg" alt="Tri-Link 256px"></div><small>256 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64" src="concept-2.svg" alt="Tri-Link 64px"></div><small>64 px</small></div>
+      <div class="cell"><div class="slot"><img class="s16" src="concept-2.svg" alt="Tri-Link 16px"></div><small>16 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64 mono" src="concept-2.svg" alt="Tri-Link monokrom"></div><small>Monokrom</small></div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="concept">
+    <div class="head">
+      <h2><b>03</b> Monogram N</h2>
+      <p>Huruf N geometris: batang biru sebagai ujung rantai, diagonal mint sebagai mata rantai.</p>
+      <div class="swatches">
+        <i style="background:#0784c3"></i><i style="background:#00c9a7"></i><span>#0784c3 · #00c9a7</span>
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="cell"><div class="slot"><img class="s256" src="concept-3.svg" alt="Monogram N 256px"></div><small>256 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64" src="concept-3.svg" alt="Monogram N 64px"></div><small>64 px</small></div>
+      <div class="cell"><div class="slot"><img class="s16" src="concept-3.svg" alt="Monogram N 16px"></div><small>16 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64 mono" src="concept-3.svg" alt="Monogram N monokrom"></div><small>Monokrom</small></div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="concept">
+    <div class="head">
+      <h2><b>04</b> Cincin N</h2>
+      <p>Cincin rantai tebal terbuka 60°, melingkupi huruf N — marka lencana yang padat.</p>
+      <div class="swatches">
+        <i style="background:#0784c3"></i><i style="background:#00c9a7"></i><span>#0784c3 · #00c9a7</span>
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="cell"><div class="slot"><img class="s256" src="concept-4.svg" alt="Cincin N 256px"></div><small>256 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64" src="concept-4.svg" alt="Cincin N 64px"></div><small>64 px</small></div>
+      <div class="cell"><div class="slot"><img class="s16" src="concept-4.svg" alt="Cincin N 16px"></div><small>16 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64 mono" src="concept-4.svg" alt="Cincin N monokrom"></div><small>Monokrom</small></div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="concept">
+    <div class="head">
+      <h2><b>05</b> Balok Heks</h2>
+      <p>Balok isometrik bertiga muka dengan mata rantai tertembus di muka depan.</p>
+      <div class="swatches">
+        <i style="background:#00c9a7"></i><i style="background:#0784c3"></i><i style="background:#05628f"></i><span>#00c9a7 · #0784c3 · #05628f</span>
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="cell"><div class="slot"><img class="s256" src="concept-5.svg" alt="Balok Heks 256px"></div><small>256 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64" src="concept-5.svg" alt="Balok Heks 64px"></div><small>64 px</small></div>
+      <div class="cell"><div class="slot"><img class="s16" src="concept-5.svg" alt="Balok Heks 16px"></div><small>16 px</small></div>
+      <div class="cell"><div class="slot"><img class="s64 mono" src="concept-5.svg" alt="Balok Heks monokrom"></div><small>Monokrom</small></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Ubah latar dengan tombol di kanan atas — semua marka harus tetap terbaca di kedua latar.</span>
+    <span>Kolom <em>Monokrom</em> memakai <code>filter: brightness(0)</code> untuk menguji versi satu warna.</span>
+  </footer>
+</div>
+
+<script>
+  var root = document.documentElement;
+  var dark = document.getElementById('btnDark');
+  var light = document.getElementById('btnLight');
+  function set(theme) {
+    root.setAttribute('data-theme', theme);
+    dark.setAttribute('aria-pressed', String(theme === 'dark'));
+    light.setAttribute('aria-pressed', String(theme === 'light'));
+  }
+  dark.addEventListener('click', function () { set('dark'); });
+  light.addEventListener('click', function () { set('light'); });
+</script>
+</body>
+</html>

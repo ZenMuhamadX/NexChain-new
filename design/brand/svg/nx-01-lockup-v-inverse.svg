@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246 160" width="246" height="160" role="img" aria-label="NexChain Monogram N — lockup vertikal, latar gelap">
+  <g transform="translate(50.27,-22.73) scale(0.56818)">
+    <polygon points="42,40 86,40 214,216 170,216" fill="#00c9a7"/>
+    <rect x="42" y="40" width="44" height="176" fill="#ffffff"/>
+    <rect x="170" y="40" width="44" height="176" fill="#ffffff"/>
+  </g>
+  <g transform="translate(2.4,126.25) scale(4.5)">
+    <path d="M 0,7 L 0,0 L 5,7 L 5,0 M 12.3,0 L 7.3,0 L 7.3,7 L 12.3,7 M 7.3,3.5 L 10.9,3.5 M 14.6,0 L 19.6,7 M 19.6,0 L 14.6,7 M 26.9,0 L 21.9,0 L 21.9,7 L 26.9,7 M 29.2,0 L 29.2,7 M 34.2,0 L 34.2,7 M 29.2,3.5 L 34.2,3.5 M 36.5,7 L 39,0 L 41.5,7 M 37.5,4.55 L 40.5,4.55 M 45.05,0 L 45.05,7 M 48.6,7 L 48.6,0 L 53.6,7 L 53.6,0" fill="none" stroke="#ffffff" stroke-width="1" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>

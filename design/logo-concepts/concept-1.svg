@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="c1t c1d">
+  <title id="c1t">NexChain — Tangga Heks</title>
+  <desc id="c1d">Tiga blok heksagonal datar berantai naik ke kanan atas, dihubungkan dua penghubung pendek.</desc>
+
+  <!-- penghubung rantai (digambar lebih panjang, ujungnya tertutup blok) -->
+  <g fill="#0784c3">
+    <rect x="87.35" y="145.5" width="31.3" height="15" transform="rotate(-45 103 153)"/>
+    <rect x="137.35" y="95.5" width="31.3" height="15" transform="rotate(-45 153 103)"/>
+  </g>
+
+  <!-- blok heksagonal -->
+  <path fill="#0784c3" d="M110,178 L94,205.71 L62,205.71 L46,178 L62,150.29 L94,150.29 Z"/>
+  <path fill="#0784c3" d="M160,128 L144,155.71 L112,155.71 L96,128 L112,100.29 L144,100.29 Z"/>
+  <path fill="#00c9a7" d="M210,78 L194,105.71 L162,105.71 L146,78 L162,50.29 L194,50.29 Z"/>
+</svg>

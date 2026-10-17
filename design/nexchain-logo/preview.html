@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NexChain — Logo Resmi (Nex Flow)</title>
+<style>
+  :root {
+    --bg:#0a0e13; --panel:#111821; --line:#1e2732; --fg:#e8eef6; --fg-dim:#8ea0b3; --fg-faint:#5d6d7e;
+    --mint:#00c9a7; --ink:#0b1620;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:56px 28px 110px}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-dim);display:flex;align-items:center;gap:10px}
+  .kicker .dot{width:7px;height:7px;border-radius:2px;background:var(--mint)}
+  h1{font-size:clamp(28px,4.4vw,44px);line-height:1.1;margin:18px 0 12px;letter-spacing:-.02em;font-weight:600}
+  .lede{max-width:64ch;color:var(--fg-dim);margin:0}
+  h2{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-dim);font-weight:500;margin:0 0 6px}
+  h4{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-faint);margin:0 0 8px;font-weight:500}
+  section{margin-top:60px}
+  .sub{color:var(--fg-dim);margin:6px 0 20px;max-width:66ch;font-size:14px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+  .panel{border:1px solid var(--line);border-radius:14px;padding:16px;position:relative}
+  .panel.dark{background:var(--ink);border-color:#1b2733}
+  .panel.light{background:#fff;border-color:#e4e9ee}
+  .panel .lbl{position:absolute;top:12px;left:16px;font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase}
+  .panel.dark .lbl{color:#5f7385}
+  .panel.light .lbl{color:#93a2b1}
+  .stage{display:flex;align-items:center;justify-content:center;padding:46px 16px 22px}
+  .stage svg{display:block}
+  .stage.hero{height:290px}.stage.hero svg{width:190px;height:190px}
+  .stage.lk{height:150px}.stage.lk svg{width:100%;max-width:430px;height:auto}
+  .stage.lkv{height:210px}.stage.lkv svg{width:100%;max-width:215px;height:auto}
+  .variants{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:760px){.variants{grid-template-columns:1fr}}
+  .vcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+  .vcard .box{height:120px;display:flex;align-items:center;justify-content:center;padding:16px}
+  .vcard .box.dk{background:var(--ink)}
+  .vcard .box.lt{background:#fff}
+  .vcard .meta{padding:10px 12px;border-top:1px solid var(--line)}
+  .vcard .meta b{display:block;font-family:var(--mono);font-size:11px;font-weight:500}
+  .vcard .meta span{font-size:11.5px;color:var(--fg-dim)}
+  .sizes{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap;padding:52px 22px 26px}
+  .size{text-align:center}
+  .size .cap{font-family:var(--mono);font-size:10px;letter-spacing:.1em;margin-top:9px}
+  .panel.dark .size .cap{color:#5f7385}
+  .panel.light .size .cap{color:#93a2b1}
+  .ico{display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap}
+  .ico .it{text-align:center}
+  .ico img{display:block;box-shadow:0 0 0 1px rgba(255,255,255,.10)}
+  .ico .cap{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--fg-faint);margin-top:9px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.cols{grid-template-columns:1fr}}
+  .rule{border:1px solid var(--line);border-radius:12px;padding:16px;background:var(--panel)}
+  .rule .badge{font-family:var(--mono);font-size:10px;letter-spacing:.1em;padding:3px 8px;border-radius:5px;display:inline-block;margin-bottom:12px}
+  .rule.ok .badge{background:rgba(0,201,167,.14);color:var(--mint)}
+  .rule.no .badge{background:rgba(255,86,86,.14);color:#ff6b6b}
+  .rule .demo{height:78px;display:flex;align-items:center;justify-content:center;background:var(--ink);border-radius:9px;margin-bottom:12px;overflow:hidden}
+  .rule .demo svg{width:58px;height:58px;display:block}
+  .rule p{margin:0;font-size:12.5px;color:var(--fg-dim)}
+  .demo.stretch svg{width:84px;height:42px}
+  .demo.rotate svg{transform:rotate(28deg)}
+  .demo.glow svg{filter:drop-shadow(0 0 12px #00c9a7) drop-shadow(0 0 22px #0784c3)}
+  .demo.recolor svg{filter:hue-rotate(230deg) saturate(1.6)}
+  .demo.fade svg{opacity:.28}
+  .demo.cram svg{width:58px;height:58px;padding:0;outline:1px solid #ff6b6b;outline-offset:-1px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line)}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--fg-faint);font-weight:500}
+  td.mono{font-family:var(--mono);font-size:12px}
+  tbody tr:last-child td{border-bottom:none}
+  .tbl{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+  .swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:760px){.swatches{grid-template-columns:repeat(2,1fr)}}
+  .sw{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+  .sw .chip{height:76px}
+  .sw .meta{padding:11px 13px}
+  .sw .meta b{display:block;font-size:12.5px;font-weight:600}
+  .sw .meta span{font-family:var(--mono);font-size:11px;color:var(--fg-dim)}
+  .files{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  @media(max-width:860px){.files{grid-template-columns:1fr 1fr}}
+  .files a{font-family:var(--mono);font-size:11.5px;color:var(--fg-dim);text-decoration:none;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--panel);display:flex;justify-content:space-between;gap:10px;transition:.15s}
+  .files a:hover{color:var(--mint);border-color:var(--mint)}
+  code{font-family:var(--mono);font-size:12.5px;background:#0d1319;border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+  .foot{margin-top:76px;padding-top:22px;border-top:1px solid var(--line);color:var(--fg-faint);font-size:12.5px;font-family:var(--mono)}
+  .hint{font-size:12.5px;color:var(--fg-faint);margin-top:12px}
+  .locked{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker"><span class="dot"></span> NexChain · Logo Resmi</div>
+  <h1>Nex Flow</h1>
+  <p class="lede">Dua chevron mengarah maju — blok berikutnya. Ini marka resmi NexChain: terkunci, tidak ada varian lain yang dipakai untuk produksi.</p>
+  <p style="margin-top:18px"><span class="locked">● Terkunci · v1</span></p>
+
+  <section>
+    <h2>01 — Lockup utama</h2>
+    <div class="two">
+      <div class="panel dark"><span class="lbl">Horizontal · gelap</span><div class="stage lk"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 100" width="100%" height="100%" role="img" aria-label="">
+  <g transform="translate(-15.3,-15.27) scale(0.50994)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+  <g transform="translate(136.25,34.25) scale(4.5)">
+    <path d="M 0,7 L 0,0 L 5,7 L 5,0 M 12.3,0 L 7.3,0 L 7.3,7 L 12.3,7 M 7.3,3.5 L 10.9,3.5 M 14.6,0 L 19.6,7 M 19.6,0 L 14.6,7 M 26.9,0 L 21.9,0 L 21.9,7 L 26.9,7 M 29.2,0 L 29.2,7 M 34.2,0 L 34.2,7 M 29.2,3.5 L 34.2,3.5 M 36.5,7 L 39,0 L 41.5,7 M 37.5,4.55 L 40.5,4.55 M 45.05,0 L 45.05,7 M 48.6,7 L 48.6,0 L 53.6,7 L 53.6,0" fill="none" stroke="#ffffff" stroke-width="1" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>
+</div></div>
+      <div class="panel light"><span class="lbl">Horizontal · terang</span><div class="stage lk"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 100" width="100%" height="100%" role="img" aria-label="">
+  <g transform="translate(-15.3,-15.27) scale(0.50994)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+  <g transform="translate(136.25,34.25) scale(4.5)">
+    <path d="M 0,7 L 0,0 L 5,7 L 5,0 M 12.3,0 L 7.3,0 L 7.3,7 L 12.3,7 M 7.3,3.5 L 10.9,3.5 M 14.6,0 L 19.6,7 M 19.6,0 L 14.6,7 M 26.9,0 L 21.9,0 L 21.9,7 L 26.9,7 M 29.2,0 L 29.2,7 M 34.2,0 L 34.2,7 M 29.2,3.5 L 34.2,3.5 M 36.5,7 L 39,0 L 41.5,7 M 37.5,4.55 L 40.5,4.55 M 45.05,0 L 45.05,7 M 48.6,7 L 48.6,0 L 53.6,7 L 53.6,0" fill="none" stroke="#0784c3" stroke-width="1" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>
+</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>02 — Semua varian</h2>
+    <p class="sub">Sembilan bentuk jadi. Pakai yang sesuai latar; jangan membuat kombinasi baru di luar daftar ini.</p>
+    <div class="variants">
+      <div class="vcard"><div class="box dk"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="meta"><b>nexchain-mark-inverse.svg</b><span>Marka · latar gelap</span></div></div>
+      <div class="vcard"><div class="box lt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="meta"><b>nexchain-mark.svg</b><span>Marka · latar terang</span></div></div>
+      <div class="vcard"><div class="box lt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0b1620" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#0b1620" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="meta"><b>nexchain-mark-mono.svg</b><span>Satu warna tinta</span></div></div>
+      <div class="vcard"><div class="box dk"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 100" width="100%" height="100%" role="img" aria-label="">
+  <g transform="translate(-15.3,-15.27) scale(0.50994)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+  <g transform="translate(136.25,34.25) scale(4.5)">
+    <path d="M 0,7 L 0,0 L 5,7 L 5,0 M 12.3,0 L 7.3,0 L 7.3,7 L 12.3,7 M 7.3,3.5 L 10.9,3.5 M 14.6,0 L 19.6,7 M 19.6,0 L 14.6,7 M 26.9,0 L 21.9,0 L 21.9,7 L 26.9,7 M 29.2,0 L 29.2,7 M 34.2,0 L 34.2,7 M 29.2,3.5 L 34.2,3.5 M 36.5,7 L 39,0 L 41.5,7 M 37.5,4.55 L 40.5,4.55 M 45.05,0 L 45.05,7 M 48.6,7 L 48.6,0 L 53.6,7 L 53.6,0" fill="none" stroke="#ffffff" stroke-width="1" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>
+</div><div class="meta"><b>nexchain-lockup-h-inverse.svg</b><span>Lockup H · latar gelap</span></div></div>
+      <div class="vcard"><div class="box lt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 100" width="100%" height="100%" role="img" aria-label="">
+  <g transform="translate(-15.3,-15.27) scale(0.50994)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+  <g transform="translate(136.25,34.25) scale(4.5)">
+    <path d="M 0,7 L 0,0 L 5,7 L 5,0 M 12.3,0 L 7.3,0 L 7.3,7 L 12.3,7 M 7.3,3.5 L 10.9,3.5 M 14.6,0 L 19.6,7 M 19.6,0 L 14.6,7 M 26.9,0 L 21.9,0 L 21.9,7 L 26.9,7 M 29.2,0 L 29.2,7 M 34.2,0 L 34.2,7 M 29.2,3.5 L 34.2,3.5 M 36.5,7 L 39,0 L 41.5,7 M 37.5,4.55 L 40.5,4.55 M 45.05,0 L 45.05,7 M 48.6,7 L 48.6,0 L 53.6,7 L 53.6,0" fill="none" stroke="#0784c3" stroke-width="1" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>
+</div><div class="meta"><b>nexchain-lockup-h.svg</b><span>Lockup H · latar terang</span></div></div>
+      <div class="vcard"><div class="box lt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246 160" width="100%" height="100%" role="img" aria-label="">
+  <g transform="translate(57.7,-15.27) scale(0.50994)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+  <g transform="translate(2.4,126.25) scale(4.5)">
+    <path d="M 0,7 L 0,0 L 5,7 L 5,0 M 12.3,0 L 7.3,0 L 7.3,7 L 12.3,7 M 7.3,3.5 L 10.9,3.5 M 14.6,0 L 19.6,7 M 19.6,0 L 14.6,7 M 26.9,0 L 21.9,0 L 21.9,7 L 26.9,7 M 29.2,0 L 29.2,7 M 34.2,0 L 34.2,7 M 29.2,3.5 L 34.2,3.5 M 36.5,7 L 39,0 L 41.5,7 M 37.5,4.55 L 40.5,4.55 M 45.05,0 L 45.05,7 M 48.6,7 L 48.6,0 L 53.6,7 L 53.6,0" fill="none" stroke="#0784c3" stroke-width="1" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>
+</div><div class="meta"><b>nexchain-lockup-v.svg</b><span>Lockup V · latar terang</span></div></div>
+      <div class="vcard"><div class="box dk"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246 160" width="100%" height="100%" role="img" aria-label="">
+  <g transform="translate(57.7,-15.27) scale(0.50994)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+  <g transform="translate(2.4,126.25) scale(4.5)">
+    <path d="M 0,7 L 0,0 L 5,7 L 5,0 M 12.3,0 L 7.3,0 L 7.3,7 L 12.3,7 M 7.3,3.5 L 10.9,3.5 M 14.6,0 L 19.6,7 M 19.6,0 L 14.6,7 M 26.9,0 L 21.9,0 L 21.9,7 L 26.9,7 M 29.2,0 L 29.2,7 M 34.2,0 L 34.2,7 M 29.2,3.5 L 34.2,3.5 M 36.5,7 L 39,0 L 41.5,7 M 37.5,4.55 L 40.5,4.55 M 45.05,0 L 45.05,7 M 48.6,7 L 48.6,0 L 53.6,7 L 53.6,0" fill="none" stroke="#ffffff" stroke-width="1" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>
+</div><div class="meta"><b>nexchain-lockup-v-inverse.svg</b><span>Lockup V · latar gelap</span></div></div>
+      <div class="vcard"><div class="box lt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <rect width="256" height="256" rx="56" fill="#0b1620"/>
+  <g transform="translate(36.58,36.62) scale(0.71392)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>
+</div><div class="meta"><b>nexchain-appicon.svg</b><span>App icon · radius 22%</span></div></div>
+      <div class="vcard"><div class="box dk"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%" role="img" aria-label="">
+  <rect width="32" height="32" rx="7" fill="#0b1620"/>
+  <g transform="translate(2.29,2.29) scale(0.10709)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>
+</div><div class="meta"><b>favicon.svg</b><span>Favicon 32 px</span></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>03 — Uji ukuran</h2>
+    <p class="sub">Minimum 16 px untuk marka, 96 px untuk lockup horizontal. Marka ini lulus 16 px karena hanya terdiri dari dua bentuk gemuk dengan jarak 28 px.</p>
+    <div class="two">
+      <div class="panel dark"><span class="lbl">Latar gelap</span><div class="sizes">
+        <div class="size"><div style="width:256px;height:256px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">256 px</div></div>
+        <div class="size"><div style="width:128px;height:128px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">128 px</div></div>
+        <div class="size"><div style="width:64px;height:64px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">64 px</div></div>
+        <div class="size"><div style="width:32px;height:32px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">32 px</div></div>
+        <div class="size"><div style="width:24px;height:24px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">24 px</div></div>
+        <div class="size"><div style="width:16px;height:16px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">16 px</div></div>
+      </div></div>
+      <div class="panel light"><span class="lbl">Latar terang</span><div class="sizes">
+        <div class="size"><div style="width:256px;height:256px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">256 px</div></div>
+        <div class="size"><div style="width:128px;height:128px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">128 px</div></div>
+        <div class="size"><div style="width:64px;height:64px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">64 px</div></div>
+        <div class="size"><div style="width:32px;height:32px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">32 px</div></div>
+        <div class="size"><div style="width:24px;height:24px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">24 px</div></div>
+        <div class="size"><div style="width:16px;height:16px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0784c3" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><div class="cap">16 px</div></div>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>04 — Ruang bebas</h2>
+    <p class="sub">Ruang bebas minimum di keempat sisi = <b>x = 0,25 × tinggi marka</b>. Tidak ada teks, garis, tepi kontainer, atau marka lain yang boleh masuk ke kotak putus-putus.</p>
+    <div class="two">
+      <div class="panel light"><span class="lbl">Aturan x</span><div class="stage" style="padding:30px 16px 20px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="-36 -18 328.1 292" width="100%" height="100%" role="img" aria-label="NexChain — ruang bebas">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#0b1620" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#0b1620" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <g fill="none" stroke="#0784c3" stroke-width="1.6" stroke-dasharray="7 6">
+    <rect x="-10" y="8" width="276.1" height="240"/>
+  </g>
+  <g fill="none" stroke="#00c9a7" stroke-width="2">
+    <path d="M 30 8 v 25.6 M 30 8 h 25.6"/>
+    <path d="M 226.1 8 v 25.6 M 226.1 8 h -25.6"/>
+    <path d="M 30 248 v -25.6 M 30 248 h 25.6"/>
+    <path d="M 226.1 248 v -25.6 M 226.1 248 h -25.6"/>
+  </g>
+</svg>
+</div></div>
+      <div class="panel dark"><span class="lbl">Ukuran minimum</span>
+        <div style="padding:52px 18px 24px">
+          <div class="tbl" style="border-color:#1e2732;background:transparent">
+            <table>
+              <thead><tr><th>Pemakaian</th><th class="mono">Digital</th><th class="mono">Cetak</th></tr></thead>
+              <tbody>
+                <tr><td>Marka saja</td><td class="mono">16 px</td><td class="mono">8 mm</td></tr>
+                <tr><td>Lockup horizontal</td><td class="mono">96 px</td><td class="mono">24 mm</td></tr>
+                <tr><td>Lockup vertikal</td><td class="mono">64 px</td><td class="mono">16 mm</td></tr>
+                <tr><td>Favicon / ikon tab</td><td class="mono">16 px</td><td class="mono">—</td></tr>
+                <tr><td>App icon</td><td class="mono">48 px</td><td class="mono">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>05 — Ikon terpasang</h2>
+    <p class="sub">Raster di folder <code>icon/</code> sudah jadi — tinggal pakai. <code>apple-touch-icon.png</code> sengaja tanpa sudut karena iOS memotongnya sendiri; <code>favicon.ico</code> berisi 16, 32, dan 48 px.</p>
+    <div class="panel dark">
+      <span class="lbl">Set ikon</span>
+      <div style="padding:54px 20px 26px" class="ico">
+        <div class="it"><img src="icon/nexchain-appicon-512.png" width="96" height="96" style="border-radius:21.9%" alt="app icon 512"><div class="cap">512 PNG</div></div>
+        <div class="it"><img src="icon/nexchain-appicon-192.png" width="64" height="64" style="border-radius:21.9%" alt="app icon 192"><div class="cap">192 PNG</div></div>
+        <div class="it"><img src="icon/nexchain-apple-touch-icon.png" width="48" height="48" alt="apple touch"><div class="cap">apple-touch 180</div></div>
+        <div class="it"><img src="icon/nexchain-appicon-1024.png" width="32" height="32" style="border-radius:21.9%" alt="app icon 32"><div class="cap">32</div></div>
+        <div class="it" style="margin-left:auto">
+          <div style="display:inline-flex;align-items:center;gap:9px;background:#2a2f36;border-radius:9px 9px 0 0;padding:9px 14px 9px 10px;font-size:12px;color:#cfd8e2">
+            <img src="icon/favicon.svg" width="16" height="16" alt=""> NexChain Explorer
+          </div>
+          <div class="cap">tab browser</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>06 — Boleh &amp; tidak</h2>
+    <div class="cols">
+      <div class="rule ok"><span class="badge">BOLEH</span><div class="demo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><p>Skala proporsional, dua warna asli, ruang bebas utuh.</p></div>
+      <div class="rule no"><span class="badge">JANGAN</span><div class="demo stretch"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><p>Jangan regangkan atau gepengkan. Selalu ubah ukuran secara proporsional.</p></div>
+      <div class="rule no"><span class="badge">JANGAN</span><div class="demo rotate"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><p>Jangan memutar marka. Chevron selalu mengarah ke kanan.</p></div>
+      <div class="rule no"><span class="badge">JANGAN</span><div class="demo glow"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><p>Jangan menambah glow, bayangan, atau gradien.</p></div>
+      <div class="rule no"><span class="badge">JANGAN</span><div class="demo recolor"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><p>Jangan mengganti warna di luar token palet.</p></div>
+      <div class="rule no"><span class="badge">JANGAN</span><div class="demo fade"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" role="img" aria-label="">
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
+</div><p>Jangan menurunkan opasitas atau mengubahnya jadi outline tipis.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>07 — Warna</h2>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#0784c3"></div><div class="meta"><b>Biru utama</b><span>#0784c3</span></div></div>
+      <div class="sw"><div class="chip" style="background:#00c9a7"></div><div class="meta"><b>Mint aksen</b><span>#00c9a7</span></div></div>
+      <div class="sw"><div class="chip" style="background:#05628f"></div><div class="meta"><b>Biru gelap</b><span>#05628f</span></div></div>
+      <div class="sw"><div class="chip" style="background:#0b1620"></div><div class="meta"><b>Tinta / latar gelap</b><span>#0b1620</span></div></div>
+    </div>
+    <p class="hint">Di latar gelap biru utama diganti <code>#ffffff</code>; mint tetap. Alasannya kontras: <code>#0784c3</code> di atas <code>#0b1620</code> hanya ≈2,3:1 — di bawah ambang 3:1.</p>
+  </section>
+
+  <section>
+    <h2>08 — Berkas</h2>
+    <div class="files">
+      <a href="mark/nexchain-mark.svg" download>mark/nexchain-mark.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="mark/nexchain-mark-inverse.svg" download>mark/nexchain-mark-inverse.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="mark/nexchain-mark-mono.svg" download>mark/nexchain-mark-mono.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="mark/nexchain-mark-mono-white.svg" download>mark/nexchain-mark-mono-white.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="lockup/nexchain-lockup-h.svg" download>lockup/nexchain-lockup-h.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="lockup/nexchain-lockup-h-inverse.svg" download>lockup/nexchain-lockup-h-inverse.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="lockup/nexchain-lockup-v.svg" download>lockup/nexchain-lockup-v.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="lockup/nexchain-lockup-v-inverse.svg" download>lockup/nexchain-lockup-v-inverse.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="lockup/nexchain-lockup-h-mono.svg" download>lockup/nexchain-lockup-h-mono.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="icon/nexchain-appicon.svg" download>icon/nexchain-appicon.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="icon/nexchain-appicon-flat.svg" download>icon/nexchain-appicon-flat.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="icon/favicon.svg" download>icon/favicon.svg<span style="color:#5d6d7e">SVG</span></a>
+      <a href="icon/favicon.ico" download>icon/favicon.ico<span style="color:#5d6d7e">ICO</span></a>
+      <a href="icon/nexchain-appicon-1024.png" download>icon/nexchain-appicon-1024.png<span style="color:#5d6d7e">PNG</span></a>
+      <a href="icon/nexchain-appicon-512.png" download>icon/nexchain-appicon-512.png<span style="color:#5d6d7e">PNG</span></a>
+      <a href="icon/nexchain-appicon-192.png" download>icon/nexchain-appicon-192.png<span style="color:#5d6d7e">PNG</span></a>
+      <a href="icon/nexchain-apple-touch-icon.png" download>icon/nexchain-apple-touch-icon.png<span style="color:#5d6d7e">PNG</span></a>
+      <a href="icon/nexchain-mark-1024.png" download>icon/nexchain-mark-1024.png<span style="color:#5d6d7e">PNG</span></a>
+      <a href="icon/nexchain-mark-inverse-1024.png" download>icon/nexchain-mark-inverse-1024.png<span style="color:#5d6d7e">PNG</span></a>
+    </div>
+    <p class="hint">Sumber kebenaran selalu SVG. PNG dan ICO adalah turunan — jangan disunting, dan jangan dipakai sebagai acuan bentuk.</p>
+  </section>
+
+  <div class="foot">NEXCHAIN · NEX FLOW · v1 · TERKUNCI</div>
+</div>
+</body>
+</html>

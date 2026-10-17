@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="NexChain — app icon tanpa sudut (maskable / apple-touch)">
+  <rect width="256" height="256" fill="#0b1620"/>
+  <g transform="translate(36.58,36.62) scale(0.71392)">
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(80,128)" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+    <path d="M -34,-64 L 0,0 L -34,64" transform="translate(192,128)" fill="none" stroke="#00c9a7" stroke-width="32" stroke-linejoin="miter" stroke-linecap="butt"/>
+  </g>
+</svg>

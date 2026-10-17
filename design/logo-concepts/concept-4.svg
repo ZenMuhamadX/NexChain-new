@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="c4t c4d">
+  <title id="c4t">NexChain — Cincin N</title>
+  <desc id="c4d">Cincin rantai tebal yang terbuka 60 derajat di sisi kanan, melingkupi huruf N di tengah seperti mata rantai yang menyatu dengan isinya.</desc>
+
+  <!-- cincin rantai -->
+  <path fill="none" stroke="#0784c3" stroke-width="20" stroke-linecap="butt"
+        d="M216.3,179 A102,102 0 1 1 216.3,77"/>
+
+  <!-- N inti -->
+  <g transform="translate(128 128) scale(0.8) translate(-128 -128)">
+    <path fill="#00c9a7" d="M62,48 L92,48 L164,154.8 L164,48 L194,48 L194,208 L163.3,208 L92,102.3 L92,208 L62,208 Z"/>
+  </g>
+</svg>
