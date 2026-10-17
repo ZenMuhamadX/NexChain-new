@@ -69,3 +69,7 @@ data-e2e-test/
 
 # Catatan kerja internal asisten — bukan bagian dari proyek.
 .workbuddy-ai/
+
+# Artefak tool (snapshot halaman Playwright) dan eksplorasi desain explorer.
+explorer/.playwright-mcp/
+explorer/skillui-etherscan/
