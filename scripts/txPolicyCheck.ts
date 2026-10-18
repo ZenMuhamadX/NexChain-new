@@ -19,6 +19,11 @@
  *      TANPA menulis apa pun; dan reserve mengikuti siklus hidup nyata
  *      (admission via `saveMempool` me-reserve, `removeMemPool`
  *      melepas) — tidak ada lagi counter `pendingBalance` tersimpan.
+ *   4. **RBF (penggantian)** — pengganti pada nonce yang sudah terisi harus
+ *      ber-laju-fee LEBIH TINGGI (fee naik tapi jauh lebih gemuk pun
+ *      ditolak); pengganti MENGGANTI dalam satu batch (pool tetap satu tx
+ *      per nonce, reserve = cost pengganti), dan cap per-pengirim di-skip
+ *      karena pengganti menempati slot yang sudah ada.
  *
  * Bagian 1 murni (tanpa DB). Bagian 2 & 3 menyentuh storage, jadi memakai
  * `NEX_DATA_DIR` sementara (LevelDB nyata di folder buangan) — modul
@@ -173,6 +178,8 @@ process.env.NEX_DATA_DIR = tmpDir
 const { saveMempool } =
 	await import('src/core/state/storage/mempool/saveMemPool')
 const { countPendingBySender } =
+	await import('src/core/state/storage/mempool/mempoolIndex')
+const { findPendingByNonce, readMempoolEntry, MAX_PENDING_PER_SENDER } =
 	await import('src/core/state/storage/mempool/mempoolIndex')
 const { loadMempool } =
 	await import('src/core/state/storage/mempool/loadMempool')
@@ -453,6 +460,195 @@ ok(
 	'tanpa tx pending -> {pendingAmount:0} TANPA menulis kunci',
 	readBefore === 0 && keyAfter === null,
 	`amount=${readBefore}, keyTersimpan=${keyAfter !== null}`,
+)
+
+// ---------------------------------------------------------------------------
+// 4. RBF — penggantian tx pending pada nonce yang sudah terisi
+// ---------------------------------------------------------------------------
+//
+// Kebijakan (bukan konsensus): pengganti wajib ber-laju-fee LEBIH TINGGI.
+// Penggantian diuji lewat jalur PRODUKSI `MemPool.addTransaction` dengan
+// transaksi bertanda tangan nyata — bukan lewat helper internal.
+
+console.log('\nGROUP 4 — RBF (penggantian ber-laju-fee lebih tinggi):')
+
+/** Bangun tx bertanda tangan untuk pengirim mana pun (bekal uji RBF). */
+const buildRbf = (
+	keys: ReturnType<typeof generateKeysFromMnemonic>,
+	sender: string,
+	amount: number,
+	fee: number,
+	nonce: number,
+	data?: string,
+): TxInterface => {
+	const draft = createUnsignedTransaction(
+		{
+			amount,
+			format: 'nexu',
+			// `sender` hanya dipakai pemanggil untuk ambil nonce; tidak ikut tx.
+			sender,
+			receiver: RECEIVER,
+			fee,
+			...(data === undefined ? {} : { data: stringToHex(data) }),
+		},
+		nonce,
+	)
+	if (!draft.status || !draft.tx) throw new Error('fixture RBF gagal dibangun')
+	return signTransaction(draft.tx, keys.privateKey)
+}
+
+// SENDER_C sudah nonce 2 (dua tx GROUP 3a tereksekusi) dan pool-nya kosong.
+const COST_R1 = 1_000_000 + 5_000
+const rbfTx1 = buildRbf(
+	{ privateKey, publicKey },
+	SENDER_C,
+	1_000_000,
+	5_000,
+	2,
+)
+const rbfHash1 = rbfTx1.txHash!
+const sizeR1 = encodeTxPayload(rbfTx1).length
+
+ok(
+	'admission tx nonce 2 DITERIMA (jalur MemPool produksi)',
+	(await pool.addTransaction(rbfTx1)).isValid === true,
+)
+ok(
+	'findPendingByNonce(SENDER_C, 2) menemukan tx itu',
+	(await findPendingByNonce(SENDER_C, 2))?.txHash === rbfHash1,
+)
+
+// Tx identik (fee sama, ukuran sama) → laju sama → DITOLAK: aturannya `>`,
+// bukan `>=`, supaya tx kembar tidak bisa saling menggantikan gratis.
+ok(
+	'pengganti IDENTIK (laju sama) DITOLAK',
+	(
+		await pool.addTransaction(
+			buildRbf({ privateKey, publicKey }, SENDER_C, 1_000_000, 5_000, 2),
+		)
+	).isValid === false,
+)
+
+// Fee NAIK tapi ukuran jauh lebih besar (muatan `data`) → laju TURUN →
+// DITOLAK. Inilah bukti aturannya LAJU (fee/byte), bukan angka fee: aturan
+// "fee > fee lama" akan meloloskannya.
+const gemuk = buildRbf(
+	{ privateKey, publicKey },
+	SENDER_C,
+	1_000_000,
+	5_100,
+	2,
+	'x'.repeat(300),
+)
+const sizeGemuk = encodeTxPayload(gemuk).length
+ok(
+	`fee naik (5.100 > 5.000) tapi laju turun (${sizeGemuk} > ${sizeR1} byte) DITOLAK`,
+	(await pool.addTransaction(gemuk)).isValid === false,
+	`ukuran ${sizeR1} → ${sizeGemuk}`,
+)
+
+ok(
+	'dua penolakan di atas TIDAK mengubah pool (masih tx lama)',
+	(await findPendingByNonce(SENDER_C, 2))?.txHash === rbfHash1 &&
+		(await countPendingBySender(SENDER_C)) === 1 &&
+		(await getPendingReserve(SENDER_C)).pendingAmount === COST_R1,
+)
+
+// Pengganti sah: laju-fee lebih tinggi pada nonce yang sama.
+const COST_R2 = 1_000_000 + 20_000
+const rbfTx2 = buildRbf(
+	{ privateKey, publicKey },
+	SENDER_C,
+	1_000_000,
+	20_000,
+	2,
+)
+const rbfHash2 = rbfTx2.txHash!
+ok(
+	'pengganti ber-laju-fee lebih tinggi DITERIMA',
+	(await pool.addTransaction(rbfTx2)).isValid === true,
+)
+ok(
+	'tx LAMA benar-benar pergi (entri & indeksnya)',
+	(await readMempoolEntry(rbfHash1)) === undefined &&
+		(await findPendingByNonce(SENDER_C, 2))?.txHash === rbfHash2,
+)
+ok(
+	'jumlah pending TETAP 1 (menggantikan, bukan menumpuk)',
+	(await countPendingBySender(SENDER_C)) === 1,
+)
+ok(
+	'reserve = cost pengganti (cost tx lama dilepas lebih dulu)',
+	(await getPendingReserve(SENDER_C)).pendingAmount === COST_R2,
+	`pending=${(await getPendingReserve(SENDER_C)).pendingAmount}`,
+)
+
+// Nonce yang sudah terisi diterima validator; slot berikutnya juga; nonce
+// berlubang tetap ditolak.
+const nonceOnly = (nonce: number): TxInterface =>
+	({ from: SENDER_C, nonce }) as unknown as TxInterface
+ok(
+	'nonce 2 (sudah terisi) DITERIMA validator',
+	(await validateTransactionNonce(nonceOnly(2))) === true,
+)
+ok(
+	'nonce 3 = akun(2) + 1 pending DITERIMA validator',
+	(await validateTransactionNonce(nonceOnly(3))) === true,
+)
+ok(
+	'nonce 9 (berlubang) DITOLAK validator',
+	(await validateTransactionNonce(nonceOnly(9))) === false,
+)
+
+// ---------------------------------------------------------------------------
+// 4b. Cap per-pengirim di-skip untuk pengganti
+// ---------------------------------------------------------------------------
+//
+// Cap adalah kebijakan node (`MAX_PENDING_PER_SENDER`). Pengganti menempati
+// slot yang SUDAH ada, jadi jumlah pending tidak bertambah — kalau cap ikut
+// dinilai, pengirim yang pas mentok tidak bisa mempercepat tx-nya sama
+// sekali.
+
+console.log('\nGROUP 4b — cap per-pengirim di-skip untuk pengganti:')
+
+// Mnemonic BIP39 vektor uji (entropy 0xff×16) — kunci berbeda dari
+// MNEMONIC di atas, jadi `from`-nya pengirim baru.
+const zooKeys = generateKeysFromMnemonic(
+	'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong',
+)
+const SENDER_D = generateAddressFromPublicKey(zooKeys.publicKey.slice(2))
+await putAccount(SENDER_D, {
+	address: SENDER_D,
+	balance: 5_000_000,
+	transactionCount: 0,
+	isContract: false,
+	lastTransactionDate: null,
+	nonce: 0,
+})
+
+const dTxs: TxInterface[] = []
+for (let i = 0; i < MAX_PENDING_PER_SENDER; i++)
+	dTxs.push(buildRbf(zooKeys, SENDER_D, 100_000, 5_000, i))
+let admitted = 0
+for (const tx of dTxs) if ((await pool.addTransaction(tx)).isValid) admitted++
+ok(
+	`${MAX_PENDING_PER_SENDER} tx pending DITERIMA (pool tepat mentok cap)`,
+	admitted === MAX_PENDING_PER_SENDER,
+	`diterima=${admitted}`,
+)
+ok(
+	'slot BERIKUTNYA (nonce 16) DITOLAK oleh cap',
+	(await pool.addTransaction(buildRbf(zooKeys, SENDER_D, 100_000, 5_000, 16)))
+		.isValid === false,
+)
+ok(
+	'pengganti di nonce 0 TETAP DITERIMA walau cap sudah penuh',
+	(await pool.addTransaction(buildRbf(zooKeys, SENDER_D, 100_000, 20_000, 0)))
+		.isValid === true,
+)
+ok(
+	'jumlah pending tetap tepat cap (pengganti tak menambah slot)',
+	(await countPendingBySender(SENDER_D)) === MAX_PENDING_PER_SENDER,
 )
 
 // ---------------------------------------------------------------------------
