@@ -20,6 +20,7 @@ import type { Tab } from '../types'
 interface SendProps {
 	sender: string
 	balance: number
+	pending: number
 	privateKey: string
 	onSent: () => void
 	setTab: (tab: Tab) => void
@@ -30,6 +31,7 @@ type SendResult = { ok: boolean; text: string; txHash?: string }
 export const Send = ({
 	sender,
 	balance,
+	pending,
 	privateKey,
 	onSent,
 	setTab,
@@ -50,6 +52,10 @@ export const Send = ({
 	const [result, setResult] = useState<SendResult | null>(null)
 	/** true saat tempel clipboard ditolak (izin/file://) — untuk pesan inline. */
 	const [pasteError, setPasteError] = useState('')
+	// Model saldo yang sama dengan Dashboard: "Tersedia" = saldo terkonfirmasi
+	// dikurangi reserve turunan dari mempool. Node menolak send yang melampaui
+	// angka ini (`clientHasSufficientBalance`), jadi tampilkan angka yang benar.
+	const available = balance - pending
 	const update = (patch: Partial<SendForm>): void => {
 		const next = { ...form, ...patch }
 		setForm(next)
@@ -164,7 +170,7 @@ export const Send = ({
 					<span>Tersedia</span>
 					<strong>
 						<AmountDisplay
-							nexu={balance}
+							nexu={available}
 							size="table"
 							detailLabel="⋯"
 							ariaLabel="Lihat detail saldo tersedia"
@@ -240,9 +246,7 @@ export const Send = ({
 							{errors.receiver ? (
 								<p className="input-error">{errors.receiver}</p>
 							) : null}
-							{pasteError ? (
-								<p className="input-error">{pasteError}</p>
-							) : null}
+							{pasteError ? <p className="input-error">{pasteError}</p> : null}
 							{!touched || errors.receiver ? (
 								<p className="input-hint">
 									Alamat diawali NxC atau NxS dan terdiri dari 43 karakter.
@@ -343,7 +347,7 @@ export const Send = ({
 							<span>Saldo tersedia</span>
 							<strong>
 								<AmountDisplay
-									nexu={balance}
+									nexu={available}
 									size="table"
 									detailLabel="⋯"
 									ariaLabel="Lihat detail saldo tersedia"
@@ -363,6 +367,18 @@ export const Send = ({
 							<strong>Perangkat lokal</strong>
 						</div>
 					</div>
+					{pending !== 0 ? (
+						<p className="balance-alert">
+							<Icon name="clock" size={14} aria-hidden="true" />
+							<AmountDisplay
+								nexu={pending}
+								size="inline"
+								detailLabel="Rincian"
+								ariaLabel="Lihat detail saldo tertunda"
+							/>{' '}
+							menunggu di mempool
+						</p>
+					) : null}
 					<div className="safety-note">
 						<Icon name="lock" size={15} aria-hidden="true" />
 						<span>

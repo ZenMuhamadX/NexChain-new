@@ -189,6 +189,8 @@ const { removeMemPool } =
 const { MemPool } = await import('src/core/transaction/memPool')
 const { processSender } =
 	await import('src/core/transaction/sender/processSender')
+const { isNonceMismatchError } =
+	await import('src/core/consensus/verify/module/verifyNonce')
 const { rocksState } = await import('src/core/state/db/state')
 const { rocksMempool } = await import('src/core/state/db/memPool')
 
@@ -363,7 +365,7 @@ ok(
 // Eksekusi mendebit saldo TANPA menyentuh reserve — tx masih di mempool,
 // jadi dananya tetap terkunci (inilah mengapa pelepasan milik
 // `removeMemPool`, bukan `processSender`).
-await processSender(SENDER_C, 100_000, 5_000)
+await processSender(SENDER_C, 100_000, 5_000, 0)
 ok(
 	'eksekusi mendebit tepat amount+fee dari saldo',
 	(await getAccount(SENDER_C))?.balance === 100_000_000 - COST_C1,
@@ -387,11 +389,31 @@ ok(
 	'pembaca tetap identik dengan indeks setelah pelepasan',
 	afterFirst === (await sumCostBySender(SENDER_C)),
 )
-await processSender(SENDER_C, 200_000, 5_000)
+await processSender(SENDER_C, 200_000, 5_000, 1)
 await removeMemPool(txC2.txHash!)
 ok(
 	'reserve → 0 setelah semua tx keluar dari mempool',
 	(await getPendingReserve(SENDER_C)).pendingAmount === 0,
+)
+
+// Lapis-2 urutan nonce di `processSender`. Pra-penerbangan
+// (`verifyBlockNonceOrder`, sebelum WAL) adalah jaminan utama; assertion ini
+// tripwire yang menangkap divergensi pre-flight vs eksekusi. Gagal-dulu:
+// state tidak boleh tersentuh sama sekali. SENDER_C kini nonce 2.
+const badNonce = await caughtAsync(() =>
+	processSender(SENDER_C, 1_000, 1_000, 99),
+)
+ok(
+	'processSender MELEMPAR NonceMismatchError pada nonce salah',
+	badNonce !== null && isNonceMismatchError(badNonce),
+	badNonce?.message,
+)
+const afterBad = await getAccount(SENDER_C)
+ok(
+	'akun TIDAK berubah setelah assertion (gagal sebelum putAccount)',
+	afterBad?.nonce === 2 &&
+		afterBad?.balance === 100_000_000 - COST_C1 - COST_C2,
+	`nonce=${afterBad?.nonce}, balance=${afterBad?.balance}`,
 )
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import { createCoinbaseRecord } from 'src/core/transaction/createCoinbaseTransac
 import { isTxExecuted } from './isTxExecuted'
 import { blockStruct } from 'src/types/block'
 import { isJournalGuardError } from 'src/core/state/journal/guard'
+import { isNonceMismatchError } from 'src/core/consensus/verify/module/verifyNonce'
 
 /**
  * Lampirkan asal blok ke entri riwayat.
@@ -99,7 +100,7 @@ export const processTransact = async (
 		}
 
 		try {
-			await processSender(tx.from!, tx.amount, tx.fee!)
+			await processSender(tx.from!, tx.amount, tx.fee!, tx.nonce)
 			await processReceiver(tx.receiver, tx.amount)
 			await saveTxByAddress(tx.from!, tx.receiver, tx.txHash!)
 			await saveTxHistory(tx.txHash!, withBlockMetadata(tx, block))
@@ -107,7 +108,11 @@ export const processTransact = async (
 			// (satu batch atomik) — lihat `removeMemPool`.
 			await removeMemPool(tx.txHash!)
 		} catch (error) {
-			if (isJournalGuardError(error)) throw error
+			// Nonce error ikut dilempar, bukan ditelan: coinbase sudah
+			// membayarkan total fee blok, jadi men-skip tx nonce-salah
+			// berarti membayar fee tanpa mendebet pengirim (inflasi).
+			// Commit gagal → `commitBlock` me-rollback via journal.
+			if (isJournalGuardError(error) || isNonceMismatchError(error)) throw error
 			loggingErr({
 				message: error instanceof Error ? error.message : 'Unknown error',
 				stack: new Error().stack!,
