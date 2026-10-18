@@ -7,6 +7,7 @@ import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByH
 import { getCurrentBlock } from 'src/core/block/query/onChain/block/getCurrentBlock'
 import { isChainsValid } from 'src/core/block/isChainValid'
 import { calculateSize } from 'src/core/encoding/lib/calculateSizeBytes'
+import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 import { hashWithNonce } from './Pow'
 import { meetsDifficulty, TARGET_BLOCK_TIME_MS } from './difficulty'
 import { createJob, getJob, deleteJob, pruneExpiredJobs } from './jobStore'
@@ -204,6 +205,111 @@ export const selectGapFreeTransactions = async (
 	return gapFree
 }
 
+/**
+ * Batas LUNAK ukuran satu template blok, diukur dari Σ byte wire
+ * (`encodeTxPayload(tx).length`) — KEBIJAKAN node, BUKAN konsensus.
+ *
+ * MENGAPA ada: sebelumnya satu-satunya pengikat himpunan tx adalah potongan
+ * `loadMempool` 100 entri yang urut key `0x<txHash>` — bukan prioritas apa
+ * pun, dan tx mana pun bisa luput tanpa alasan. Batas byte ini menggantikan
+ * potongan itu: kandidat dibaca penuh, diurutkan laju-fee, lalu dipotong
+ * pada budget. Node yang berbeda boleh memakai angka berbeda (isi mempool
+ * memang node-local) — jadi ini bukan fork.
+ *
+ * 100 kB ≈ 1.000 tx minimum (~96 byte); P2P masih jauh di bawah plafon
+ * framing, jadi tidak ada yang perlu ikut berubah.
+ */
+export const MAX_BLOCK_WIRE_BYTES = 100 * 1000
+
+/**
+ * Susun himpunan transaksi template berprioritas LAJU-FEE (`fee / byte`),
+ * tanpa pernah melanggar urutan nonce per-pengirim.
+ *
+ * MENGAPA antrean FIFO: urutan tx dalam blok adalah KONSENSUS
+ * (`verifyBlockNonceOrder` — tiap pengirim harus menaik dari nonce akun,
+ * tanpa lompat). Fee hanya boleh menentukan tx MANA yang MASUK, tidak
+ * pernah mengubah urutannya. Karena itu tiap pengirim diperlakukan sebagai
+ * antrean: hanya tx TERDEPAN (nonce terendah yang belum masuk) yang boleh
+ * menang; tx berbayar tinggi paling banter menarik prasyaratnya ikut masuk
+ * (perilaku "executable set" ala geth), tidak bisa menyalipnya.
+ *
+ * Bila tx terdepan tak muat sisa budget, sisa pengirim itu DITUTUP (tx di
+ * atasnya butuh tx itu) tetapi pengirim lain masih boleh mengisi.
+ *
+ * Prasyarat: `gapFree` sudah bebas-gap (`selectGapFreeTransactions`) —
+ * urut input dipertahankan, hanya laju-fee yang menentukan prioritas.
+ * Deterministik: seri laju-fee diputus `txHash`.
+ *
+ * @param gapFree hasil `selectGapFreeTransactions`
+ * @param maxBytes budget ukuran wire (default `MAX_BLOCK_WIRE_BYTES`)
+ */
+export const prioritizeByFeeRate = (
+	gapFree: TxInterface[],
+	maxBytes: number = MAX_BLOCK_WIRE_BYTES,
+): TxInterface[] => {
+	const queues = new Map<string, TxInterface[]>()
+	for (const tx of gapFree) {
+		if (!tx.from) continue
+		const list = queues.get(tx.from)
+		if (list) list.push(tx)
+		else queues.set(tx.from, [tx])
+	}
+	const queue = [...queues.values()]
+	// Ukuran wire dihitung SEKALI; `0` = tak ter-encode (tak mungkin masuk
+	// blok), sehingga antreannya ditutup tanpa menyeret tx di atasnya.
+	const sizes = queue.map((list) =>
+		list.map((tx) => {
+			try {
+				return encodeTxPayload(tx).length
+			} catch {
+				return 0
+			}
+		}),
+	)
+	const cursor = queue.map(() => 0)
+	const done = queue.map((list) => list.length === 0)
+	const chosen: TxInterface[] = []
+	let remaining = maxBytes
+
+	for (;;) {
+		let best = -1
+		for (let i = 0; i < queue.length; i++) {
+			if (done[i]) continue
+			const size = sizes[i][cursor[i]]
+			if (size <= 0) {
+				done[i] = true
+				continue
+			}
+			if (best >= 0) {
+				const a = queue[i][cursor[i]]
+				const b = queue[best][cursor[best]]
+				// feeA·sizeB vs feeB·sizeA — tanpa float. shortcut: pada fee
+				// absurd produk bisa > 2^53; hasilnya tetap blok sah (hanya
+				// urutan pemilihan), jadi tidak perlu BigInt di sini.
+				const crossA = (a.fee ?? 0) * sizes[best][cursor[best]]
+				const crossB = (b.fee ?? 0) * size
+				if (crossA !== crossB) {
+					if (crossA < crossB) continue
+				} else if ((a.txHash ?? '') >= (b.txHash ?? '')) continue
+			}
+			best = i
+		}
+		if (best < 0) break
+
+		const size = sizes[best][cursor[best]]
+		if (size > remaining) {
+			done[best] = true
+			continue
+		}
+		chosen.push(queue[best][cursor[best]])
+		remaining -= size
+		cursor[best]++
+		if (cursor[best] >= queue[best].length) done[best] = true
+	}
+
+	return chosen
+}
+
 const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 	try {
 		// Gerbang IBD: JANGAN menyusun template di atas rantai yang masih
@@ -298,7 +404,10 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 		// lewat `verifyBlockNonceOrder` (lihat komentar
 		// `selectGapFreeTransactions`).
 		const gapFree = await selectGapFreeTransactions(transactions)
-		const template = await createBlockTemplate(gapFree, minerAddress)
+		// Prioritas laju-fee menentukan tx MANA yang masuk; urutan nonce
+		// per-pengirim tetap terjaga (lihat `prioritizeByFeeRate`).
+		const selected = prioritizeByFeeRate(gapFree)
+		const template = await createBlockTemplate(selected, minerAddress)
 		const payload = prepareBlockForHashing(template)
 
 		const job = createJob({
@@ -312,7 +421,7 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 
 		logToConsole(
 			`Work ${job.jobId} → height ${job.height}, difficulty ${job.difficulty} bits, ` +
-				`${gapFree.length} tx, miner ${formatStr(minerAddress)}`,
+				`${selected.length} tx, miner ${formatStr(minerAddress)}`,
 		)
 
 		return {

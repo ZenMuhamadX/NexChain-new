@@ -64,7 +64,11 @@ const { chains } = await import('src/core/block/initBlock')
 const { createBlockTemplate } =
 	await import('src/core/block/createBlockTemplate')
 const { MemPool } = await import('src/core/transaction/memPool')
-const { selectGapFreeTransactions } = await import('src/core/consensus/work')
+const { selectGapFreeTransactions, prioritizeByFeeRate } =
+	await import('src/core/consensus/work')
+const { loadMempool, loadAllMempool } =
+	await import('src/core/state/storage/mempool/loadMempool')
+const { encodeTxPayload } = await import('src/core/encoding/rlp/txCodec')
 const { verifyBlockNonceOrder, isNonceMismatchError } =
 	await import('src/core/consensus/verify/module/verifyNonce')
 
@@ -118,7 +122,10 @@ const makeTx = (
 		amount,
 		from,
 		txHash: `nonce-order-${from.slice(-6)}-${tag}-${nonce}`,
-		sign: { v: 27, r: '0x01', s: '0x01' },
+		// r/s 32 byte huruf kecil supaya `encodeTxPayload` bisa menghitung
+		// ukuran wire (dipakai seleksi berprioritas laju-fee); tanda tangan
+		// tetap palsu — `commitBlock` tidak memeriksanya.
+		sign: { v: 27, r: '01'.repeat(32), s: '02'.repeat(32) },
 	}) as TxInterface
 
 let fakeHashCounter = 0x1000
@@ -423,6 +430,99 @@ await fund(SENDER_T6)
 		again.map((tx) => tx.txHash).join(',') ===
 			selectedFull.map((tx) => tx.txHash).join(','),
 	)
+}
+
+// ---------------------------------------------------------------------------
+// GROUP 6 — prioritas laju-fee & cap byte (urutan nonce tetap)
+// ---------------------------------------------------------------------------
+console.log('\nGROUP 6 — prioritas laju-fee + cap byte:')
+
+const SENDER_F = `NxC${'f7'.repeat(20)}`
+const SENDER_G = `NxC${'8g'.repeat(20)}`
+const SENDER_H = `NxC${'h9'.repeat(20)}`
+await fund(SENDER_F)
+await fund(SENDER_G)
+{
+	// Satu pengirim, dua tx: fee nonce-1 JAUH lebih tinggi. Fee tidak boleh
+	// mereorder — nonce-1 hanya ikut bila nonce-0 juga masuk.
+	const n0 = makeTx(SENDER_F, 0, 'fee', 10, 1)
+	const n1 = makeTx(SENDER_F, 1, 'fee', 10, 5000)
+	const s0 = encodeTxPayload(n0).length
+	const s1 = encodeTxPayload(n1).length
+
+	const one = prioritizeByFeeRate([n0, n1], s0)
+	ok(
+		'budget 1 slot → nonce-0 (fee lebih rendah) yang masuk',
+		one.length === 1 && one[0].nonce === 0,
+		`[${one.map((tx) => tx.nonce).join(',')}]`,
+	)
+
+	// Dua pengirim, satu slot: tx laju-fee tertinggi menang — antar-pengirim
+	// memang tak punya kendala urutan.
+	const gA = makeTx(SENDER_G, 0, 'fee', 10, 10)
+	const gB = makeTx(SENDER_H, 0, 'fee', 10, 100)
+	const winner = prioritizeByFeeRate([gA, gB], encodeTxPayload(gB).length)
+	ok(
+		'dua pengirim, budget 1 → fee-rate tertinggi',
+		winner.length === 1 && winner[0].fee === 100,
+		`[${winner.map((tx) => tx.fee).join(',')}]`,
+	)
+
+	// Dua tx: keduanya, tetap menaik — fee tidak mereorder.
+	const two = prioritizeByFeeRate([n0, n1], s0 + s1)
+	ok(
+		'budget cukup 2 → [0,1] (fee tinggi tidak menyalip prasyarat)',
+		two.length === 2 && two[0].nonce === 0 && two[1].nonce === 1,
+		`[${two.map((tx) => tx.nonce).join(',')}]`,
+	)
+	const again = prioritizeByFeeRate([n0, n1], s0 + s1)
+	ok(
+		'urutan masukan sama → hasil sama (deterministik)',
+		again.map((tx) => tx.txHash).join(',') ===
+			two.map((tx) => tx.txHash).join(','),
+	)
+
+	// Determinisme antar-pengirim: fee-rate IDENTIK → diputus `txHash`, jadi
+	// pemenang sama walau urutan masukan antar-pengirim dibalik.
+	const tA = makeTx(SENDER_G, 0, 'tie', 10, 7)
+	const tB = makeTx(SENDER_H, 0, 'tie', 10, 7)
+	const tieHashes = [tA.txHash ?? '', tB.txHash ?? ''].sort()
+	const pickAB = prioritizeByFeeRate([tA, tB], encodeTxPayload(tA).length)
+	const pickBA = prioritizeByFeeRate([tB, tA], encodeTxPayload(tB).length)
+	ok(
+		'seri fee-rate diputus txHash (deterministik)',
+		pickAB.length === 1 &&
+			pickBA.length === 1 &&
+			pickAB[0].txHash === pickBA[0].txHash &&
+			pickAB[0].txHash === tieHashes[0],
+	)
+
+	// Bacaan template TIDAK lagi terpotong 100 global; bacaan tampilan tetap.
+	const many = `NxC${'99'.repeat(20)}`
+	for (let i = 0; i < 150; i++) await saveMempool(makeTx(many, i, 'cap', 10, 5))
+	const all = await loadAllMempool()
+	const capped = await loadMempool()
+	ok(
+		`loadAllMempool (template) tak terpotong — ${all.length} entri`,
+		all.length > 100,
+	)
+	ok(
+		`loadMempool (${capped.length}) tetap 100 untuk tampilan`,
+		capped.length === 100,
+	)
+
+	// Ujung-ke-ujung: blok dari hasil seleksi tetap bebas-gap → diterima
+	// `commitBlock` (fee tinggi tak merusak urutan nonce).
+	const FUNDED = `NxC${'77'.repeat(20)}`
+	await fund(FUNDED)
+	const built = prioritizeByFeeRate(
+		[makeTx(FUNDED, 0, 'e2e', 10, 3), makeTx(FUNDED, 1, 'e2e', 10, 900)],
+		10_000,
+	)
+	const accepted = await commitTxs(built)
+	const after = await snapshot(FUNDED)
+	ok('blok hasil seleksi laju-fee DITERIMA', accepted === true)
+	ok('nonce pengirim maju 2', after.nonce === 2, `nonce=${after.nonce}`)
 }
 
 // ---------------------------------------------------------------------------
