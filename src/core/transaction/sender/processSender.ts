@@ -4,11 +4,13 @@ import { loggingErr } from 'src/logging/errorLog'
 import { getAccount } from 'src/core/state/account/getAccount'
 import { putAccount } from 'src/core/state/account/putAccount'
 import { hasSufficientBalance } from 'src/core/validation/module/hasSufficientBalance'
+import { NonceMismatchError } from 'src/core/consensus/verify/module/verifyNonce'
 
 export const processSender = async (
 	senderAddress: string,
 	amount: number,
 	fee: number,
+	txNonce: number,
 ) => {
 	const balanceStatus = await hasSufficientBalance(senderAddress, amount, fee)
 	if (!balanceStatus) {
@@ -38,6 +40,13 @@ export const processSender = async (
 	if (!oldData) {
 		throw new Error(`Sender account not found: ${senderAddress}`)
 	}
+	// Lapis-2 urutan nonce. Pra-penerbangan `verifyBlockNonceOrder` (sebelum
+	// WAL) sudah menegakkan aturan yang sama; assertion ini menangkap
+	// divergensi antara pre-flight dan eksekusi — bug yang mengubah aturan
+	// di SATU sisi saja. Gagal-dulu, sebelum `putAccount`.
+	if (oldData.nonce !== txNonce) {
+		throw new NonceMismatchError(senderAddress, oldData.nonce, txNonce)
+	}
 	// Fee IKUT didebet: selama ini fee hanya DICEK di validasi tapi tidak
 	// pernah ditarik, sementara coinbase membayarkan total fee ke miner
 	// (hadiah blok + totalFees) — fee jadi tercetak dari nol tiap
@@ -50,7 +59,7 @@ export const processSender = async (
 		transactionCount: oldData.transactionCount + 1,
 		isContract: false,
 		lastTransactionDate: generateTimestampz(),
-		nonce: oldData.nonce + 1,
+		nonce: txNonce + 1,
 	}
 	await putAccount(senderAddress, newData)
 	// TIDAK ada pelepasan reserve di sini (Gelombang 2): reserve adalah

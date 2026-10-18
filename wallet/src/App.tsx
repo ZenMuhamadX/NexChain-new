@@ -185,7 +185,11 @@ export const App = (): React.JSX.Element => {
 		)
 	}
 
-	const networkState = netError ? 'offline' : loading ? 'connecting' : 'connected'
+	const networkState = netError
+		? 'offline'
+		: loading
+			? 'connecting'
+			: 'connected'
 	const networkLabel = netError
 		? 'RPC offline'
 		: loading
@@ -222,11 +226,18 @@ export const App = (): React.JSX.Element => {
 						))}
 					</nav>
 					<div className="header-actions">
-						<span className={`network-pill network-pill--${networkState}`} title={networkLabel}>
+						<span
+							className={`network-pill network-pill--${networkState}`}
+							title={networkLabel}
+						>
 							<span className="network-dot" aria-hidden="true" />
 							<span>{networkLabel}</span>
 						</span>
-						<button type="button" className="button button--ghost button--sm" onClick={handleLock}>
+						<button
+							type="button"
+							className="button button--ghost button--sm"
+							onClick={handleLock}
+						>
 							<Icon name="lock" size={14} aria-hidden="true" />
 							<span>Kunci</span>
 						</button>
@@ -238,7 +249,10 @@ export const App = (): React.JSX.Element => {
 				{netError ? (
 					<Notice
 						variant="error"
-						action={{ label: 'Retry', onClick: () => void refresh(wallet.address) }}
+						action={{
+							label: 'Retry',
+							onClick: () => void refresh(wallet.address),
+						}}
 					>
 						RPC belum dapat dihubungi. Periksa URL node di Settings.
 					</Notice>
@@ -262,12 +276,15 @@ export const App = (): React.JSX.Element => {
 						sender={wallet.address}
 						privateKey={wallet.privateKey}
 						balance={balance}
+						pending={pending}
 						setTab={setTab}
 						onSent={() => void refresh(wallet.address)}
 					/>
 				) : null}
 				{tab === 'terima' ? <Receive address={wallet.address} /> : null}
-				{tab === 'riwayat' ? <History address={wallet.address} setTab={setTab} /> : null}
+				{tab === 'riwayat' ? (
+					<History address={wallet.address} setTab={setTab} />
+				) : null}
 				{tab === 'pengaturan' ? (
 					<Settings
 						mnemonic={wallet.mnemonic}
