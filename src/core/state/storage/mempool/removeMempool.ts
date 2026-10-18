@@ -1,11 +1,10 @@
 import { rocksMempool } from 'src/core/state/db/memPool'
-import { mempoolTxKey, senderIndexKey, runMempoolOp } from './mempoolIndex'
-
-/**
- * Key format LAMA (`Tx-0x<hash>`) — hanya untuk pembuangan sisa data
- * (range kedua di `TX_KEY_RANGES`).
- */
-const legacyMempoolTxKey = (txHash: string): string => `Tx-0x${txHash}`
+import {
+	legacyMempoolTxKey,
+	mempoolTxKey,
+	runMempoolOp,
+	senderIndexKey,
+} from './mempoolIndex'
 
 type RemoveOp = { type: 'del'; key: string }
 

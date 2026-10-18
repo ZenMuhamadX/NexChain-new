@@ -1,6 +1,11 @@
 import { TxInterface } from 'src/types/transaction'
 import { rocksMempool } from 'src/core/state/db/memPool'
-import { mempoolTxKey, senderIndexKey, runMempoolOp } from './mempoolIndex'
+import {
+	legacyMempoolTxKey,
+	mempoolTxKey,
+	runMempoolOp,
+	senderIndexKey,
+} from './mempoolIndex'
 
 /**
  * Simpan transaksi ke mempool BERSAMA indeks per-pengirimnya.
@@ -35,6 +40,54 @@ export const saveMempool = async (transaction: TxInterface): Promise<void> => {
 					type: 'put',
 					key: senderIndexKey(from, txHash),
 					// `cost` = amount+fee — bekal jalur buang/evictasi ke depan.
+					value: JSON.stringify({
+						cost: (transaction.amount ?? 0) + (transaction.fee ?? 0),
+					}),
+				},
+			],
+			{ sync: false },
+		),
+	)
+}
+
+/**
+ * Ganti tx pending dengan penggantinya (RBF) — SATU batch atomik.
+ *
+ * Batch berisi hapus tx lama + indeksnya (+ kunci format lama), lalu tulis tx
+ * baru + indeksnya. Karena satu batch, tidak ada jendela di mana pengirim
+ * kehilangan entri indeksnya (ekspektasi nonce turun → nonce kembar lolos)
+ * atau justru punya DUA entri untuk nonce yang sama (reserve mengunci saldo
+ * untuk tx yang sudah tidak ada).
+ *
+ * Kebijakan TIDAK dinilai di sini: pemanggil (`memPool.doAddTransaction`)
+ * sudah memastikan laju-fee pengganti lebih tinggi dan `oldTxHash` memang tx
+ * pending milik `from` yang sama.
+ */
+export const replaceMempool = async (
+	oldTxHash: string,
+	transaction: TxInterface,
+): Promise<void> => {
+	const txHash = transaction.txHash
+	const from = transaction.from
+	if (!oldTxHash || !txHash || !from) {
+		console.error('replaceMempool: txHash & from wajib ada sebelum menyimpan')
+		return
+	}
+	await runMempoolOp(() =>
+		rocksMempool.batch(
+			[
+				{ type: 'del', key: mempoolTxKey(oldTxHash) },
+				{ type: 'del', key: legacyMempoolTxKey(oldTxHash) },
+				{ type: 'del', key: senderIndexKey(from, oldTxHash) },
+				{
+					type: 'put',
+					key: mempoolTxKey(txHash),
+					value: JSON.stringify(transaction),
+				},
+				{
+					type: 'put',
+					key: senderIndexKey(from, txHash),
+					// `cost` = amount+fee — sama dengan jalur `saveMempool`.
 					value: JSON.stringify({
 						cost: (transaction.amount ?? 0) + (transaction.fee ?? 0),
 					}),

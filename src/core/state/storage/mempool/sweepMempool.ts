@@ -2,21 +2,16 @@ import { rocksMempool } from 'src/core/state/db/memPool'
 import { rocksState } from 'src/core/state/db/state'
 import { getAccount } from 'src/core/state/account/getAccount'
 import { logToConsole } from 'src/logging/logging'
-import type { TxInterface } from 'src/types/transaction'
 import {
 	ALL_INDEX_GTE,
 	ALL_INDEX_LT,
 	ensureMempoolIndex,
+	legacyMempoolTxKey,
 	mempoolTxKey,
+	readMempoolEntry,
 	runMempoolOp,
 	senderIndexKey,
 } from './mempoolIndex'
-
-/**
- * Key mempool format LAMA (`Tx-0x<hash>`) — hanya cadangan baca & hapus
- * (meniru `removeMempool.ts`).
- */
-const legacyMempoolTxKey = (txHash: string): string => `Tx-0x${txHash}`
 
 /** Alasan tx dibuang sapuan — dicatat lewat logger repo. */
 export type SweepDropReason = 'stale' | 'gap' | 'unaffordable'
@@ -43,32 +38,6 @@ interface SenderEntry {
 	txHash: string
 	nonce: number
 	cost: number
-}
-
-/**
- * Baca SATU entri mempool lewat `txHash` (format baru, cadangan format
- * lama); `undefined` bila hilang/rusak.
- *
- * MENGAPA baca entri, bukan nilai indeks: nilai indeks (`{cost}`) TIDAK
- * menyimpan `nonce`, dan sapuan butuh keduanya. Membaca transaksi penuh
- * membuat nilai indeks lama (yang tak punya `nonce`) tetap sah tanpa
- * migrasi — pembaca lama (`senderOf`, `rebuildBody`, `costOf`) tak
- * tersentuh. Entri yang tak terbaca DILEWATI (dibiarkan), bukan dibuang.
- */
-const readEntry = async (txHash: string): Promise<TxInterface | undefined> => {
-	for (const key of [mempoolTxKey(txHash), legacyMempoolTxKey(txHash)]) {
-		const stored: unknown = await rocksMempool.get(key).catch(() => null)
-		if (stored === null || stored === undefined) continue
-		try {
-			const parsed: unknown =
-				typeof stored === 'string' ? JSON.parse(stored) : stored
-			if (parsed !== null && typeof parsed === 'object')
-				return parsed as TxInterface
-		} catch {
-			// nilai rusak — coba kunci cadangan, lalu serahkan ke pemanggil
-		}
-	}
-	return undefined
 }
 
 /**
@@ -151,7 +120,7 @@ const sweepBody = async (): Promise<SweepResult> => {
 		// hilang/rusak dilewati (dibiarkan di pool).
 		const entries: SenderEntry[] = []
 		for (const txHash of txHashes) {
-			const tx = await readEntry(txHash).catch(() => undefined)
+			const tx = await readMempoolEntry(txHash).catch(() => undefined)
 			if (
 				!tx ||
 				!Number.isInteger(tx.nonce) ||

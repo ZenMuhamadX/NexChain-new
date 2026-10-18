@@ -1,4 +1,5 @@
 import { rocksMempool } from 'src/core/state/db/memPool'
+import type { TxInterface } from 'src/types/transaction'
 
 /**
  * Indeks mempool PER-PENGIRM — sumber kebenaran jumlah tx pending satu
@@ -66,6 +67,13 @@ export const TX_KEY_RANGES = [
 const senderIndexGte = (from: string): string => `mpf:${from}:`
 /** Batas kanan range indeks per-pengirim — `:` + 1 === `;` (0x3A → 0x3B). */
 const senderIndexLt = (from: string): string => `mpf:${from};`
+
+/**
+ * Key entri mempool format LAMA (`Tx-0x<hash>`) — cadangan baca/hapus untuk
+ * data yang belum terbaca (lihat `TX_KEY_RANGES`). Satu definisi dipakai
+ * `removeMemPool`, sapuan, dan `replaceMempool`; dulu disalin di dua tempat.
+ */
+export const legacyMempoolTxKey = (txHash: string): string => `Tx-0x${txHash}`
 
 /** Rentang SELURUH indeks (untuk rekonsiliasi & sapuan). */
 export const ALL_INDEX_GTE = 'mpf:'
@@ -274,3 +282,63 @@ export const MAX_PENDING_PER_SENDER = 16
  */
 export const countPendingBySender = async (from: string): Promise<number> =>
 	(await senderIndexStats(from)).count
+
+/**
+ * Baca SATU entri mempool lewat `txHash` (format baru, cadangan format lama);
+ * `undefined` bila hilang/rusak.
+ *
+ * MENGAPA baca transaksi penuh, bukan nilai indeks: nilai indeks (`{cost}`)
+ * TIDAK menyimpan `nonce` maupun `fee`, sedangkan pencarian pengganti (RBF)
+ * butuh keduanya. Membaca transaksi penuh juga membuat nilai indeks lama
+ * (yang tak punya `nonce`) tetap sah tanpa migrasi. Entri yang tak terbaca
+ * DILEWATI (dibiarkan), bukan dianggap tidak ada.
+ */
+export const readMempoolEntry = async (
+	txHash: string,
+): Promise<TxInterface | undefined> => {
+	for (const key of [mempoolTxKey(txHash), legacyMempoolTxKey(txHash)]) {
+		const stored: unknown = await rocksMempool.get(key).catch(() => null)
+		if (stored === null || stored === undefined) continue
+		try {
+			const parsed: unknown =
+				typeof stored === 'string' ? JSON.parse(stored) : stored
+			if (parsed !== null && typeof parsed === 'object')
+				return parsed as TxInterface
+		} catch {
+			// nilai rusak — coba kunci cadangan, lalu serahkan ke pemanggil
+		}
+	}
+	return undefined
+}
+
+/**
+ * Cari tx pending MILIK SATU PENGIRIM dengan `nonce` tertentu (bekal RBF).
+ *
+ * Pindai dibatasi prefix `mpf:<from>:` (≤ `MAX_PENDING_PER_SENDER` entri),
+ * jadi biayanya kecil dan tidak bergantung ukuran pool global.
+ *
+ * `nonce` di badan transaksi adalah satu-satunya sumber kebenaran — tidak ada
+ * indeks kedua (`mpn:`) yang bisa drift dari kenyataan.
+ */
+export const findPendingByNonce = async (
+	from: string,
+	nonce: number,
+): Promise<TxInterface | undefined> => {
+	await ensureMempoolIndex()
+	return runMempoolOp(async () => {
+		for await (const key of rocksMempool.keys({
+			gte: senderIndexGte(from),
+			lt: senderIndexLt(from),
+		})) {
+			const indexKey = key.toString()
+			// `mpf:<from>:<txHash>` — `from` tak mengandung `:`.
+			const separator = indexKey.indexOf(':', 4)
+			if (separator < 0) continue
+			const txHash = indexKey.slice(separator + 1)
+			if (!txHash) continue
+			const tx = await readMempoolEntry(txHash).catch(() => undefined)
+			if (tx && tx.nonce === nonce) return tx
+		}
+		return undefined
+	})
+}

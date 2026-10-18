@@ -1,6 +1,9 @@
 ﻿import { TxInterface } from 'src/types/transaction'
 import { getAccount } from 'src/core/state/account/getAccount'
-import { countPendingBySender } from 'src/core/state/storage/mempool/mempoolIndex'
+import {
+	countPendingBySender,
+	findPendingByNonce,
+} from 'src/core/state/storage/mempool/mempoolIndex'
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { validateRule } from './validateField'
 
@@ -48,8 +51,23 @@ export const validateTransactionNonce = async (
 
 	const expectedNonce = accountNonce + pendingCount
 
+	if (transaction.nonce === expectedNonce) return true
+
+	// Penggantian (RBF): nonce yang SUDAH DITEMPATI tx pending pengirim ini
+	// bukan slot baru — jumlah pending tidak berubah, jadi rumus
+	// `akun.nonce + jumlah pending` memang tidak berlaku untuknya. Kebijakan
+	// penggantian (laju-fee lebih tinggi, cap, reserve) dinilai admission
+	// (`memPool.doAddTransaction`); di sini cukup bahwa slot itu memang sudah
+	// terisi. Nonce basi (nonce < akun.nonce) TIDAK ditempati → tetap ditolak,
+	// begitu pula nonce berlubang di atas ekspektasi.
+	const occupied = await findPendingByNonce(
+		transaction.from!,
+		transaction.nonce,
+	)
+	if (occupied) return true
+
 	return validateRule(
-		transaction.nonce === expectedNonce,
+		false,
 		'transactionValidator',
 		`Invalid nonce: expected ${expectedNonce}, got ${transaction.nonce}`,
 	)
