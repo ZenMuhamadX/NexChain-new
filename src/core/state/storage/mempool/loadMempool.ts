@@ -3,24 +3,12 @@ import { rocksMempool } from 'src/core/state/db/memPool'
 import { TX_KEY_RANGES } from './mempoolIndex'
 
 /**
- * Baca entri mempool untuk PENYUSUNAN BLOK & TAMPILAN — dengan batas 100
- * entri per rentang.
+ * Pembaca tunggal entri mempool.
  *
- * ## `limit: 100` HANYA heuristika inkusi/tampilan — bukan akuntansi
- *
- * Potongan 100 ini membatasi berapa tx yang ikut satu template blok
- * (`work.ts` via `getValidTransactions`) dan berapa yang ditampilkan
- * `nex_getMempool`. Transaksi yang terpotong TIDAK hilang: masih tersimpan
- * penuh di mempool dan ikut blok berikutnya.
- *
- * ⚠️ JANGAN PERNAH memakai hasil fungsi ini untuk menghitung jumlah tx
- * pending SESEORANG (ekspektasi nonce, `nex_getNextNonce`, reserve
- * `pendingAmount`): potongan bersifat GLOBAL (urut key, bukan per-pengirim)
- * sehingga hitungan bisa salah saat mempool ramai — silakan lihat cacat
- * besarnya di catatan modul `mempoolIndex.ts`. Untuk akuntansi per-pengirim
- * gunakan `countPendingBySender`.
+ * `limit` undefined = SELURUH entri (bekal penyusunan template blok);
+ * angka = potongan per rentang (bekal tampilan).
  */
-export const loadMempool = async (): Promise<TxInterface[]> => {
+const readMempool = async (limit?: number): Promise<TxInterface[]> => {
 	const transactions: TxInterface[] = []
 	const seen = new Set<string>()
 
@@ -30,7 +18,8 @@ export const loadMempool = async (): Promise<TxInterface[]> => {
 			lt: range.lt,
 			values: true,
 			keys: false,
-			limit: 100, // Batas inkusi template & tampilan — bukan akuntansi
+			// `exactOptionalPropertyTypes` menolak `limit: undefined`.
+			...(limit === undefined ? {} : { limit }),
 		})) {
 			const data = JSON.parse(value.toString()) as TxInterface
 			// hindari duplikat bila txHash sama
@@ -42,3 +31,24 @@ export const loadMempool = async (): Promise<TxInterface[]> => {
 
 	return transactions
 }
+
+/**
+ * Baca entri mempool untuk TAMPILAN (`nex_getMempool`) — 100 entri per
+ * rentang.
+ *
+ * ⚠️ Potongan ini GLOBAL (urut key, bukan per-pengirim), jadi jangan dipakai
+ * untuk menghitung tx pending SESEORANG — pakai `countPendingBySender`
+ * (lihat catatan cacat besarnya di `mempoolIndex.ts`).
+ */
+export const loadMempool = (): Promise<TxInterface[]> => readMempool(100)
+
+/**
+ * SELURUH entri mempool (tanpa potongan) — bekal penyusunan TEMPLATE BLOK.
+ *
+ * Batas 100 pernah merangkap dua peran sekaligus dan yang pertama adalah
+ * cacat: kandidat template terpotong secara GLOBAL-urut-key, sehingga tx
+ * berbayar tinggi bisa luput tanpa alasan dan fee tak punya keunggulan.
+ * Kini pembacaannya penuh; yang MEMBATASI keluaran template adalah seleksi
+ * berprioritas laju-fee di `work.ts` (budget byte), bukan pemotongan acak.
+ */
+export const loadAllMempool = (): Promise<TxInterface[]> => readMempool()

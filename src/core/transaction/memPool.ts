@@ -8,7 +8,7 @@ import {
 	countPendingBySender,
 	MAX_PENDING_PER_SENDER,
 } from 'src/core/state/storage/mempool/mempoolIndex'
-import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
+import { loadAllMempool } from 'src/core/state/storage/mempool/loadMempool'
 import { getAccount } from 'src/core/state/account/getAccount'
 import { formatStr } from 'src/core/encoding/lib/formatString'
 
@@ -125,6 +125,8 @@ export class MemPool {
 	 * @returns An array of transactions.
 	 */
 	public async getValidTransactions(): Promise<TxInterface[]> {
-		return (await loadMempool()) as TxInterface[]
+		// Penuh (bukan 100): kandidat template harus LENGKAP supaya seleksi
+		// berprioritas laju-fee bisa memilih di antara semua tx.
+		return (await loadAllMempool()) as TxInterface[]
 	}
 }
