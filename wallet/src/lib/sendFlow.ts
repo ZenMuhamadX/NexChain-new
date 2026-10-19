@@ -157,10 +157,13 @@ const composeComTx = (
 }
 
 /**
- * Selesaikan satu kandidate fee yang SUDAH fixed point (`fee === ukuran
- * wire`): terapkan aturan bisnis fee ≤ jumlah, lalu assert internal lantai
- * laju-fee node (`validateTransactionFees` = 1000 nexu/kB = 1 nexu/byte).
- * Keduanya gagal → fail-closed tanpa tx.
+ * Selesaikan satu kandidate fee: terapkan aturan bisnis fee ≤ jumlah, lalu
+ * assert internal lantai laju-fee node (`validateTransactionFees` = 1000
+ * nexu/kB = 1 nexu/byte). Keduanya gagal → fail-closed tanpa tx.
+ *
+ * Dipakai dua jalur: fee otomatis (fixed point `fee === ukuran wire`) dan fee
+ * EKSPLISIT `bumpPendingFee` (percepat/RBF) yang sengaja di atas lantai —
+ * pemeriksaannya sama, jadi keduanya lewat sini.
  */
 const settleFixedFee = (
 	tx: TxInterface,
@@ -349,6 +352,131 @@ export interface SendOutcome {
 }
 
 /**
+ * Ekor bersama semua jalur kirim: validasi klien (Rule server + saldo live) →
+ * `nex_sendRawTransaction` → pemetaan hasil. Node tetap validator terakhir.
+ */
+const broadcast = async (tx: TxInterface): Promise<SendOutcome> => {
+	if (!(await clientSideTxValidate(tx))) {
+		return {
+			ok: false,
+			error:
+				'Validasi client menolak transaksi — cek jumlah/saldo, atau lihat detail di konsol browser.',
+		}
+	}
+
+	const result = await sendRawTransaction(tx)
+	if (!result.status) {
+		return { ok: false, error: result.error ?? 'Node menolak transaksi.' }
+	}
+
+	const txHash = result.txHash ?? tx.txHash ?? ''
+	return { ok: true, txHash }
+}
+
+/** Penanda tangan tx — Worker di UI, `signTransaction` sinkron di gate offline. */
+export type TxSigner = (
+	tx: TxInterface,
+	privateKey: string,
+) => Promise<TxInterface> | TxInterface
+
+/**
+ * Susun + tanda tangani pengganti (RBF): nonce SAMA, jumlah/penerima/data
+ * sama, fee dua kali lipat. Tidak menyentuh jaringan — `sign` disuntik supaya
+ * gate offline (`wallet/scripts/sendFlowSmoke.ts`) menguji jalur yang sama
+ * tanpa Web Worker.
+ *
+ * Kenapa fee-nya EKSPLISIT: fee otomatis wallet selalu = ukuran wire (laju
+ * tepat 1 nexu/byte), sedangkan node menuntut laju pengganti LEBIH tinggi
+ * lewat perkalian silang (`replacesFeeRate` di
+ * `src/core/transaction/memPool.ts`). Tx auto-fee pada nonce yang sama selalu
+ * kalah dan ditolak. Penggandaan selalu menang: `2f·s > f·(s+1)` selama
+ * `s > 1`, dan fee yang naik menambah panjang RLP paling banyak 1 byte.
+ *
+ * `settleFixedFee` menegakkan batas yang sama dengan kirim biasa — kalau
+ * `2 × fee` melebihi jumlah, pengganti ditolak (utang A4b).
+ */
+export const buildBumpedTransaction = async (
+	tx: TxInterface,
+	sender: string,
+	privateKey: string,
+	sign: TxSigner,
+): Promise<BuildResult> => {
+	if (tx.from !== sender) {
+		return {
+			ok: false,
+			error: 'Hanya transaksi keluar Anda yang bisa dipercepat.',
+		}
+	}
+	const oldFee = tx.fee
+	if (!Number.isSafeInteger(oldFee) || oldFee <= 0) {
+		return {
+			ok: false,
+			error:
+				'Biaya transaksi tidak terbaca — transaksi ini tidak bisa dipercepat.',
+		}
+	}
+	const newFee = oldFee * 2
+	const comTx: comTxInterface = {
+		receiver: tx.receiver,
+		format: 'nexu',
+		sender,
+		amount: tx.amount,
+		fee: newFee,
+		// Sebar bersyarat: field `data` yang absen tetap absen.
+		...(tx.data === undefined ? {} : { data: tx.data }),
+	}
+
+	const unsigned = createUnsignedTransaction(comTx, tx.nonce)
+	if (!unsigned.status || !unsigned.tx) {
+		return {
+			ok: false,
+			error: unsigned.error ?? 'Gagal menyusun transaksi pengganti.',
+		}
+	}
+
+	let bumped: TxInterface
+	try {
+		bumped = await sign(unsigned.tx, privateKey)
+	} catch (error) {
+		return {
+			ok: false,
+			error: error instanceof Error ? error.message : 'Gagal menandatangani.',
+		}
+	}
+
+	return settleFixedFee(bumped, newFee, tx.amount)
+}
+
+/** Percepat (RBF) tx milik sendiri yang tertunda: bangun pengganti lalu broadcast. */
+export const bumpPendingFee = async (
+	tx: TxInterface,
+	sender: string,
+	privateKey: string,
+): Promise<SendOutcome> => {
+	try {
+		const built = await buildBumpedTransaction(
+			tx,
+			sender,
+			privateKey,
+			cryptoWorker.signTransaction,
+		)
+		if (!built.ok || !built.tx) {
+			return {
+				ok: false,
+				error: built.error ?? 'Gagal menyusun transaksi pengganti.',
+			}
+		}
+		return await broadcast(built.tx)
+	} catch (error) {
+		return {
+			ok: false,
+			error:
+				error instanceof Error ? error.message : 'Gagal mempercepat transaksi.',
+		}
+	}
+}
+
+/**
  * Alur kirim penuh:
  *
  *   nonce (Bug B: `nex_getNextNonce` = akun + pending mempool)
@@ -377,21 +505,7 @@ export const sendForm = async (
 			return { ok: false, error: built.error ?? 'Gagal menyusun transaksi.' }
 		}
 
-		if (!(await clientSideTxValidate(built.tx))) {
-			return {
-				ok: false,
-				error:
-					'Validasi client menolak transaksi — cek jumlah/saldo, atau lihat detail di konsol browser.',
-			}
-		}
-
-		const result = await sendRawTransaction(built.tx)
-		if (!result.status) {
-			return { ok: false, error: result.error ?? 'Node menolak transaksi.' }
-		}
-
-		const txHash = result.txHash ?? built.tx.txHash ?? ''
-		return { ok: true, txHash }
+		return await broadcast(built.tx)
 	} catch (error) {
 		return {
 			ok: false,

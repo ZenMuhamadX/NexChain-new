@@ -10,6 +10,10 @@
  *   3. Alur kirim murni dengan fee OTOMATIS: validate → build (fixed point
  *      fee === ukuran wire) → sign → encodeTx, termasuk pratinjau fee,
  *      lantai biaya minimum, dan skenario jumlah < biaya.
+ *   3b. Percepat (RBF): pengganti memakai nonce SAMA dengan fee EKSPLISIT × 2,
+ *      lajunya wajib LEBIH tinggi menurut perkalian silang yang sama dengan
+ *      `replacesFeeRate` node — plus kontrol negatif bahwa tx ber-fee otomatis
+ *      (laju 1 nexu/byte) pada nonce itu SELALU kalah dan pasti ditolak.
  *   4. Interop bip39 (akar bug runtime browser): module.exports bip39 menandai
  *      __esModule TANPA properti default, sehingga default-import pada jalur
  *      Vite menghasilkan undefined dan crash di SetupWallet. Guard memaksa
@@ -32,6 +36,8 @@ import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
 import { validateMnemonic } from 'src/crypto/validateMnemonic'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
+import { signTransaction } from 'src/crypto/signTransaction'
+import { buildBumpedTransaction } from '../src/lib/sendFlow'
 import {
 	buildSignedTransaction,
 	previewAutoFee,
@@ -39,6 +45,7 @@ import {
 	MIN_WIRE_FEE_NEXU,
 } from '../src/lib/sendFlow'
 import type { SendForm } from '../src/lib/sendFlow'
+import type { TxInterface } from 'src/types/transaction'
 
 let passed = 0
 let failed = 0
@@ -253,6 +260,101 @@ const main = async (): Promise<void> => {
 			!tinyPreview.ok && tinyPreview.error !== undefined,
 			'preview: skenario jumlah < fee juga gagal di pratinjau',
 		)
+
+		// --- 3b. percepat (RBF) — fee EKSPLISIT × 2, nonce SAMA ---
+		// Signer sinkron disuntik: jalur komposisi yang diuji sama persis
+		// dengan yang dipakai UI, hanya tanpa Web Worker.
+		const signSync = (tx: TxInterface, key: string): TxInterface =>
+			signTransaction(tx, key)
+
+		if (built.tx && built.fee !== undefined) {
+			const oldTx = built.tx
+			const oldSize = encodeTxPayload(oldTx).length
+			const bumped = await buildBumpedTransaction(
+				oldTx,
+				info.address,
+				derived.privateKey,
+				signSync,
+			)
+			ok(
+				bumped.ok && bumped.tx !== undefined && bumped.fee !== undefined,
+				'bump: transaksi pengganti terbentuk',
+			)
+			if (bumped.tx && bumped.fee !== undefined) {
+				ok(
+					bumped.tx.nonce === oldTx.nonce,
+					`bump: nonce SAMA dengan tx lama (${oldTx.nonce})`,
+				)
+				ok(
+					bumped.tx.receiver === oldTx.receiver &&
+						bumped.tx.amount === oldTx.amount,
+					'bump: penerima & jumlah tidak berubah',
+				)
+				ok(
+					built.fee !== undefined && bumped.fee === built.fee * 2,
+					`bump: fee = 2 × fee lama (${built.fee} → ${bumped.fee})`,
+				)
+				// Aturan node `replacesFeeRate`: laju (fee/byte) pengganti harus
+				// LEBIH tinggi, diuji dengan perkalian silang, bukan float.
+				const bumpSize = encodeTxPayload(bumped.tx).length
+				ok(
+					bumped.fee * oldSize > built.fee * bumpSize,
+					`bump: laju-fee LEBIH tinggi (${bumped.fee}·${oldSize} > ${built.fee}·${bumpSize})`,
+				)
+
+				// Kontrol negatif: rebuild ber-fee OTOMATIS pada nonce yang sama
+				// menghasilkan laju yang sama → node menolaknya. Inilah alasan
+				// tombol Percepat butuh fee eksplisit.
+				const autoAgain = buildSignedTransaction(
+					form,
+					info.address,
+					derived.privateKey,
+					built.tx.nonce,
+				)
+				if (autoAgain.tx && autoAgain.fee !== undefined) {
+					const autoSize = encodeTxPayload(autoAgain.tx).length
+					ok(
+						!(autoAgain.fee * oldSize > built.fee * autoSize),
+						'bump: kontrol negatif — fee otomatis TIDAK menang (pasti ditolak)',
+					)
+				}
+			}
+
+			// Hanya pengirim sendiri yang bisa mempercepat.
+			const notMine = await buildBumpedTransaction(
+				built.tx,
+				receiver,
+				derived.privateKey,
+				signSync,
+			)
+			ok(!notMine.ok, 'bump: tx bukan milik pengirim ini DITOLAK')
+
+			// 2 × fee > jumlah → ditolak (batas `fee <= amount`, utang A4b).
+			const tooTight = await buildBumpedTransaction(
+				{ ...built.tx, amount: MIN_WIRE_FEE_NEXU, fee: MIN_WIRE_FEE_NEXU },
+				info.address,
+				derived.privateKey,
+				signSync,
+			)
+			ok(
+				!tooTight.ok && (tooTight.error ?? '').includes('melebihi jumlah'),
+				'bump: 2 × fee melebihi jumlah DITOLAK',
+			)
+		}
+
+		// `data` (pesan) ikut terbawa utuh ke pengganti — tidak dibuang silent.
+		if (builtMsg.tx) {
+			const bumpedMsg = await buildBumpedTransaction(
+				builtMsg.tx,
+				info.address,
+				derived.privateKey,
+				signSync,
+			)
+			ok(
+				bumpedMsg.tx?.data === builtMsg.tx.data,
+				'bump: field data ikut terbawa (pesan tidak hilang)',
+			)
+		}
 
 		// --- 4. interop bip39 — regresi crash browser (default-import) ---
 		//    Akar bug: bip39 v3 keluaran tsc menandai __esModule pada
