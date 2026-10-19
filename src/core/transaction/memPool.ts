@@ -13,6 +13,7 @@ import {
 	MAX_PENDING_PER_SENDER,
 } from 'src/core/state/storage/mempool/mempoolIndex'
 import { loadAllMempool } from 'src/core/state/storage/mempool/loadMempool'
+import { enforceMempoolWireCap } from 'src/core/state/storage/mempool/capMempool'
 import { getAccount } from 'src/core/state/account/getAccount'
 import { formatStr } from 'src/core/encoding/lib/formatString'
 import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
@@ -113,6 +114,13 @@ export class MemPool {
 		)
 
 		if (!isBalanceSufficient) return { isValid: false, data: transaction }
+
+		// Cap byte GLOBAL mempool (KEBIJAKAN, bukan konsensus): cukup ruang —
+		// lanjut; tak cukup — ditolak, sesudah evictasi laju-fee terendah
+		// dijalankan bila memang menolong.
+		if (!(await enforceMempoolWireCap(transaction, replaced))) {
+			return { isValid: false, data: transaction }
+		}
 
 		// Save transaction to mempool and history — pengganti MENGGANTI tx
 		// lama dalam satu batch atomik, bukan menambah entri kedua.
