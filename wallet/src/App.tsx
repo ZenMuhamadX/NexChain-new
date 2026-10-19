@@ -283,7 +283,12 @@ export const App = (): React.JSX.Element => {
 				) : null}
 				{tab === 'terima' ? <Receive address={wallet.address} /> : null}
 				{tab === 'riwayat' ? (
-					<History address={wallet.address} setTab={setTab} />
+					<History
+						address={wallet.address}
+						privateKey={wallet.privateKey}
+						onSent={() => void refresh(wallet.address)}
+						setTab={setTab}
+					/>
 				) : null}
 				{tab === 'pengaturan' ? (
 					<Settings
