@@ -7,7 +7,6 @@ import {
 } from 'src/core/consensus/difficulty'
 import { toNexu } from 'src/core/token/toNexu'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
-import { calculateSize } from 'src/core/encoding/lib/calculateSizeBytes'
 import { hashWithNonce } from 'src/core/consensus/Pow'
 import { prepareBlockForHashing } from './prepareBlock'
 import { CHAIN_ID } from 'src/crypto/chainId'
@@ -75,7 +74,8 @@ export const GENESIS_HASH =
 
 /**
  * Susun blok genesis sesuai konstanta. Murni & deterministik — tidak
- * menulis ke DB. Header hash & size diisi; `nonce` dari `GENESIS_NONCE`.
+ * menulis ke DB. Header hash diisi; `nonce` dari `GENESIS_NONCE`. `size`
+ * = Σ byte wire tx = 0 (genesis tidak punya transaksi pengguna).
  */
 export const buildGenesisBlock = (): Block => {
 	const timestamp = GENESIS_TIMESTAMP
@@ -118,7 +118,6 @@ export const buildGenesisBlock = (): Block => {
 		},
 		transactions: [],
 	})
-	block.block.size = calculateSize(block.block).KB
 	return block
 }
 

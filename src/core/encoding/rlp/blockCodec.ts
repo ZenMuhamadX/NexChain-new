@@ -29,7 +29,7 @@
  *     0  header: [ previousBlockHash, timestamp, hash, nonce,
  *                  version, difficulty, hashingAlgorithm ]
  *     1  height
- *     2  size                  (float64 8 byte — `size` adalah float!)
+ *     2  size                  (float64 8 byte — `size` = jumlah byte payload tx)
  *     3  totalTransactionFees  (uint WAJIB)
  *     4  merkleRoot            (UTF-8 string — hex64 ATAU `TxC…`, lihat bawah)
  *     5  minerId

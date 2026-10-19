@@ -111,10 +111,12 @@ export const formatDateTime = (timestampMs: number): string => {
 export const formatNumber = (n: number): string =>
 	Number.isFinite(n) ? new Intl.NumberFormat('en-US').format(n) : '—'
 
-/** Ukuran blok (satuan KB dari backend) → "0.87 KB". */
-export const formatSize = (kb: number): string => {
-	if (!Number.isFinite(kb)) return '—'
-	return `${kb.toFixed(2)} KB`
+/** Ukuran blok (byte dari backend) → "820 B" / "0.87 KB" / "1.20 MB". */
+export const formatSize = (bytes: number): string => {
+	if (!Number.isFinite(bytes)) return '—'
+	if (bytes < 1024) return `${bytes} B`
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
+	return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
 /** Durasi ms → "31.2s" / "1m 05s" — untuk rata-rata waktu blok. */

@@ -64,7 +64,7 @@ const { chains } = await import('src/core/block/initBlock')
 const { createBlockTemplate } =
 	await import('src/core/block/createBlockTemplate')
 const { MemPool } = await import('src/core/transaction/memPool')
-const { selectGapFreeTransactions, prioritizeByFeeRate } =
+const { selectGapFreeTransactions, prioritizeByFeeRate, MAX_BLOCK_WIRE_BYTES } =
 	await import('src/core/consensus/work')
 const { loadMempool, loadAllMempool } =
 	await import('src/core/state/storage/mempool/loadMempool')
@@ -523,6 +523,27 @@ await fund(SENDER_G)
 	const after = await snapshot(FUNDED)
 	ok('blok hasil seleksi laju-fee DITERIMA', accepted === true)
 	ok('nonce pengirim maju 2', after.nonce === 2, `nonce=${after.nonce}`)
+
+	// A4: `size` = Σ byte wire tx pengguna — satuan yang sama dengan anggaran
+	// `MAX_BLOCK_WIRE_BYTES`, sehingga plafon itu berlaku by construction.
+	const sumWire = built.reduce((n, tx) => n + encodeTxPayload(tx).length, 0)
+	const sized = await createBlockTemplate(built, MINER)
+	ok(
+		'template.size = Σ encodeTxPayload(tx)',
+		sized.block.size === sumWire,
+		`[${sized.block.size} vs ${sumWire}]`,
+	)
+	ok(
+		`template.size ≤ MAX_BLOCK_WIRE_BYTES (${MAX_BLOCK_WIRE_BYTES})`,
+		sized.block.size > 0 && sized.block.size <= MAX_BLOCK_WIRE_BYTES,
+		`[${sized.block.size}]`,
+	)
+	const empty = await createBlockTemplate([], MINER)
+	ok(
+		'template tanpa tx → size 0',
+		empty.block.size === 0,
+		`[${empty.block.size}]`,
+	)
 }
 
 // ---------------------------------------------------------------------------
