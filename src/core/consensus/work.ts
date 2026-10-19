@@ -6,7 +6,6 @@ import { prepareBlockForHashing } from 'src/core/block/prepareBlock'
 import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByHeight'
 import { getCurrentBlock } from 'src/core/block/query/onChain/block/getCurrentBlock'
 import { isChainsValid } from 'src/core/block/isChainValid'
-import { calculateSize } from 'src/core/encoding/lib/calculateSizeBytes'
 import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 import { hashWithNonce } from './Pow'
 import { meetsDifficulty, TARGET_BLOCK_TIME_MS } from './difficulty'
@@ -515,8 +514,6 @@ const executeSubmit = async (rawParams?: unknown): Promise<SubmitResult> => {
 		const block = job.block
 		block.block.header.nonce = nonce
 		block.block.header.hash = hash
-		// size dihitung terakhir — tidak ikut preimage.
-		block.block.size = calculateSize(block.block).KB
 
 		const committed = await chains.commitBlock(block)
 		deleteJob(jobId)

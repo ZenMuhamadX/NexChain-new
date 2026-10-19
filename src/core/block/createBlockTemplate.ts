@@ -5,6 +5,7 @@ import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { calculateTotalFees } from 'src/core/transaction/utils/totalFees'
+import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 import { calculateTotalBlockReward } from 'src/core/consensus/calculateReward'
 import { expectedDifficulty } from 'src/core/consensus/difficulty'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
@@ -37,10 +38,11 @@ const collectAncestorTimestamps = async (parent: Block): Promise<number[]> => {
 
 /**
  * Susun **template blok** berikutnya: field konten lengkap (tinggi, hadiah,
- * coinbase, merkle root, difficulty retarget) tetapi TANPA PoW dan TANPA
- * size — keduanya diisi node saat `nex_submitWork` diterima (lihat
- * `nexchain/miner/work.ts`), karena hanya solusi PoW yang belum diketahui
- * saat template dibuat.
+ * coinbase, merkle root, difficulty retarget) tetapi TANPA PoW — solusi PoW
+ * baru diisi node saat `nex_submitWork` diterima (lihat
+ * `nexchain/miner/work.ts`), karena hanya itu yang belum diketahui saat
+ * template dibuat. `size` TIDAK termasuk yang ditunda: ia murni properti
+ * himpunan transaksi, jadi sudah final di sini.
  *
  * Blok produksi TIDAK ditandatangani siapa pun (standar PoW Bitcoin):
  * keamanan dari PoW + hash chain + merkle + validasi penuh. Satu-satunya
@@ -127,7 +129,12 @@ export const createBlockTemplate = async (
 			hashingAlgorithm: 'SHA256',
 		},
 		height,
-		size: 0,
+		// `size` = Σ byte wire transaksi PENGGUNA (`encodeTxPayload`) — satuan
+		// dan himpunan yang SAMA dengan anggaran `MAX_BLOCK_WIRE_BYTES`, jadi
+		// `size ≤ MAX_BLOCK_WIRE_BYTES` berlaku by construction. Coinbase di
+		// luar (bukan tx di `transactions`). Tidak ikut preimage PoW, jadi
+		// tidak mengubah hash blok.
+		size: transactions.reduce((n, tx) => n + encodeTxPayload(tx).length, 0),
 		totalTransactionFees,
 		merkleRoot: createMerkleRoot(transactions),
 		// minerId = alamat wallet penerima hadiah (== coinbase receiver),
