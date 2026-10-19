@@ -157,14 +157,28 @@ const main = async (): Promise<void> => {
 			'sendFlow: desimal sub-nexu ditolak (bukan kelipatan bulat 1 nexu)',
 		)
 
-		// Lantai biaya minimum: jumlah < ukuran wire terkecil → errors.fee.
-		const tooSmall = validateSendForm(
-			{ ...form, amountNxc: nxcOf(MIN_WIRE_FEE_NEXU - 1) },
+		// A4b: lantai JUMLAH dihapus — jumlah 1 nexu sah walau fee otomatis
+		// (~96 nexu) jauh lebih besar (Bitcoin/Ethereum juga begitu).
+		const tinyForm = validateSendForm(
+			{ ...form, amountNxc: nxcOf(1) },
 			info.address,
 		)
 		ok(
-			tooSmall.fee !== undefined,
-			'sendFlow: jumlah < lantai wire minimum ditolak (fee otomatis)',
+			tinyForm.amount === undefined && tinyForm.fee === undefined,
+			'sendFlow: jumlah 1 nexu DITERIMA (fee boleh melebihi amount)',
+		)
+		const tinyBuilt = buildSignedTransaction(
+			{ ...form, amountNxc: nxcOf(1) },
+			info.address,
+			derived.privateKey,
+			0,
+		)
+		ok(
+			tinyBuilt.ok &&
+				tinyBuilt.tx !== undefined &&
+				tinyBuilt.fee !== undefined &&
+				tinyBuilt.fee > tinyBuilt.tx.amount,
+			`sendFlow: terbangun dengan fee (${tinyBuilt.fee}) > amount (${tinyBuilt.tx?.amount})`,
 		)
 
 		// Bangun dengan fee OTOMATIS: fee === ukuran wire tx (fixed point).
@@ -237,7 +251,8 @@ const main = async (): Promise<void> => {
 			'build: pesan menaikkan fee (wire lebih besar)',
 		)
 
-		// Jumlah < fee otomatis → gagal dengan pesan yang menyebut angka.
+		// A4b: jumlah (96 nexu) < fee wire+pesan tetap TERBANGUN — batas
+		// `fee <= amount` dihapus di klien dan di node.
 		const tiny = buildSignedTransaction(
 			{ ...form, amountNxc: nxcOf(MIN_WIRE_FEE_NEXU), message: 'halo dunia' },
 			info.address,
@@ -245,10 +260,11 @@ const main = async (): Promise<void> => {
 			0,
 		)
 		ok(
-			!tiny.ok &&
-				tiny.error !== undefined &&
-				tiny.error.includes('melebihi jumlah'),
-			'build: jumlah (96 nexu) < fee wire+pesan → error biaya > jumlah',
+			tiny.ok &&
+				tiny.tx !== undefined &&
+				tiny.fee !== undefined &&
+				tiny.fee > tiny.tx.amount,
+			`build: jumlah (96 nexu) < fee (${tiny.fee}) tetap terbangun (A4b)`,
 		)
 		const tinyPreview = previewAutoFee(
 			{ ...form, amountNxc: nxcOf(MIN_WIRE_FEE_NEXU), message: 'halo dunia' },
@@ -257,8 +273,8 @@ const main = async (): Promise<void> => {
 			0,
 		)
 		ok(
-			!tinyPreview.ok && tinyPreview.error !== undefined,
-			'preview: skenario jumlah < fee juga gagal di pratinjau',
+			tinyPreview.ok && tinyPreview.fee !== undefined,
+			'preview: skenario jumlah < fee tetap menghasilkan pratinjau (A4b)',
 		)
 
 		// --- 3b. percepat (RBF) — fee EKSPLISIT × 2, nonce SAMA ---
@@ -329,7 +345,7 @@ const main = async (): Promise<void> => {
 			)
 			ok(!notMine.ok, 'bump: tx bukan milik pengirim ini DITOLAK')
 
-			// 2 × fee > jumlah → ditolak (batas `fee <= amount`, utang A4b).
+			// A4b: 2 × fee > jumlah kini DITERIMA (batas `fee <= amount` dihapus).
 			const tooTight = await buildBumpedTransaction(
 				{ ...built.tx, amount: MIN_WIRE_FEE_NEXU, fee: MIN_WIRE_FEE_NEXU },
 				info.address,
@@ -337,8 +353,11 @@ const main = async (): Promise<void> => {
 				signSync,
 			)
 			ok(
-				!tooTight.ok && (tooTight.error ?? '').includes('melebihi jumlah'),
-				'bump: 2 × fee melebihi jumlah DITOLAK',
+				tooTight.ok &&
+					tooTight.tx !== undefined &&
+					tooTight.fee === MIN_WIRE_FEE_NEXU * 2 &&
+					tooTight.fee > tooTight.tx.amount,
+				`bump: fee (${tooTight.fee}) > amount (${tooTight.tx?.amount}) DITERIMA (A4b)`,
 			)
 		}
 

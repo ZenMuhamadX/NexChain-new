@@ -19,15 +19,20 @@ import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 export const MIN_FEE_RATE_NEXU_PER_KB = 1000
 
 /**
- * Aturan fee (STAGE 1 + P1 kebijakan laju-fee):
+ * Aturan fee (STAGE 1 + P1 kebijakan laju-fee + A4b):
  *   1. fee tidak boleh negatif (guard fail-closed, lihat catatan);
- *   2. fee tidak boleh melebihi jumlah transaksi (aturan bisnis yang sudah
- *      disepakati sejak awal, dipertahankan agar Stage 1 tidak mengubah
- *      economics jaringan);
- *   3. P1: fee tidak boleh di bawah lantai laju-fee — `fee >= ceil(ukuran
+ *   2. P1: fee tidak boleh di bawah lantai laju-fee — `fee >= ceil(ukuran
  *      wire × rate / 1000)`. Tanpa lantai, satu akun bisa membanjiri
  *      mempool dengan transaksi senilai 1 nexu secara cuma-cuma (biaya
  *      penyimpanan & pemrosesan ditanggung seluruh jaringan).
+ *
+ * A4b: aturan lama "fee ≤ amount" DIHAPUS. Fee di atas nilai transaksi sah
+ * (Bitcoin & Ethereum juga begitu: pengirim boleh membayar lebih mahal
+ * daripada yang ia kirim). Yang benar-benar menahan penyalahgunaan adalah
+ * lantai laju-fee di atas plus cek saldo `amount + fee ≤ balance` di
+ * `transactionValidator`/`processTransact` — dan verifier blok memang TIDAK
+ * pernah punya aturan fee ≤ amount, jadi menghapusnya bukan perubahan
+ * konsensus (bukan fork).
  *
  * `sizeBytes` OPSIONAL: bila dilewatkan, ukuran wire dihitung ulang dari
  * transaksi lewat codec kanonik (`encodeTxPayload`). Kebijakan ini sengaja
@@ -38,9 +43,6 @@ export const MIN_FEE_RATE_NEXU_PER_KB = 1000
  * Transaksi yang tidak bisa di-encode (tanda tangan/alamat rusak) DITOLAK
  * (fail-closed) — validasi berikutnya tidak relevan bila wire-nya sendiri
  * tidak ada bentuknya.
- *
- * STAGE 1 FIX: sebelumnya argumen helper dibalik sehingga fee yang
- * MELEBIHI amount justru lolos, sedangkan fee wajar ditolak.
  *
  * Catatan fail-closed: fee negatif pernah lolos karena tidak ada sama sekali
  * pemeriksaan tanda. Before Stage 1 hal ini tidak bisa dieksploitasi karena
@@ -62,15 +64,6 @@ export const validateTransactionFees = (
 			transaction.fee! >= 0,
 			'transactionValidator',
 			'Invalid transaction fee: fee must not be negative',
-		)
-	) {
-		return false
-	}
-	if (
-		!validateRule(
-			transaction.fee! <= transaction.amount,
-			'transactionValidator',
-			'Invalid transaction fee',
 		)
 	) {
 		return false

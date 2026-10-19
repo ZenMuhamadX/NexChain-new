@@ -101,10 +101,10 @@ export class MemPool {
 			)
 			return { isValid: false, data: transaction }
 		}
-		// shortcut: `fee <= amount` (validator) membatasi bump, dan cek saldo
-		// keras di `transactionValidator` belum memperhitungkan cost tx lama
-		// yang dilepas — pada saldo yang benar-benar habis pengganti bisa
-		// ditolak lebih awal. Longgarkan bersama A4b.
+		// shortcut: cek saldo keras di `transactionValidator` belum
+		// memperhitungkan cost tx lama yang dilepas — pada saldo yang
+		// benar-benar habis pengganti bisa ditolak lebih awal; longgarkan
+		// bila keluhan itu muncul.
 
 		// Validate balance and update pending balance — semua pengirim
 		// diperlakukan sebagai akun biasa (fitur smart contract dibuang).
