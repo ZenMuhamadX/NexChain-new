@@ -13,17 +13,17 @@ import { fetchNextNonce, sendRawTransaction } from './rpc'
 import { cryptoWorker } from '@/hooks/useCryptoWorker'
 
 /**
- * Lantai biaya minimum: ukuran wire TERKECIL yang pernah terukur untuk
- * transaksi sah, dalam nexu (lantai laju-fee = 1 nexu/byte, jadi biaya
- * minimum = ukuran wire minimum).
+ * Ukuran wire (byte) TERKECIL untuk transaksi sah = lantai biaya fee otomatis
+ * wallet (lantai laju-fee node = 1 nexu/byte, jadi fee = ukuran wire).
  *
  * Asal angka: ukuran wire terukur (payload `encodeTxPayload` = `0x02 ‖
  * rlp(signed)`) untuk transaksi paling ramping — amount 1 nexu, fee 1 nexu,
  * nonce 0, tanpa data — adalah 96 byte. Field lain tidak bisa lebih kecil:
  * nonce 0 dan fee 1 keduanya 1 byte RLP, amount minimal 1 nexu 1 byte, alamat
  * selalu 21 byte, r/s selalu 32 byte masing-masing. Jadi transaksi apa pun
- * berbiaya ≥ 96 nexu, dan jumlah < 96 nexu TIDAK PERNAH bisa menutupi
- * biayanya — ditolak di sini supaya user tidak sampai ke dialog review.
+ * berbiaya ≥ 96 nexu. A4b: lantai JUMLAH dihapus — jumlah lebih kecil dari
+ * biayanya tetap sah (Bitcoin/Ethereum juga begitu); yang menahan
+ * penyalahgunaan adalah lantai laju-fee itu sendiri.
  */
 export const MIN_WIRE_FEE_NEXU = 96
 
@@ -64,10 +64,10 @@ export const hasSendErrors = (errors: SendErrors): boolean =>
  *                 `isNexu` memverifikasi tidak melebihi plafon suplai
  *                 50.000.000 NXC
  *   - fee       : TIDAK lagi input user — dihitung otomatis saat komposisi
- *                 (fixed point ukuran wire). Yang bisa dicek di sini hanya
- *                 batas bawah mutlak: jumlah harus ≥ `MIN_WIRE_FEE_NEXU`
- *                 (ukuran wire minimum terukur, lihat konstanta), karena
- *                 transaksi apa pun berbiaya minimal sebesar itu.
+ *                 (fixed point ukuran wire). A4b: lantai JUMLAH dihapus,
+ *                 jadi jumlah lebih kecil dari fee tetap sah (total
+ *                 `amount + fee` yang ditampilkan UI yang perlu ditanggung
+ *                 saldo — diperiksa `clientSideTxValidate`/node).
  *
  * Pemeriksaan saldo, signature, dan nonce TIDAK di sini: `clientSideTxValidate`
  * menjalankan semuanya (dengan RPC live) tepat sebelum broadcast — dan node
@@ -109,10 +109,6 @@ export const validateSendForm = (
 		// isNexu sudah mencakup: bilangan bulat aman, ≥ 0, dan
 		// ≤ MAX_SUPPLY_NEXU (50.000.000 NXC).
 		errors.amount = 'Jumlah di luar rentang aman (maksimal 50.000.000 NXC).'
-	} else if (nexu < MIN_WIRE_FEE_NEXU) {
-		// Fee otomatis ≥ ukuran wire ≥ 96 nexu, jadi jumlah ini mustahil
-		// menutupi biayanya (aturan server: fee ≤ amount menolaknya juga).
-		errors.fee = 'Jumlah terlalu kecil untuk menutupi biaya minimal transaksi.'
 	}
 
 	return errors
@@ -157,27 +153,18 @@ const composeComTx = (
 }
 
 /**
- * Selesaikan satu kandidate fee: terapkan aturan bisnis fee ≤ jumlah, lalu
- * assert internal lantai laju-fee node (`validateTransactionFees` = 1000
- * nexu/kB = 1 nexu/byte). Keduanya gagal → fail-closed tanpa tx.
+ * Selesaikan satu kandidate fee: assert internal kebijakan node
+ * (`validateTransactionFees` = lantai laju-fee 1000 nexu/kB = 1 nexu/byte,
+ * plus guard fee ≥ 0). Gagal → fail-closed tanpa tx.
+ *
+ * A4b: lantai JUMLAH ("fee ≤ jumlah") dihapus di sini dan di node — fee di
+ * atas nilai transaksi sah.
  *
  * Dipakai dua jalur: fee otomatis (fixed point `fee === ukuran wire`) dan fee
  * EKSPLISIT `bumpPendingFee` (percepat/RBF) yang sengaja di atas lantai —
  * pemeriksaannya sama, jadi keduanya lewat sini.
  */
-const settleFixedFee = (
-	tx: TxInterface,
-	fee: number,
-	amountNexu: number,
-): BuildResult => {
-	if (fee > amountNexu) {
-		return {
-			ok: false,
-			error:
-				`Jumlah terlalu kecil: biaya minimal ${fee} nexu ` +
-				`melebihi jumlah ${amountNexu} nexu.`,
-		}
-	}
+const settleFixedFee = (tx: TxInterface, fee: number): BuildResult => {
 	// Lantai yang sama dengan node. Ukuran wire tx ini = fee (fixed point),
 	// jadi assert ini seharusnya tidak pernah gagal — kalau gagal, ada bug
 	// di ukuran/encode dan kita menolak alih-alih mengirim tx yang pasti
@@ -258,7 +245,7 @@ export const buildSignedTransaction = (
 
 		const size = encodeTxPayload(tx).length
 		if (fee === size) {
-			return settleFixedFee(tx, fee, amount.nexu)
+			return settleFixedFee(tx, fee)
 		}
 		fee = size
 	}
@@ -314,7 +301,7 @@ export const buildSignedTransactionAsync = async (
 
 		const size = encodeTxPayload(tx).length
 		if (fee === size) {
-			return settleFixedFee(tx, fee, amount.nexu)
+			return settleFixedFee(tx, fee)
 		}
 		fee = size
 	}
@@ -392,8 +379,9 @@ export type TxSigner = (
  * kalah dan ditolak. Penggandaan selalu menang: `2f·s > f·(s+1)` selama
  * `s > 1`, dan fee yang naik menambah panjang RLP paling banyak 1 byte.
  *
- * `settleFixedFee` menegakkan batas yang sama dengan kirim biasa — kalau
- * `2 × fee` melebihi jumlah, pengganti ditolak (utang A4b).
+ * `settleFixedFee` menegakkan lantai laju-fee yang sama dengan kirim biasa;
+ * A4b: pengganti boleh bernilai fee di atas jumlah transaksi (batas jumlah
+ * dihapus di klien dan di node).
  */
 export const buildBumpedTransaction = async (
 	tx: TxInterface,
@@ -444,7 +432,7 @@ export const buildBumpedTransaction = async (
 		}
 	}
 
-	return settleFixedFee(bumped, newFee, tx.amount)
+	return settleFixedFee(bumped, newFee)
 }
 
 /** Percepat (RBF) tx milik sendiri yang tertunda: bangun pengganti lalu broadcast. */

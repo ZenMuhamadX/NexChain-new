@@ -6,8 +6,8 @@
  * Kelompok regresi yang dijaga:
  *
  *   1. **Lantai laju-fee** (1000 nexu/kB = 1 nexu/byte) — `isValidTxFee`
- *      menolak fee di bawah `ceil(ukuran wire × rate / 1000)`, tetap
- *      mempertahankan aturan lama (fee ≥ 0, fee ≤ amount), dan menimbang
+ *      menolak fee di bawah `ceil(ukuran wire × rate / 1000)`, mempertahankan
+ *      guard lama fee ≥ 0 (A4b: batas `fee ≤ amount` DIHAPUS), dan menimbang
  *      ukuran wire kanonik (`encodeTxPayload`) — bukan ukuran JSON.
  *   2. **Akuntansi nonce per-pengirim** — jumlah tx pending diambil dari
  *      indeks per-pengirim (`countPendingBySender`), BUKAN `loadMempool`
@@ -162,14 +162,15 @@ ok(
 		validateTransactionFees(cukup, encodeTxPayload(cukup).length),
 )
 
-// Aturan lama tetap berlaku, tak peduli ukuran.
+// Guard lama fee ≥ 0 tetap; A4b: fee > amount kini DITERIMA (batas itu
+// dihapus — Bitcoin/Ethereum juga mengizinkan fee melebihi nilai transfer).
 ok(
-	'fee negatif DITOLAK',
+	'fee negatif DITOLAK (guard fail-closed)',
 	validateTransactionFees({ ...cukup, fee: -1 }, S) === false,
 )
 ok(
-	'fee > amount DITOLAK',
-	validateTransactionFees({ ...cukup, fee: cukup.amount * 2 }, S) === false,
+	'fee > amount DITERIMA (A4b, batas dihapus)',
+	validateTransactionFees({ ...cukup, fee: cukup.amount * 2 }, S) === true,
 )
 
 // ---------------------------------------------------------------------------
@@ -711,8 +712,8 @@ const buildCapTx = (
 }
 
 // Data 1,1 juta byte (hex 2,2 juta karakter) — pasti melewati cap. Fee =
-// amount = 3 juta nexu supaya lantai laju-fee (1 nexu/byte) dan aturan
-// `fee <= amount` lolos, sehingga yang menolak benar-benar cap.
+// amount = 3 juta nexu supaya lantai laju-fee (1 nexu/byte) lolos, sehingga
+// yang menolak benar-benar cap.
 const raksasa = buildCapTx(3_000_000, 3_000_000, 2, 'f'.repeat(2_200_000))
 ok(
 	`tx raksasa ter-encode ${encodeTxPayload(raksasa).length} byte (> cap)`,

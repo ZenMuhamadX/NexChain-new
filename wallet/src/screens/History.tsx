@@ -90,8 +90,9 @@ export const History = ({
 
 	/**
 	 * Percepat = kirim ulang tx yang sama (nonce sama) dengan fee × 2. Node
-	 * menolak bila laju-fee pengganti tidak lebih tinggi, dan `fee > amount`
-	 * ditolak di klien — dua-duanya muncul apa adanya sebagai pesan.
+	 * menolak bila laju-fee pengganti tidak lebih tinggi; kegagalan lain
+	 * (mis. saldo tidak cukup untuk amount + fee) muncul apa adanya sebagai
+	 * pesan. A4b: fee di atas nilai transaksi BUKAN lagi alasan penolakan.
 	 */
 	const confirmBump = async (): Promise<void> => {
 		if (!bumpTarget) return
@@ -325,7 +326,7 @@ export const History = ({
 				</div>
 				<Notice variant="warn">
 					Pengganti memakai nonce yang sama, jadi transaksi lama digantikan —
-					bukan ditambah. Ditolak bila biaya baru melebihi jumlah transaksi.
+					bukan ditambah. Ditolak bila laju biaya pengganti tidak lebih tinggi.
 				</Notice>
 			</Modal>
 		</div>

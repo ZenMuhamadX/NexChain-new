@@ -258,7 +258,10 @@ ok(
 )
 
 // ---- 8. validator murni lain ----
-ok('fee <= amount diterima', validateTransactionFees(tx))
+ok(
+	'fee > amount DITERIMA (A4b, batas dihapus)',
+	validateTransactionFees({ ...tx, fee: tx.amount * 2 }),
+)
 ok(
 	'sender == receiver ditolak',
 	validateTransactionSenderReceiver({ ...tx, receiver: tx.from! }) === false,
@@ -324,8 +327,9 @@ ok(
 // `Number.MAX_SAFE_INTEGER` = 9.007.199.254.740.991, jadi setiap bilangan
 // bulat direpresentasikan TEPAT.
 ok(
-	'S1: fee > amount DITOLAK',
-	validateTransactionFees({ ...validTx, fee: validTx.amount * 2 }) === false,
+	'S1/A4b: fee > amount tetap eksak & kini DITERIMA (batas dihapus)',
+	validTx.amount * 2 > validTx.amount &&
+		validateTransactionFees({ ...validTx, fee: validTx.amount * 2 }),
 )
 ok(
 	'S2: plafon suplai + 1 tetap eksak (kontras dengan bug 1e18 + 1 == 1e18)',
@@ -361,8 +365,10 @@ ok(
 )
 ok(
 	'S1: panjang alamat salah DITOLAK',
-	validateAddressLengths({ ...validTx, receiver: validTx.receiver.slice(0, 42) }) ===
-		false,
+	validateAddressLengths({
+		...validTx,
+		receiver: validTx.receiver.slice(0, 42),
+	}) === false,
 )
 
 // ============================================================================
@@ -376,13 +382,19 @@ ok('P1: array kosong jadi undefined', normalizeParams([]) === undefined)
 ok('P1: null jadi undefined', normalizeParams(null) === undefined)
 ok('P1: scalar diteruskan utuh', normalizeParams('a') === 'a')
 ok('P1: angka diteruskan utuh', normalizeParams(7) === 7)
-ok('P1: object diteruskan utuh (untuk nex_getWork dlsb)', normalizeParams({ a: 1 }) instanceof Object)
+ok(
+	'P1: object diteruskan utuh (untuk nex_getWork dlsb)',
+	normalizeParams({ a: 1 }) instanceof Object,
+)
 const twoArgs = normalizeParams(['a', 'b'])
 ok(
 	'P1: array >1 elemen diteruskan utuh',
 	Array.isArray(twoArgs) && twoArgs.length === 2,
 )
-ok('P1: undefined diteruskan undefined', normalizeParams(undefined) === undefined)
+ok(
+	'P1: undefined diteruskan undefined',
+	normalizeParams(undefined) === undefined,
+)
 
 // ============ Phase E: URL RPC tidak lagi hardcoded ============
 const defaultUrl = getRpcUrl()

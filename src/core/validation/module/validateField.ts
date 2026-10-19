@@ -12,8 +12,8 @@ import { logError } from './writeLog'
  *
  * SEBELUMNYA (BUG): argumen pertama bermakna `writeError` - "kalau kondisi
  * ini benar, berarti error". Akibatnya setiap pemanggil harus menulis kondisi
- * secara terbalik (`amount <= 0`, `!isValidAddress(...)`, `sender === receiver`,
- * `fee > amount`), sehingga aturan yang terbalik justru lolos dan transaksi
+ * secara terbalik (`amount <= 0`, `!isValidAddress(...)`, `sender === receiver`),
+ * sehingga aturan yang terbalik justru lolos dan transaksi
  * valid justru ditolak. Nama `validateField` juga tidak memberi hint apakah
  * argumennya kondisi valid atau kondisi error.
  *
