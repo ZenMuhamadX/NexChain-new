@@ -3,7 +3,7 @@
  *
  * Jalankan:  bun run check:txpolicy
  *
- * Tiga kelompok yang dicegah regresinya:
+ * Kelompok regresi yang dijaga:
  *
  *   1. **Lantai laju-fee** (1000 nexu/kB = 1 nexu/byte) — `isValidTxFee`
  *      menolak fee di bawah `ceil(ukuran wire × rate / 1000)`, tetap
@@ -24,6 +24,12 @@
  *      ditolak); pengganti MENGGANTI dalam satu batch (pool tetap satu tx
  *      per nonce, reserve = cost pengganti), dan cap per-pengirim di-skip
  *      karena pengganti menempati slot yang sudah ada.
+ *   5. **Cap byte global mempool** — evictasi memilih pengirim ber-tx
+ *      termurah dan membuang EKOR antreannya, sehingga nonce tetap kontigu
+ *      (konsensus `verifyBlockNonceOrder`); tx lebih murah dari seluruh isi
+ *      pool ditolak TANPA evictasi; pengganti (RBF) diterima di pool yang
+ *      persis penuh; dan tx raksasa (> cap) ditolak lewat jalur admission
+ *      produksi `MemPool`.
  *
  * Bagian 1 murni (tanpa DB). Bagian 2 & 3 menyentuh storage, jadi memakai
  * `NEX_DATA_DIR` sementara (LevelDB nyata di folder buangan) — modul
@@ -181,7 +187,7 @@ const { countPendingBySender } =
 	await import('src/core/state/storage/mempool/mempoolIndex')
 const { findPendingByNonce, readMempoolEntry, MAX_PENDING_PER_SENDER } =
 	await import('src/core/state/storage/mempool/mempoolIndex')
-const { loadMempool } =
+const { loadMempool, loadAllMempool } =
 	await import('src/core/state/storage/mempool/loadMempool')
 const { validateTransactionNonce } =
 	await import('src/core/validation/module/isValidTxNonce')
@@ -200,6 +206,10 @@ const { isNonceMismatchError } =
 	await import('src/core/consensus/verify/module/verifyNonce')
 const { rocksState } = await import('src/core/state/db/state')
 const { rocksMempool } = await import('src/core/state/db/memPool')
+const { enforceMempoolWireCap, MAX_MEMPOOL_WIRE_BYTES } =
+	await import('src/core/state/storage/mempool/capMempool')
+const { transactionValidator } =
+	await import('src/core/validation/txValidator.v')
 
 const SENDER_A = `NxC${'aa'.repeat(20)}`
 const SENDER_B = `NxC${'bb'.repeat(20)}`
@@ -649,6 +659,162 @@ ok(
 ok(
 	'jumlah pending tetap tepat cap (pengganti tak menambah slot)',
 	(await countPendingBySender(SENDER_D)) === MAX_PENDING_PER_SENDER,
+)
+
+// ---------------------------------------------------------------------------
+// 5. Cap byte GLOBAL — evictasi laju-fee terendah, nonce tetap kontigu
+// ---------------------------------------------------------------------------
+//
+// Cap adalah KEBIJAKAN node (bukan konsensus). Yang menyentuh konsensus
+// adalah BENTUK evictasinya: selalu dari EKOR antrean pengirim (nonce
+// tertinggi) dan selalu pengirim LAIN, sehingga antrean yang tersisa tetap
+// kontigu — `verifyBlockNonceOrder` menolak blok dengan nonce berlubang, dan
+// tx di belakang lubang tak akan pernah bisa ditambang.
+
+console.log('\nGROUP 5 — cap byte global (evictasi laju-fee terendah):')
+
+// Pool dibersihkan dulu: tx fiktif GROUP 2 (150+10) dan 16 tx SENDER_D GROUP
+// 4b masih di sana, sedangkan cap diuji pada byte pool yang eksak.
+for (const tx of await loadAllMempool()) await removeMemPool(tx.txHash!)
+ok(
+	'pool kosong sebelum uji cap (fixture lama dibersihkan)',
+	(await loadAllMempool()).length === 0,
+)
+ok(
+	`cap default menampung setidaknya satu blok (${MAX_MEMPOOL_WIRE_BYTES} byte)`,
+	MAX_MEMPOOL_WIRE_BYTES >= 100 * 1000,
+)
+
+// Tx raksasa lewat jalur PRODUKSI (`MemPool.addTransaction`): butuh tanda
+// tangan sah + akun bersaldo (SENDER_C, nonce 2 sesudah GROUP 3a/4), karena
+// yang diuji di sini adalah WIRING cap ke admission, bukan rumusnya.
+const buildCapTx = (
+	amount: number,
+	fee: number,
+	nonce: number,
+	data?: string,
+): TxInterface => {
+	const draft = createUnsignedTransaction(
+		{
+			amount,
+			format: 'nexu',
+			// `sender` hanya dipakai pemanggil untuk ambil nonce; tidak ikut tx.
+			sender: SENDER_C,
+			receiver: RECEIVER,
+			fee,
+			...(data === undefined ? {} : { data: stringToHex(data) }),
+		},
+		nonce,
+	)
+	if (!draft.status || !draft.tx) throw new Error('fixture cap gagal dibangun')
+	return signTransaction(draft.tx, privateKey)
+}
+
+// Data 1,1 juta byte (hex 2,2 juta karakter) — pasti melewati cap. Fee =
+// amount = 3 juta nexu supaya lantai laju-fee (1 nexu/byte) dan aturan
+// `fee <= amount` lolos, sehingga yang menolak benar-benar cap.
+const raksasa = buildCapTx(3_000_000, 3_000_000, 2, 'f'.repeat(2_200_000))
+ok(
+	`tx raksasa ter-encode ${encodeTxPayload(raksasa).length} byte (> cap)`,
+	encodeTxPayload(raksasa).length > MAX_MEMPOOL_WIRE_BYTES,
+)
+ok(
+	'validator meloloskan tx raksasa (penolakan nanti datang dari cap)',
+	(await transactionValidator(raksasa)) === true,
+)
+ok(
+	'admission tx raksasa DITOLAK lewat jalur produksi (cap byte global)',
+	(await pool.addTransaction(raksasa)).isValid === false,
+)
+ok(
+	'tx raksasa tidak tersimpan (pool tetap kosong)',
+	(await readMempoolEntry(raksasa.txHash!)) === undefined &&
+		(await loadAllMempool()).length === 0,
+)
+
+// Fixture cap: `from` bebas (jalur cap hanya menyentuh storage — tak ada akun
+// atau tanda tangan yang diverifikasi), tapi bentuknya harus ter-encode
+// seperti tx nyata, sebab ukuran wire itulah yang dihitung cap.
+const SENDER_E = `NxC${'e1'.repeat(20)}`
+const SENDER_F = `NxC${'f2'.repeat(20)}`
+const SENDER_G = `NxC${'12'.repeat(20)}`
+const SENDER_H = `NxC${'b1'.repeat(20)}`
+const capTx = (from: string, nonce: number, fee: number): TxInterface =>
+	({
+		from,
+		txHash: `TxF${from.slice(-4)}${nonce.toString(16).padStart(16, '0')}${fee
+			.toString(16)
+			.padStart(16, '0')}`,
+		nonce,
+		amount: 1_000_000,
+		fee,
+		receiver: RECEIVER,
+		sign: { v: 0, r: '0'.repeat(64), s: '0'.repeat(64) },
+	}) as TxInterface
+
+const sizeOf = (tx: TxInterface): number => encodeTxPayload(tx).length
+const poolBytes = async (): Promise<number> =>
+	(await loadAllMempool()).reduce((sum, tx) => sum + sizeOf(tx), 0)
+
+const e0 = capTx(SENDER_E, 0, 9_000)
+const e1 = capTx(SENDER_E, 1, 10)
+const e2 = capTx(SENDER_E, 2, 20)
+const f0 = capTx(SENDER_F, 0, 5_000)
+ok(`fixture cap ter-encode (${sizeOf(e0)} byte)`, sizeOf(e0) > 0)
+for (const tx of [e0, e1, e2, f0]) await saveMempool(tx)
+const bytes4 = await poolBytes()
+
+// E menahan tx TERMURAH di TENGAH antreannya (nonce 1, fee 10); F hanya satu
+// tx tapi lebih mahal. Tx masuk G ber-laju jauh lebih tinggi. Cap dipasang
+// tepat "cukup bila satu ekor E dibuang" — dan ekor E adalah nonce 2.
+const g0 = capTx(SENDER_G, 0, 40_000)
+const capSempit = bytes4 + sizeOf(g0) - sizeOf(e2)
+ok(
+	'evictasi DITERIMA: pemilik tx termurah (E) kehilangan EKOR-nya',
+	(await enforceMempoolWireCap(g0, undefined, capSempit)) === true &&
+		(await readMempoolEntry(e2.txHash!)) === undefined,
+)
+ok(
+	'antrean E tetap KONTIGU (nonce 0 & 1 bertahan, nonce 2 hilang)',
+	(await readMempoolEntry(e0.txHash!)) !== undefined &&
+		(await readMempoolEntry(e1.txHash!)) !== undefined &&
+		(await findPendingByNonce(SENDER_E, 2)) === undefined,
+)
+ok(
+	'F (lebih mahal) tidak tersentuh',
+	(await readMempoolEntry(f0.txHash!)) !== undefined,
+)
+const bytes3 = await poolBytes()
+ok(
+	`byte pool turun tepat satu tx (${bytes4} -> ${bytes3})`,
+	bytes3 === bytes4 - sizeOf(e2),
+)
+
+// Tx masuk TERLALU MURAH: tak ada isi pool yang lebih murah untuk dibuang,
+// jadi tak ada korban dan tx-nya ditolak — pool harus utuh.
+const h0 = capTx(SENDER_H, 0, 5)
+ok(
+	'tx lebih murah dari seluruh isi pool DITOLAK (tanpa evictasi)',
+	(await enforceMempoolWireCap(h0, undefined, bytes3)) === false,
+)
+ok(
+	'pool utuh sesudah penolakan itu',
+	(await poolBytes()) === bytes3 &&
+		(await readMempoolEntry(e1.txHash!)) !== undefined &&
+		(await readMempoolEntry(f0.txHash!)) !== undefined,
+)
+
+// Pengganti (RBF) tak ditolak hanya karena pool penuh: byte tx lama dilepas
+// lebih dulu. Fixture sengaja sama lebar RLP-nya (9.000 vs 9.999 = 2 byte).
+const e0b = capTx(SENDER_E, 0, 9_999)
+ok(
+	'premis RBF: pengganti berukuran wire sama dengan tx lama',
+	sizeOf(e0b) === sizeOf(e0),
+)
+ok(
+	'pengganti DITERIMA di pool yang persis penuh (tanpa evictasi)',
+	(await enforceMempoolWireCap(e0b, e0, bytes3)) === true &&
+		(await poolBytes()) === bytes3,
 )
 
 // ---------------------------------------------------------------------------
