@@ -23,6 +23,7 @@ import { removeMemPool } from 'src/core/state/storage/mempool/removeMempool'
 import { isTxExecuted } from 'src/core/transaction/isTxExecuted'
 import { getAccount } from 'src/core/state/account/getAccount'
 import { sweepUnaffordableMempool } from 'src/core/state/storage/mempool/sweepMempool'
+import { MAX_BLOCK_WIRE_BYTES, MAX_TX_PER_BLOCK } from './blockLimits'
 
 /**
  * Protokol job mining node ↔ miner eksternal (semua lewat JSON-RPC yang
@@ -205,20 +206,16 @@ export const selectGapFreeTransactions = async (
 }
 
 /**
- * Batas LUNAK ukuran satu template blok, diukur dari Σ byte wire
- * (`encodeTxPayload(tx).length`) — KEBIJAKAN node, BUKAN konsensus.
+ * Batas ukuran satu template blok, diukur dari Σ byte wire
+ * (`encodeTxPayload(tx).length`). Sejak C1 angka ini KONSENSUS: `verifyStruct`
+ * menolak blok dengan `size` di atasnya (dan dengan `size` yang tidak sama
+ * dengan Σ byte tx-nya) — definisi angka & alasannya di `blockLimits.ts`.
  *
- * MENGAPA ada: sebelumnya satu-satunya pengikat himpunan tx adalah potongan
- * `loadMempool` 100 entri yang urut key `0x<txHash>` — bukan prioritas apa
- * pun, dan tx mana pun bisa luput tanpa alasan. Batas byte ini menggantikan
- * potongan itu: kandidat dibaca penuh, diurutkan laju-fee, lalu dipotong
- * pada budget. Node yang berbeda boleh memakai angka berbeda (isi mempool
- * memang node-local) — jadi ini bukan fork.
- *
- * 100 kB ≈ 1.000 tx minimum (~96 byte); P2P masih jauh di bawah plafon
- * framing, jadi tidak ada yang perlu ikut berubah.
+ * Riwayat: dulu batas ini murni kebijakan node (pemotongan himpunan tx
+ * menggantikan potongan FIFO `loadMempool` 100 entri), sehingga tiap boleh
+ * memakai angka berbeda. Sejak C1 semua node wajib memakai angka yang sama.
  */
-export const MAX_BLOCK_WIRE_BYTES = 100 * 1000
+export { MAX_BLOCK_WIRE_BYTES } from './blockLimits'
 
 /**
  * Susun himpunan transaksi template berprioritas LAJU-FEE (`fee / byte`),
@@ -294,6 +291,10 @@ export const prioritizeByFeeRate = (
 			best = i
 		}
 		if (best < 0) break
+		// Cap JUMLAH tx per blok (konsensus sejak C1 — lihat `blockLimits`).
+		// Berhenti seluruhnya, bukan menutup satu pengirim: plafon berlaku
+		// untuk blok apa pun, jadi tx lain tak akan pernah muat lagi.
+		if (chosen.length >= MAX_TX_PER_BLOCK) break
 
 		const size = sizes[best][cursor[best]]
 		if (size > remaining) {

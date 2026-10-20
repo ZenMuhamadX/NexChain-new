@@ -71,6 +71,9 @@ const { loadMempool, loadAllMempool } =
 const { encodeTxPayload } = await import('src/core/encoding/rlp/txCodec')
 const { verifyBlockNonceOrder, isNonceMismatchError } =
 	await import('src/core/consensus/verify/module/verifyNonce')
+const { verifyStruct } =
+	await import('src/core/consensus/verify/module/verifyStruct')
+const { MAX_TX_PER_BLOCK } = await import('src/core/consensus/blockLimits')
 
 await rocksState.open()
 await rocksHistory.open()
@@ -543,6 +546,93 @@ await fund(SENDER_G)
 		'template tanpa tx → size 0',
 		empty.block.size === 0,
 		`[${empty.block.size}]`,
+	)
+
+	// C1 (konsensus baru): plafon ukuran/jumlah tx + `size` wajib = Σ byte
+	// wire isinya. Blok uji di bawah dibuat lolos semua cek lain — hanya
+	// aturan C1 yang menilai. DUA catatan pola:
+	//   - template MENTAH ber-`hash` kosong, dan `Joi.string().required()`
+	//     menolak string kosong (berlaku sejak sebelum C1 juga) — jadi setiap
+	//     clone diuji dengan hash palsu 64-hex; `verifyStruct` hanya menuntut
+	//     hash TERSEDIA, bukan benar (kebenaran = `verifyBlockHash`);
+	//   - log error yang muncul di console selama blok ini berjalan adalah
+	//     DIHARAPKAN (penolakan disengaja, pola sama dengan kontrol negatif
+	//     di `scripts/reorgCheck.ts`).
+	const C1_SENDER = `NxC${'42'.repeat(20)}`
+	const structBase = JSON.parse(JSON.stringify(sized)) as Block
+	structBase.block.header.hash = hex64(0xc1a1)
+	ok(
+		'C1: template dengan hash terisi LULUS verifyStruct',
+		await verifyStruct(structBase),
+	)
+
+	const badSum = JSON.parse(JSON.stringify(structBase)) as Block
+	badSum.block.size = structBase.block.size + 1
+	ok('C1: size ≠ Σ byte wire DITOLAK', (await verifyStruct(badSum)) === false)
+
+	const frac = JSON.parse(JSON.stringify(structBase)) as Block
+	frac.block.size = structBase.block.size + 0.5
+	ok(
+		'C1: size pecahan (non-bulat) DITOLAK',
+		(await verifyStruct(frac)) === false,
+	)
+
+	// Template kosong + hash = baseline sah; menaikkan size-nya melanggar
+	// HANYA plafon — penolakannya murni aturan cap.
+	const baseEmpty = JSON.parse(JSON.stringify(empty)) as Block
+	baseEmpty.block.header.hash = hex64(0xc1a2)
+	ok(
+		'C1: template kosong (hash terisi) LULUS verifyStruct',
+		await verifyStruct(baseEmpty),
+	)
+	const over = JSON.parse(JSON.stringify(baseEmpty)) as Block
+	over.block.size = MAX_BLOCK_WIRE_BYTES + 1
+	ok(
+		'C1: size > MAX_BLOCK_WIRE_BYTES DITOLAK',
+		(await verifyStruct(over)) === false,
+	)
+
+	// 1.001 tx dengan size = Σ-nya sendiri (equality lolos): satu-satunya
+	// pelanggaran = plafon jumlah tx.
+	const tooMany = Array.from({ length: MAX_TX_PER_BLOCK + 1 }, (_, i) =>
+		makeTx(C1_SENDER, i, 'cap'),
+	)
+	const bloated = JSON.parse(JSON.stringify(baseEmpty)) as Block
+	bloated.block.transactions = tooMany
+	bloated.block.size = tooMany.reduce(
+		(n, tx) => n + encodeTxPayload(tx).length,
+		0,
+	)
+	ok(
+		`C1: ${MAX_TX_PER_BLOCK + 1} tx DITOLAK (plafon jumlah)`,
+		(await verifyStruct(bloated)) === false,
+	)
+
+	// Tepat di batas: 1.000 tx dengan size = Σ → LULUS (cap tidak kelewat
+	// ketat untuk himpunan yang sah).
+	const atCap = Array.from({ length: MAX_TX_PER_BLOCK }, (_, i) =>
+		makeTx(C1_SENDER, i, 'cap'),
+	)
+	const full = JSON.parse(JSON.stringify(baseEmpty)) as Block
+	full.block.transactions = atCap
+	full.block.size = atCap.reduce((n, tx) => n + encodeTxPayload(tx).length, 0)
+	ok(
+		`C1: tepat ${MAX_TX_PER_BLOCK} tx dengan size = Σ LULUS`,
+		await verifyStruct(full),
+	)
+
+	// Cap seleksi: 1.005 tx kandidat → hanya 1.000 yang dipilih. Budget byte
+	// dimundurkan supaya satu-satunya pemotong adalah plafon jumlah (bukan
+	// anggaran byte) — dan dipotong di antrean pengirim, jadi kontiguitas
+	// nonce tetap utuh.
+	const flood = Array.from({ length: MAX_TX_PER_BLOCK + 5 }, (_, i) =>
+		makeTx(C1_SENDER, i, 'sel'),
+	)
+	const selected = prioritizeByFeeRate(flood, 10_000_000)
+	ok(
+		`C1: seleksi berprioritas berhenti di ${MAX_TX_PER_BLOCK} tx`,
+		selected.length === MAX_TX_PER_BLOCK,
+		`[${selected.length}]`,
 	)
 }
 

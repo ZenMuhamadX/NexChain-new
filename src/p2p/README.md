@@ -27,7 +27,7 @@ mengikuti kebijakan RPC.
 | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `config.ts`                  | Baca `NEX_P2P_*` dari env. Default aman (mati, loopback).                                            |
 | `types.ts`                   | **Kontrak** lintas modul (tipe + antarmuka). Semua modul hanya bicara lewat sini.                    |
-| `protocol/messages.ts`       | Skema pesan v2 + `parseMessage` (fail-closed).                                                       |
+| `protocol/messages.ts`       | Skema pesan v3 + `parseMessage` (fail-closed).                                                       |
 | `protocol/handshake.ts`      | Aturan `version`/`verack` (murni, bisa diuji tanpa socket).                                          |
 | `transport/framing.ts`       | Framing TCP: length-prefix 4 byte BE + JSON UTF-8.                                                   |
 | `transport/connection.ts`    | Satu `PeerConnection` di atas socket Bun.                                                            |
@@ -45,7 +45,7 @@ di sisi core) supaya `nex_getWork` dapat membacanya tanpa mengimpor `src/p2p/`.
 Snapshot peer disimpan serupa di `src/core/events/peerState.ts` supaya
 `nex_getPeerInfo` bisa membacanya tanpa mengimpor `src/p2p/`.
 
-## Protokol v2
+## Protokol v3
 
 Framing: `[uint32 BE length][JSON UTF-8]`.
 
@@ -66,15 +66,21 @@ Skema blok ada di `src/core/encoding/rlp/blockCodec.ts`, transaksi di
 `syncManager` memperlakukannya sebagai pelanggaran wire → ban.
 
 Dua field header/body blok BUKAN bilangan bulat dan dikirim sebagai float64
-8 byte big-endian: `size` (`byte / 1024`) dan `difficulty`
-(`clampDifficulty` mengkuantisasi ke kelipatan 0.25 bit, jadi 21.5 sah).
-Encoding integer untuk keduanya akan MENOLAK blok nyata dan mematikan
-pengiriman blok.
+8 byte big-endian: `size` (sejak A4 = Σ `encodeTxPayload` byte tx pengguna,
+0 untuk genesis; sejak C1 angka ini diverifikasi keras oleh `verifyStruct` —
+wajib sama dengan Σ isinya dan ≤ `MAX_BLOCK_WIRE_BYTES`, jumlah tx wajib ≤
+`MAX_TX_PER_BLOCK`, keduanya di `src/core/consensus/blockLimits.ts`) dan
+`difficulty` (`clampDifficulty` mengkuantisasi ke kelipatan 0.25 bit, jadi
+21.5 sah). Encoding integer untuk keduanya akan MENOLAK blok nyata dan
+mematikan pengiriman blok.
 
-**Naik v1 → v2 tidak kompatibel.** `handshake.ts` menolak versi protokol yang
+**Naik v1 → v2 (wire RLP) dan v2 → v3 (C1: verifikasi `size`/jumlah tx) sama-sama
+tidak kompatibel.** `handshake.ts` menolak versi protokol yang
 berbeda secara FATAL, tanpa menawar turun-versi: semua node (termasuk peer di
 `NEX_P2P_PEERS`) harus naik serentak. `P2P_PROTOCOL_VERSION` didefinisikan di
-satu tempat (`protocol/messages.ts`).
+satu tempat (`protocol/messages.ts`). Kenaikan v3 tidak mengubah bentuk pesan —
+ia menandai aturan verifikasi konsensus yang berubah, supaya node lama dan baru
+saling menolak di handshake, bukan saling membanned di tengah sync.
 
 Alur sinkronisasi: peer menyambung → tukar `version`/`verack` (chain id +
 genesis harus sama) → node yang tertinggal mengirim `getblocks` (locator dari
