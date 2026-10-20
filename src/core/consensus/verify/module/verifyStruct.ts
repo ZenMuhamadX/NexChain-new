@@ -2,6 +2,11 @@
 import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { loggingErr } from '../../../../logging/errorLog'
 import { MAX_SUPPLY_NEXU } from 'src/core/token/constants'
+import {
+	MAX_BLOCK_WIRE_BYTES,
+	MAX_TX_PER_BLOCK,
+} from 'src/core/consensus/blockLimits'
+import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 import Joi from 'joi'
 import _ from 'lodash'
 
@@ -55,7 +60,9 @@ const coinbaseTransactionSchema = Joi.object({
 // `metadata.gasPrice` akan ditolak di sini — konsekuensi yang disengaja
 // (reset rantai bagian dari P2).
 const metadataSchema = Joi.object({
-	txCount: Joi.number().required(),
+	// C1: jumlah harus bilangan bulat ≥ 0. Kesamaan dengan panjang
+	// `transactions` TIDAK diperiksa di sini (di luar cakupan C1).
+	txCount: Joi.number().integer().min(0).required(),
 	created_at: Joi.number().required(),
 	extraData: Joi.any().optional(), // Use .optional() if it's not required
 })
@@ -73,7 +80,12 @@ const blockStructSchema = Joi.object({
 	}).required(),
 	height: Joi.number().required(),
 	chainId: Joi.number().required(),
-	size: Joi.number().required(),
+	// C1: `size` = Σ byte wire transaksi pengguna (`encodeTxPayload`), coinbase
+	// di luar — definisi yang SAMA dengan `MAX_BLOCK_WIRE_BYTES` dan dengan
+	// yang dihitung `createBlockTemplate`. Di sini hanya plafon & bentuk
+	// angkanya; KEBENARAN nilainya (harus sama dengan Σ tx-nya) dibuktikan di
+	// `verifyStruct` setelah Joi — lihat catatan fungsi.
+	size: Joi.number().integer().min(0).max(MAX_BLOCK_WIRE_BYTES).required(),
 	totalTransactionFees: Joi.number().optional().min(0).max(MAX_SUPPLY_NEXU),
 	merkleRoot: Joi.string().required(),
 	minerId: Joi.string().required(),
@@ -88,7 +100,9 @@ const blockStructSchema = Joi.object({
 	blockReward: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
 	coinbaseTransaction: coinbaseTransactionSchema.required(),
 	metadata: metadataSchema.optional(), // Use .optional() if metadata is not required
-	transactions: Joi.array().items(txInterface).required(),
+	// C1: jumlah tx dibatasi konsensus (lihat `blockLimits`); cap di sini
+	// menutup blok yang memaksa verifier memproses tx tak terhingga per byte.
+	transactions: Joi.array().items(txInterface).max(MAX_TX_PER_BLOCK).required(),
 	contract: Joi.any(),
 })
 
@@ -106,6 +120,45 @@ export const verifyStruct = async (chains: Block) => {
 			hint: 'Invalid block structure',
 		})
 		return false // Structure is invalid
+	}
+
+	// C1: `size` BUKAN angka yang dipercaya — DIHITUNG ULANG dari himpunan
+	// transaksi dan wajib sama persis (Σ `encodeTxPayload`). Tanpa ini blok
+	// bisa ber-`size` palsu (mis. 0 atau jauh di bawah plafon) padahal
+	// membawa tx sebesar apa pun. Genesis lolos otomatis: `size` 0 = Σ dari
+	// daftar kosong. Gagal meng-encode = blok ditolak (fail-closed), bukan
+	// verifier yang crash di tengah rantai.
+	try {
+		const computed = chains.block.transactions.reduce(
+			(total, tx) => total + encodeTxPayload(tx).length,
+			0,
+		)
+		if (computed !== chains.block.size) {
+			loggingErr({
+				message:
+					`Invalid block size: header ${chains.block.size} != ` +
+					`computed ${computed} (Σ byte wire tx)`,
+				stack: new Error().stack!,
+				timestamp: generateTimestampz(),
+				level: 'error',
+				priority: 'high',
+				context: 'Block verifyStruct',
+				hint: 'Blok menyatakan size yang tidak sesuai isinya (aturan konsensus C1) — blok ditolak.',
+			})
+			return false
+		}
+	} catch {
+		loggingErr({
+			message:
+				'Invalid block size: transaksi gagal di-encode untuk perhitungan ukuran wire',
+			stack: new Error().stack!,
+			timestamp: generateTimestampz(),
+			level: 'error',
+			priority: 'high',
+			context: 'Block verifyStruct',
+			hint: 'Blok mengandung transaksi yang tidak bisa diukur (fail-closed) — blok ditolak.',
+		})
+		return false
 	}
 	return true
 }

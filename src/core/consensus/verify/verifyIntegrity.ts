@@ -26,7 +26,9 @@ import {
  * Model verifikasi — **standar PoW Bitcoin**: blok TIDAK ditandatangani
  * siapa pun (field `sign` dihapus dari struktur blok). Yang mengamankan
  * rantai:
- *   1. `verifyStruct`  — struktur blok & transaksi sesuai skema;
+ *   1. `verifyStruct`  — struktur blok & transaksi sesuai skema, termasuk
+ *      sejak C1: plafon `size`/jumlah tx dan `size` wajib = Σ byte wire
+ *      transaksi isinya (lihat `blockLimits.ts`);
  *   2. `verifyHashLength` — hash 64 digit;
  *   3. `verifyPow`     — hash memenuhi `header.difficulty`;
  *   4. `verifyBlockHash` — hash = SHA-256(preimage ‖ nonce);
