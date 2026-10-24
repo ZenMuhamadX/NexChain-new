@@ -17,6 +17,7 @@ import { enforceMempoolWireCap } from 'src/core/state/storage/mempool/capMempool
 import { getAccount } from 'src/core/state/account/getAccount'
 import { formatStr } from 'src/core/encoding/lib/formatString'
 import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
+import { compareFeeRate } from 'src/core/transaction/utils/feeRate'
 
 /**
  * Antrean serial untuk ADMISSION transaksi (`addTransaction`).
@@ -42,16 +43,15 @@ let admissionQueue: Promise<unknown> = Promise.resolve()
  * tx identik (atau lebih besar tapi lebih lambat) bisa saling menggantikan
  * gratis — pool jadi papan pantul, dan tx besar bisa menghalau tx kecil.
  *
- * Perkalian silang `feeBaru·ukuranLama > feeLama·ukuranBaru`, bukan float.
- * shortcut: pada fee absurd produknya bisa > 2^53; efeknya hanya keputusan
- * terima/tolak satu tx, jadi tidak perlu BigInt di sini.
+ * Perbandingan lewat `compareFeeRate` (perkalian silang eksak, dengan
+ * fallback BigInt untuk fee di atas rentang aman `number`) — lihat modulnya.
  */
 const replacesFeeRate = (oldTx: TxInterface, newTx: TxInterface): boolean => {
 	try {
 		const oldSize = encodeTxPayload(oldTx).length
 		const newSize = encodeTxPayload(newTx).length
 		if (oldSize <= 0 || newSize <= 0) return false
-		return (newTx.fee ?? 0) * oldSize > (oldTx.fee ?? 0) * newSize
+		return compareFeeRate(newTx.fee ?? 0, newSize, oldTx.fee ?? 0, oldSize) > 0
 	} catch {
 		// tx lama tak ter-encode (data rusak) — tolak penggantian, fail-closed.
 		return false
@@ -101,10 +101,10 @@ export class MemPool {
 			)
 			return { isValid: false, data: transaction }
 		}
-		// shortcut: cek saldo keras di `transactionValidator` belum
-		// memperhitungkan cost tx lama yang dilepas — pada saldo yang
-		// benar-benar habis pengganti bisa ditolak lebih awal; longgarkan
-		// bila keluhan itu muncul.
+		// Catatan: cek saldo di `transactionValidator` (`hasSufficientBalance`)
+		// hanya memakai saldo on-chain penuh, jadi selalu LEBIH LONGGAR daripada
+		// `handleUserTransaction` di bawah — akuntansi reserve + cost tx lama
+		// yang dilepas terjadi di sana, bukan di validator.
 
 		// Validate balance and update pending balance — semua pengirim
 		// diperlakukan sebagai akun biasa (fitur smart contract dibuang).

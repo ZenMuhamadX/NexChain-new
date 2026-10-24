@@ -22,8 +22,9 @@
  *   4. **RBF (penggantian)** — pengganti pada nonce yang sudah terisi harus
  *      ber-laju-fee LEBIH TINGGI (fee naik tapi jauh lebih gemuk pun
  *      ditolak); pengganti MENGGANTI dalam satu batch (pool tetap satu tx
- *      per nonce, reserve = cost pengganti), dan cap per-pengirim di-skip
- *      karena pengganti menempati slot yang sudah ada.
+ *      per nonce, reserve = cost pengganti), pengganti dengan saldo PAS tetap
+ *      lolos karena cost tx lama dilepas lebih dulu, dan cap per-pengirim
+ *      di-skip karena pengganti menempati slot yang sudah ada.
  *   5. **Cap byte global mempool** — evictasi memilih pengirim ber-tx
  *      termurah dan membuang EKOR antreannya, sehingga nonce tetap kontigu
  *      (konsensus `verifyBlockNonceOrder`); tx lebih murah dari seluruh isi
@@ -84,6 +85,7 @@ import {
 	MIN_FEE_RATE_NEXU_PER_KB,
 } from 'src/core/validation/module/isValidTxFee'
 import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
+import { compareFeeRate } from 'src/core/transaction/utils/feeRate'
 import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransaction'
 import { signTransaction } from 'src/crypto/signTransaction'
 import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
@@ -172,6 +174,37 @@ ok(
 	'fee > amount DITERIMA (A4b, batas dihapus)',
 	validateTransactionFees({ ...cukup, fee: cukup.amount * 2 }, S) === true,
 )
+
+// ---------------------------------------------------------------------------
+// 1b. Pembanding laju-fee eksak (`compareFeeRate`)
+// ---------------------------------------------------------------------------
+//
+// Fee boleh sampai `MAX_SUPPLY_NEXU` (5×10^15), sehingga `fee·ukuran` bisa
+// melewati 2^53. Di atas batas itu `number` membulatkan dan dua laju yang
+// BERBEDA bisa terbanding sama — helper ini wajib tetap membedakannya.
+
+console.log('\nGROUP 1b — pembanding laju-fee eksak:')
+
+ok(
+	'laju normal: 1000/100 > 2000/300 → compare > 0',
+	compareFeeRate(1000, 100, 2000, 300) > 0,
+)
+ok(
+	'laju normal: 2000/300 < 1000/100 → compare < 0',
+	compareFeeRate(2000, 300, 1000, 100) < 0,
+)
+ok(
+	'laju sama (1000/100 vs 2000/200) → compare === 0',
+	compareFeeRate(1000, 100, 2000, 200) === 0,
+)
+// 5×10^15 × 96 = 4,8×10^17: jauh di atas 2^53, jadi jalur BigInt. Di jalur
+// `number` kedua sisi membulat ke nilai yang sama (selisih 96 hilang).
+ok(
+	'overflow: 5e15·96 > (5e15−1)·96 tetap terbedakan',
+	compareFeeRate(5e15, 96, 5e15 - 1, 96) > 0,
+)
+ok('overflow: kebalikannya < 0', compareFeeRate(5e15 - 1, 96, 5e15, 96) < 0)
+ok('overflow seri → compare === 0', compareFeeRate(5e15, 96, 5e15, 96) === 0)
 
 // ---------------------------------------------------------------------------
 // 2 & 3. Storage — NEX_DATA_DIR sementara, modul diimpor SESUDAH env diset
@@ -323,7 +356,7 @@ console.log('\nGROUP 3a — reserve turunan mengikuti siklus hidup nyata:')
 // Pengirim = pemilik MNEMONIC di atas — `from` adalah hasil ecrecover atas
 // tanda tangan, jadi alamatnya diturunkan dari kunci yang sama (bukan alamat
 // bebas yang tidak akan lolos `validateTransactionSignature`).
-const SENDER_C = generateAddressFromPublicKey(publicKey.slice(2))
+const SENDER_C = generateAddressFromPublicKey(publicKey)
 await putAccount(SENDER_C, {
 	address: SENDER_C,
 	balance: 100_000_000,
@@ -612,7 +645,59 @@ ok(
 )
 
 // ---------------------------------------------------------------------------
-// 4b. Cap per-pengirim di-skip untuk pengganti
+// 4b. Saldo PAS: pengganti hanya lolos bila cost tx lama dilepas
+// ---------------------------------------------------------------------------
+//
+// Pengirim dengan DUA tx pending dan saldo yang HANYA cukup bila cost tx yang
+// digantikan dilepas lebih dulu. Tanpa `released` di `handleUserTransaction`,
+// reserve (yang masih memuat tx lama) membuat pengganti tampak tak terbayar.
+// Sekaligus membuktikan cek saldo di `transactionValidator` (yang lebih longgar
+// karena memakai saldo on-chain penuh) tidak menolaknya lebih awal.
+
+console.log('\nGROUP 4b — RBF dengan saldo pas (cost tx lama dilepas):')
+
+const tightKeys = generateKeysFromMnemonic(
+	'legal winner thank year wave sausage worth useful legal winner thank yellow',
+)
+const SENDER_T = generateAddressFromPublicKey(tightKeys.publicKey)
+const T_AMOUNT = 1_000_000
+const T_FEE_OLD = 5_000
+const T_FEE_NEW = 20_000
+const T_COST_OTHER = T_AMOUNT + T_FEE_OLD // tx nonce 1 yang TETAP pending
+const T_COST_NEW = T_AMOUNT + T_FEE_NEW // pengganti untuk nonce 0
+await putAccount(SENDER_T, {
+	address: SENDER_T,
+	balance: T_COST_OTHER + T_COST_NEW,
+	transactionCount: 0,
+	isContract: false,
+	lastTransactionDate: null,
+	nonce: 0,
+})
+const tOld0 = buildRbf(tightKeys, SENDER_T, T_AMOUNT, T_FEE_OLD, 0)
+const tOther1 = buildRbf(tightKeys, SENDER_T, T_AMOUNT, T_FEE_OLD, 1)
+ok(
+	'dua tx pending DITERIMA (nonce 0 lalu 1)',
+	(await pool.addTransaction(tOld0)).isValid === true &&
+		(await pool.addTransaction(tOther1)).isValid === true,
+)
+const tNew0 = buildRbf(tightKeys, SENDER_T, T_AMOUNT, T_FEE_NEW, 0)
+ok(
+	'pengganti ber-laju lebih tinggi DITERIMA walau saldo persis pas',
+	(await pool.addTransaction(tNew0)).isValid === true,
+)
+ok(
+	'reserve = cost pengganti + cost tx lain (tx lama benar-benar dilepas)',
+	(await getPendingReserve(SENDER_T)).pendingAmount ===
+		T_COST_NEW + T_COST_OTHER,
+	`pending=${(await getPendingReserve(SENDER_T)).pendingAmount}`,
+)
+ok(
+	'slot nonce 0 kini diisi pengganti',
+	(await findPendingByNonce(SENDER_T, 0))?.txHash === tNew0.txHash,
+)
+
+// ---------------------------------------------------------------------------
+// 4c. Cap per-pengirim di-skip untuk pengganti
 // ---------------------------------------------------------------------------
 //
 // Cap adalah kebijakan node (`MAX_PENDING_PER_SENDER`). Pengganti menempati
@@ -620,14 +705,14 @@ ok(
 // dinilai, pengirim yang pas mentok tidak bisa mempercepat tx-nya sama
 // sekali.
 
-console.log('\nGROUP 4b — cap per-pengirim di-skip untuk pengganti:')
+console.log('\nGROUP 4c — cap per-pengirim di-skip untuk pengganti:')
 
 // Mnemonic BIP39 vektor uji (entropy 0xff×16) — kunci berbeda dari
 // MNEMONIC di atas, jadi `from`-nya pengirim baru.
 const zooKeys = generateKeysFromMnemonic(
 	'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong',
 )
-const SENDER_D = generateAddressFromPublicKey(zooKeys.publicKey.slice(2))
+const SENDER_D = generateAddressFromPublicKey(zooKeys.publicKey)
 await putAccount(SENDER_D, {
 	address: SENDER_D,
 	balance: 5_000_000,

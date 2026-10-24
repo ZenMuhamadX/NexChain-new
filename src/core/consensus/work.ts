@@ -23,6 +23,7 @@ import { removeMemPool } from 'src/core/state/storage/mempool/removeMempool'
 import { isTxExecuted } from 'src/core/transaction/isTxExecuted'
 import { getAccount } from 'src/core/state/account/getAccount'
 import { sweepUnaffordableMempool } from 'src/core/state/storage/mempool/sweepMempool'
+import { compareFeeRate } from 'src/core/transaction/utils/feeRate'
 import { MAX_BLOCK_WIRE_BYTES, MAX_TX_PER_BLOCK } from './blockLimits'
 
 /**
@@ -279,13 +280,16 @@ export const prioritizeByFeeRate = (
 			if (best >= 0) {
 				const a = queue[i][cursor[i]]
 				const b = queue[best][cursor[best]]
-				// feeA·sizeB vs feeB·sizeA — tanpa float. shortcut: pada fee
-				// absurd produk bisa > 2^53; hasilnya tetap blok sah (hanya
-				// urutan pemilihan), jadi tidak perlu BigInt di sini.
-				const crossA = (a.fee ?? 0) * sizes[best][cursor[best]]
-				const crossB = (b.fee ?? 0) * size
-				if (crossA !== crossB) {
-					if (crossA < crossB) continue
+				// Laju (fee per byte) dibandingkan EKSAK lewat `compareFeeRate`
+				// (fallback BigInt untuk fee di atas rentang aman `number`).
+				const cmp = compareFeeRate(
+					a.fee ?? 0,
+					size,
+					b.fee ?? 0,
+					sizes[best][cursor[best]],
+				)
+				if (cmp !== 0) {
+					if (cmp < 0) continue
 				} else if ((a.txHash ?? '') >= (b.txHash ?? '')) continue
 			}
 			best = i
