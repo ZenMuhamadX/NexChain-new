@@ -48,7 +48,6 @@
 		"dist/**/*",
 		"explorer",
 		"wallet",
-		"miner-ui",
 		"testlvl.ts"
 	]
 }

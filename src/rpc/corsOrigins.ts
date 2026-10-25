@@ -11,8 +11,8 @@
  */
 
 /**
- * Origin default — port dev Vite explorer (5173) / wallet (5174) /
- * miner-ui (5175) pada `localhost` DAN `127.0.0.1`.
+ * Origin default — port dev Vite explorer (5173) / wallet (5174) pada
+ * `localhost` DAN `127.0.0.1`.
  *
  * `"null"` ikut disertakan BUKAN karena lalai, tapi karena Electron desktop
  * wallet memuat renderer dari `file://` sehingga browser mengirim
@@ -25,10 +25,8 @@
 const DEFAULT_ORIGINS: readonly string[] = [
 	'http://localhost:5173',
 	'http://localhost:5174',
-	'http://localhost:5175',
 	'http://127.0.0.1:5173',
 	'http://127.0.0.1:5174',
-	'http://127.0.0.1:5175',
 	'null',
 ]
 

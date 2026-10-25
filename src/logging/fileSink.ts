@@ -5,7 +5,7 @@
  * `--debug`. Berkas SELALU menerima semuanya, termasuk baris debug yang tidak
  * pernah tampil di konsol.
  *
- * Batasan browser: modul ini ikut terbundel ke wallet/miner-ui (lihat
+ * Batasan browser: modul ini ikut terbundel ke wallet (lihat
  * scripts/browserWalletEntry.ts), jadi modul Node (fs/path) HANYA dimuat
  * lewat dynamic import dengan specifier TAK-literal (pola yang sama seperti
  * dulu di errorLog.ts) dan semua sentuhan `process` dijaga guard runtime.

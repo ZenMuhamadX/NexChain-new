@@ -46,10 +46,8 @@
 		"wallet:dist": "bun run --cwd wallet desktop:dist",
 		"wallet:portable": "bun run --cwd wallet desktop:portable",
 		"wallet:installer": "bun run --cwd wallet desktop:installer",
-		"miner:dev": "bun run --cwd miner-ui dev",
-		"miner:build": "bun run --cwd miner-ui build",
-		"miner:typecheck": "bun run --cwd miner-ui typecheck",
-		"miner:smoke": "bun run scripts/minerUiSmoke.ts",
+		"miner:rs": "cargo run --release --manifest-path apps/miner-rs/Cargo.toml --",
+		"miner:smoke": "bun run scripts/minerSmoke.ts",
 		"p2p:smoke": "bun run scripts/p2pSmoke.ts",
 		"p2p:fork": "bun run scripts/p2pForkSmoke.ts",
 		"p2p:evil": "bun run scripts/evilPeer.ts"

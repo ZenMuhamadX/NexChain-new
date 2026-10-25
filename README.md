@@ -16,7 +16,8 @@ Nexchain is a new generation decentralized blockchain designed to provide a simp
 Arsitektur mining mengikuti standar Bitcoin: **blok tidak ditandatangani siapa pun** — hanya transaksi yang ditandatangani (oleh pengirimnya). Node **tidak memiliki wallet** dan tidak pernah menghitung PoW sendiri:
 
 - `bun run node:start` → node menyusun template blok, miner eksternal menerima job lewat `nex_getWork` (wajib mengirim `minerAddress`), mencari nonce, lalu mengirim solusi ke `nex_submitWork`.
-- Miner eksternal: `bun run apps/miner/miner.ts "NxC…"` atau `apps/miner/runMiner.ts` (keyless, murni HTTP).
+- Miner eksternal, tanpa toolchain Rust: `bun run apps/miner/miner.ts "NxC…"` atau `apps/miner/runMiner.ts` (keyless, murni HTTP).
+- Miner eksternal, Rust (jauh lebih cepat, ~10x per core): `cd apps/miner-rs && cargo build --release`, lalu `target/release/nex-miner --address NxC…`. Dari root: `bun run miner:rs -- --address NxC…`. Detail: `apps/miner-rs/README.md`.
 - Integritas rantai diverifikasi lewat PoW + hash chain + merkle + struktur (lihat `src/core/consensus/verify/verifyIntegrity.ts`) — tanpa pemeriksaan signature blok.
 
 ### Genesis (hardcoded, tanpa premine)

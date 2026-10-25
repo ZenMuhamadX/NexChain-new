@@ -72,12 +72,13 @@ Baca dulu bentuk data sebelum logikanya.
 - `apps/node/server.ts` — jalankan node (`bun run node:start`).
 - `apps/miner/miner.ts` — miner CLI (`bun run apps/miner/miner.ts "<addr>"`).
 - `apps/miner/runMiner.ts` — library `runMiner` (bisa dipanggil dari skrip E2E).
+- `apps/miner-rs/` — miner Rust native (`bun run miner:rs -- --address NxC...`);
+  midstate SHA-256, ~10x per core dibanding jalur Bun.
 
 ## 11. Frontend (opsional)
 
 - `wallet/` — dompet React (konsumsi `src/core` lewat alias; satu sumber kode,
   beberapa shell: `shells/dev` + `shells/desktop`).
-- `miner-ui/` — UI miner React (memanggil method miner lewat RPC).
 - `explorer/` — explorer blok (hanya impor tipe dari `src/types`).
 
 ## Tips

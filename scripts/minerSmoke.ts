@@ -1,7 +1,10 @@
 /**
- * Smoke test jalur mining untuk `miner-ui` — dijalankan terhadap node RPC
- * yang HIDUP. Meniru persis alur UI (`nex_getWork` → hash → `nex_submitWork`)
- * lalu memverifikasi hasilnya (tip bergerak, minerId cocok, hadiah terkredit).
+ * Smoke test jalur mining — dijalankan terhadap node RPC yang HIDUP. Meniru
+ * persis alur miner (`nex_getWork` → hash → `nex_submitWork`) lalu
+ * memverifikasi hasilnya (tip bergerak, minerId cocok, hadiah terkredit).
+ *
+ * Jalur yang diuji adalah kontrak RPC, bukan binary tertentu: hasilnya berlaku
+ * sama untuk `apps/miner/miner.ts` (Bun) dan `apps/miner-rs/` (Rust).
  *
  * Ini BUKAN pengganti `check:*` offline — ia sengaja menyentuh node hidup
  * (menambang satu blok, mengubah state rantai).
@@ -105,7 +108,7 @@ const readJob = (work: WorkResponse): ReadyJob | null => {
 }
 
 const main = async (): Promise<void> => {
-	console.log(`Smoke test miner-ui \u2192 ${RPC_URL}\n`)
+	console.log(`Smoke test jalur mining \u2192 ${RPC_URL}\n`)
 
 	// 1. Probe koneksi.
 	const chainId = await rpc<number | undefined>('nex_getChainId')

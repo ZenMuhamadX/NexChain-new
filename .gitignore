@@ -11,7 +11,8 @@ package-lock.json
 bun.lock
 !explorer/bun.lock
 !wallet/bun.lock
-!miner-ui/bun.lock
+# Artefak build cargo miner Rust (Cargo.lock TETAP di-commit)
+apps/miner-rs/target/
 
 # Data runtime — pola DI-JANGKAR ke root ("/nama"), supaya folder sumber yang
 # kebetulan bernama sama tidak ikut tersembunyi. Sebelumnya pola tanpa awal

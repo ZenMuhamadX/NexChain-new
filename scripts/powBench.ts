@@ -7,8 +7,8 @@
  *   3. `meetsDifficulty` overhead (jalur lama vs baru dengan syarat lengkap)
  *
  * Lalu memberi SARAN jumlah worker untuk mesin ini berdasarkan skala worker
- * nyata (worker_threads), supaya `nex_miner_workers` di miner-ui bisa
- * dikalibrasi alih-alih menebak dari `hardwareConcurrency`.
+ * nyata (worker_threads) — berguna sebagai pembanding kasar sebelum menyetel
+ * `--threads` di `apps/miner-rs/`.
  *
  * Jalankan:  bun run pow:bench
  */
@@ -129,6 +129,9 @@ if (!isMainThread) {
 		`\n  saran: ${best.count} worker (${(best.rate / 1000).toFixed(1)} kH/s pada mesin ini)`,
 	)
 	console.log(
-		'  setel via localStorage `nex_miner_workers` di miner-ui bila perlu.',
+		'\n  pembanding: `nex-miner --threads <n>` di apps/miner-rs/ memakai midstate,',
+	)
+	console.log(
+		'  jadi angka absolutnya jauh lebih tinggi; yang relevan di sini skala thread.',
 	)
 }

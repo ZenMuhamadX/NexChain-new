@@ -13,9 +13,10 @@ arsitektur *"inti terpisah + miner independen + frontend terpisah"*:
 
 - **Inti (`src/`)** — mesin blockchain murni, tanpa titik jalan. Semua logika
   domain tinggal di sini.
-- **App (`apps/`)** — titik jalan (*entry point*): `apps/node` (server RPC)
-  dan `apps/miner` (miner eksternal mandiri).
-- **Frontend (`explorer/`, `miner-ui/`, `wallet/`)** — paket Vite/React
+- **App (`apps/`)** — titik jalan (*entry point*): `apps/node` (server RPC),
+  `apps/miner` (miner eksternal mandiri, Bun) dan `apps/miner-rs` (miner Rust
+  native yang jauh lebih cepat).
+- **Frontend (`explorer/`, `wallet/`)** — paket Vite/React
   independen yang mengonsumsi modul inti lewat *alias* (tidak menduplikasi
   logika kripto/transaksi).
 - **`wallet/`** — dompet, **khusus desktop**. Satu direktori berisi satu
@@ -53,6 +54,7 @@ arsitektur *"inti terpisah + miner independen + frontend terpisah"*:
 | -------------- | -------------------------------------------------------------------------- |
 | `apps/node/`   | **Node**. `server.ts` menjalankan HTTP JSON-RPC di `POST /rpc`, membuat genesis bila kosong. Jalankan: `bun run node:start`. |
 | `apps/miner/`  | **Miner eksternal**. `miner.ts` (CLI interaktif) dan `runMiner.ts` (library `runMiner`). Jalankan: `bun run apps/miner/miner.ts "<alamatNxC>"`. |
+| `apps/miner-rs/` | **Miner Rust native**. Hanya loop PoW (midstate SHA-256) di atas RPC yang sama. Jalankan: `bun run miner:rs -- --address NxC…` (atau `cargo run --release --manifest-path apps/miner-rs/Cargo.toml -- --address NxC…`). |
 
 ## Cara menjalankan (devnet lokal)
 

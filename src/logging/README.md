@@ -47,7 +47,7 @@ saja, bukan isi berkas.
 
 `logging.ts`, `debug.ts`, dan `errorLog.ts` **reachable dari bundel browser**
 (`scripts/browserWalletEntry.ts` → `src/crypto/processPubKey.ts`), dan
-`src/logging` ada di `ROOT_MODULES` wallet & miner-ui. Jadi:
+`src/logging` ada di `ROOT_MODULES` wallet. Jadi:
 
 - **JANGAN** impor statis `node:fs` / `node:path` di rantai itu — pakai impor
   dinamis dengan specifier tak-literal seperti di `errorLog.ts`.
