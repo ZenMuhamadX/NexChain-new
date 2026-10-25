@@ -97,10 +97,8 @@ const handleDeriveKeys = async (
 	const normalized = payload.mnemonic.trim().replace(/\s+/g, ' ')
 
 	const derived = generateKeysFromMnemonic(normalized)
-	// generateKeysFromMnemonic returns { privateKey: 'Nx...', publicKey: 'Nx...' }
-	// We need address derived from publicKey (without Nx prefix)
 	const { generateAddressFromPublicKey } = await import('src/crypto/generateAddressFromPublicKey')
-	const address = generateAddressFromPublicKey(derived.publicKey.slice(2))
+	const address = generateAddressFromPublicKey(derived.publicKey)
 	return {
 		privateKey: derived.privateKey,
 		publicKey: derived.publicKey,

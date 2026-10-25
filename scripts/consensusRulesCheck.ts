@@ -93,9 +93,7 @@ const HALF_N = SECP256K1_ORDER >> 1n
 const MNEMONIC =
 	'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
 const { privateKey, publicKey } = generateKeysFromMnemonic(MNEMONIC)
-// `generateKeysFromMnemonic` mengembalikan "Nx"-prefixed — address dibuat
-// dari hex polos (sama seperti check:tx).
-const address = generateAddressFromPublicKey(publicKey.slice(2))
+const address = generateAddressFromPublicKey(publicKey)
 
 const unsignedTx: TxInterface = {
 	nonce: 0,

@@ -115,8 +115,8 @@ const MNEMONIC_B =
 	'legal winner thank year wave sausage worth useful legal winner thank yellow'
 const keysA = generateKeysFromMnemonic(MNEMONIC_A)
 const keysB = generateKeysFromMnemonic(MNEMONIC_B)
-const SENDER_CAP = generateAddressFromPublicKey(keysA.publicKey.slice(2))
-const SENDER_OTHER = generateAddressFromPublicKey(keysB.publicKey.slice(2))
+const SENDER_CAP = generateAddressFromPublicKey(keysA.publicKey)
+const SENDER_OTHER = generateAddressFromPublicKey(keysB.publicKey)
 
 await fund(SENDER_CAP, 1_000_000_000)
 await fund(SENDER_OTHER, 1_000_000_000)

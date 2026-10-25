@@ -3,8 +3,8 @@ import { recoverSignerAddress } from 'src/crypto/verifySignature'
 import { txSighash, txHashOf } from 'src/core/encoding/rlp/txCodec'
 import { TxInterface } from 'src/types/transaction'
 
-/** 64 digit hex (32 byte). Prefix `Nx` opsional diterima untuk kenyamanan. */
-const HEX64 = /^(?:Nx)?[0-9a-fA-F]{64}$/
+/** 64 digit hex (32 byte). */
+const HEX64 = /^[0-9a-fA-F]{64}$/
 
 /**
  * Tanda tangani transaksi — **fungsi murni**.
@@ -30,7 +30,7 @@ const HEX64 = /^(?:Nx)?[0-9a-fA-F]{64}$/
  * Mengembalikan objek BARU (tidak memutasi input), jadi aman dipakai untuk
  * menandatangani ulang / mencoba ulang tanpa merusak draft aslinya.
  *
- * `privateKey` menerima 64 hex dengan atau tanpa prefix `Nx` (format yang
+ * `privateKey` harus berupa 64 digit hex (format yang
  * dikembalikan `generateKeysFromMnemonic`).
  *
  * Private key TIDAK pernah menyentuh jaringan; hanya keluar sebagai bagian
@@ -41,12 +41,10 @@ export const signTransaction = (
 	privateKey: string,
 ): TxInterface => {
 	if (typeof privateKey !== 'string' || !HEX64.test(privateKey.trim())) {
-		throw new Error(
-			'signTransaction: private key harus 32 byte hex (64 digit), opsional dengan prefix Nx',
-		)
+		throw new Error('signTransaction: private key harus 32 byte hex (64 digit)')
 	}
 
-	const normalizedKey = privateKey.trim().replace(/^Nx/i, '')
+	const normalizedKey = privateKey.trim()
 
 	const sighash = txSighash(transaction)
 	const sign = createSignature(sighash, normalizedKey)

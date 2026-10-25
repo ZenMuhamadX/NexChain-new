@@ -278,7 +278,7 @@ ok(
 )
 ok(
 	'create: alamat identik dengan turunan langsung',
-	created.address === generateAddressFromPublicKey(direct.publicKey.slice(2)),
+	created.address === generateAddressFromPublicKey(direct.publicKey),
 )
 
 // --- record tersimpan tidak boleh membocorkan rahasia ---
@@ -292,7 +292,7 @@ if (record) {
 	)
 	ok(
 		'record TIDAK memuat private key (plaintext)',
-		!dump.includes(direct.privateKey.replace(/^Nx/, '')),
+		!dump.includes(direct.privateKey),
 	)
 	ok(
 		'record memuat alamat + publicKey (publik, boleh plaintext)',
@@ -366,7 +366,7 @@ ok(
 	'import: alamat sama dengan turunan langsung',
 	imported.address ===
 		generateAddressFromPublicKey(
-			generateKeysFromMnemonic(SECRET).publicKey.slice(2),
+			generateKeysFromMnemonic(SECRET).publicKey,
 		),
 )
 ok('import: mnemonic tersimpan utuh', vault2.getUnlocked().mnemonic === SECRET)
@@ -393,7 +393,7 @@ try {
 		phrase: string
 	}
 	const derived = generateKeysFromMnemonic(parsed.phrase)
-	const addr = generateAddressFromPublicKey(derived.publicKey.slice(2))
+	const addr = generateAddressFromPublicKey(derived.publicKey)
 	ok(
 		'anchor: phrase wallet/main.json -> address cocok dengan yang tercatat',
 		addr === KNOWN_MAIN_ADDRESS,

@@ -51,7 +51,6 @@ export const App = (): React.JSX.Element => {
 	const [chainId, setChainId] = useState<number | undefined>()
 	const [loading, setLoading] = useState(false)
 	const [netError, setNetError] = useState('')
-
 	const refresh = useCallback(async (address: string): Promise<void> => {
 		setLoading(true)
 		setNetError('')

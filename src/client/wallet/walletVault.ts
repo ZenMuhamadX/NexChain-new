@@ -101,8 +101,7 @@ export const createWalletVault = (
 		const normalized = mnemonic.trim().replace(/\s+/g, ' ')
 		const { privateKey, publicKey } = generateKeysFromMnemonic(normalized)
 		return {
-			// generateAddressFromPublicKey menerima hex TANPA prefix Nx
-			address: generateAddressFromPublicKey(publicKey.slice(2)),
+			address: generateAddressFromPublicKey(publicKey),
 			publicKey,
 			privateKey,
 			mnemonic: normalized,
