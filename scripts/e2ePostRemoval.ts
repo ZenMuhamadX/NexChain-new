@@ -98,14 +98,14 @@ const senderPhrase: string =
 	process.env.NEX_E2E_SENDER_MNEMONIC?.trim() || (await genRandomMnemonic())
 const senderKeys = generateKeysFromMnemonic(senderPhrase)
 const sender: string = generateAddressFromPublicKey(
-	senderKeys.publicKey.slice(2),
+	senderKeys.publicKey,
 )
 const privateKey = senderKeys.privateKey
 
 const freshAddress = async (): Promise<string> => {
 	const phrase = await genRandomMnemonic()
 	const { publicKey } = generateKeysFromMnemonic(phrase)
-	return generateAddressFromPublicKey(publicKey.slice(2))
+	return generateAddressFromPublicKey(publicKey)
 }
 
 interface SendResult {

@@ -194,7 +194,7 @@ try {
 	//     di-mining ke alamat ini sehingga ia ber-saldo dan bisa mengirim tx.
 	const phrase = genRandomMnemonic()
 	const { privateKey, publicKey } = generateKeysFromMnemonic(phrase)
-	const sender = generateAddressFromPublicKey(publicKey.slice(2))
+	const sender = generateAddressFromPublicKey(publicKey)
 	console.log(`  sender uji: ${sender}`)
 
 	// 4. Mining satu blok di A ke alamat sender — keyless, sekaligus mendanai.

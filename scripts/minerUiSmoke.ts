@@ -119,7 +119,7 @@ const main = async (): Promise<void> => {
 	//    yang sama dengan wallet: mnemonic -> pubkey -> alamat.
 	const phrase = genRandomMnemonic()
 	const { publicKey } = generateKeysFromMnemonic(phrase)
-	const address = generateAddressFromPublicKey(publicKey.slice(2))
+	const address = generateAddressFromPublicKey(publicKey)
 	if (
 		!(address.startsWith('NxC') || address.startsWith('NxS')) ||
 		address.length !== 43

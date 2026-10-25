@@ -22,12 +22,7 @@ export const createSignature = (
 		throw new Error('createSignature: sighash harus 32 byte')
 	}
 
-	// Normalisasi prefix "Nx" (format keluaran generateKeysFromMnemonic).
-	// elliptic/BN mem-parse string berprefix "Nx"+hex TANPA error tapi
-	// menghasilkan key yang BERBEDA — signature jadi dibuat dengan kunci
-	// salah sehingga tidak pernah cocok dengan address wallet.
-	const normalizedKey = privateKey.trim().replace(/^Nx/i, '')
-	const keyPair = ec.keyFromPrivate(normalizedKey, 'hex')
+	const keyPair = ec.keyFromPrivate(privateKey, 'hex')
 
 	// `canonical: true` memaksa `s` ke bentuk low-s (s <= n/2). Tanpa opsi
 	// ini elliptic membiarkan `s` melewati n/2, sehingga tanda tangan menjadi
