@@ -5,7 +5,7 @@
  * Jalankan:
  *   bun run scripts/evilPeer.ts -- <skenario> --host <h> --port <p>
  *
- * Tujuh skenario, masing-masing menyoroti SATU pertahanan node:
+ * Delapan skenario, masing-masing menyoroti SATU pertahanan node:
  *
  *   1. bad-genesis    — kirim `version` dengan genesisHash jaringan lain.
  *                       Node wajib MENUTUP + MEM-BAN (identitas jaringan).
@@ -26,6 +26,10 @@
  *   7. garbage-block  — pesan `block` dengan `payload` base64 SAH tetapi isi
  *                       RLP-nya bukan blok. Node wajib menutup + ban
  *                       (payload wire tidak bisa di-decode).
+ *   8. coalesced      — `version` + `verack` dikirim dalam SATU tulis, tepat
+ *                       menabrak jendela `await getLocalStatus()`. Node WAJIB
+ *                       tetap membuka koneksi (dulu diputus "verack sebelum
+ *                       version" — balapan urutan, bukan pelanggaran peer).
  *
  * Sifat observasi:
  *   - Skenario yang valid SELALU exit 0: skrip ini tidak memutuskan
@@ -334,10 +338,11 @@ const buildForkBlock = (): Block => {
  * Handshake lengkap dengan node: tunggu `version`-nya, kirim `version`
  * kita, tunggu `verack`-nya, lalu kirim `verack` kita.
  *
- * Urutan VERACK penting: peer manager menutup koneksi bila `verack` tiba
- * sebelum `version` kita diproses, dan ia hanya memproses `version` di
- * belakang `await getLocalStatus()`. Menunggu `verack` node menjamin
- * `version` kita sudah diproses sebelum `verack` dilepas.
+ * Urutan ini tidak lagi wajib (peer manager menandai `receivedVersion` secara
+ * sinkron sebelum `await getLocalStatus()`), tetapi tetap dipakai supaya
+ * skenario lain hanya berjalan setelah node benar-benar menganggap peer siap.
+ * Skenario `coalesced` justru menguji kebalikannya: `version` + `verack` dalam
+ * satu tulis.
  *
  * @returns `true` bila node menjawab `verack` (identitas jaringan cocok).
  */
@@ -365,6 +370,7 @@ const SCENARIOS: string[] = [
 	'fake-pow-block',
 	'garbage-block',
 	'fork-block',
+	'coalesced',
 ]
 
 interface Args {
@@ -562,6 +568,29 @@ const main = async (): Promise<void> => {
 				}
 				expectClose = false
 				expectation = 'TIDAK menutup (cabang ditolak tanpa ban)'
+				break
+			}
+			case 'coalesced': {
+				// Balapan yang pernah memutus peer sehat: `version` diproses di
+				// belakang `await getLocalStatus()`, jadi `verack` yang tiba
+				// sebelum flag itu diset dianggap pelanggaran. Kedua frame
+				// dikirim dalam SATU write supaya keduanya pasti diproses pada
+				// giliran yang sama.
+				await waitFor(() => peer.has('version'), HANDSHAKE_WAIT_MS)
+				const version = encodeFrame(
+					buildVersionMessage(localStatus(GENESIS_HASH)),
+					DEFAULT_MAX_MESSAGE_BYTES,
+				)
+				const verack = encodeFrame(
+					{ type: 'verack' },
+					DEFAULT_MAX_MESSAGE_BYTES,
+				)
+				const both = new Uint8Array(version.byteLength + verack.byteLength)
+				both.set(version, 0)
+				both.set(verack, version.byteLength)
+				peer.sendRaw(both, 'version+verack (satu write)')
+				expectClose = false
+				expectation = 'TIDAK menutup (urutan frame dalam satu write sah)'
 				break
 			}
 			default:

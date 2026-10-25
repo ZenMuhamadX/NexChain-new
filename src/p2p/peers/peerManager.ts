@@ -150,6 +150,10 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 						connection.close('version ganda')
 						return
 					}
+					// Tandai SEBELUM await: `handleMessage` tidak diantrikan, jadi
+					// `verack` yang tiba selama `getLocalStatus()` (leveldb) akan
+					// melihat flag masih false dan memutus koneksi yang sehat.
+					record.handshake.receivedVersion = true
 					const local = await getLocalStatus()
 					// Koneksi bisa saja sudah tutup selama await — jangan lanjut.
 					if (peers.get(connection.id) !== record) return
@@ -176,7 +180,6 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 						status.listenPort = message.listenPort
 					}
 					record.status = status
-					record.handshake.receivedVersion = true
 					connection.send({ type: 'verack' })
 					record.handshake.sentVerack = true
 					maybeReady(record)
