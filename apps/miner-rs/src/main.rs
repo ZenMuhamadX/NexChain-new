@@ -37,6 +37,8 @@ struct Args {
     address: String,
     threads: usize,
     user: Option<String>,
+    /// Tambang SATU blok lalu keluar (dipakai gate `check:all`).
+    once: bool,
 }
 
 fn usage() -> &'static str {
@@ -51,6 +53,7 @@ fn usage() -> &'static str {
 	                        http://localhost:8000/rpc)\n\
 	   --threads <n>        jumlah thread hashing (default: jumlah CPU logis)\n\
 	   --user <nama>        username Basic Auth (atau env NEX_RPC_USER)\n\
+	   --once               tambang SATU blok lalu keluar (untuk gate)\n\
 	   -h, --help           tampilkan bantuan\n\
 	 \n\
 	 Password TIDAK lewat flag: pakai env NEX_RPC_PASS atau prompt tersembunyi.\n"
@@ -78,6 +81,7 @@ fn parse_args() -> Result<Args, String> {
     let mut address: Option<String> = None;
     let mut threads: Option<usize> = None;
     let mut user = std::env::var("NEX_RPC_USER").ok();
+    let mut once = false;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -92,6 +96,7 @@ fn parse_args() -> Result<Args, String> {
                 );
             }
             "--user" => user = Some(next_value(&mut args, "--user")?),
+            "--once" => once = true,
             "-h" | "--help" => {
                 print!("{}", usage());
                 std::process::exit(0);
@@ -130,6 +135,7 @@ fn parse_args() -> Result<Args, String> {
         address,
         threads,
         user,
+        once,
     })
 }
 
@@ -576,7 +582,13 @@ fn run() -> Result<(), String> {
         );
 
         if let Err(reason) = submit(&mut rpc, &work, solution.nonce, &hash_hex) {
+            if args.once {
+                return Err(format!("submit ditolak: {reason}"));
+            }
             eprintln!("Ditolak: {reason} — ambil job baru...\n");
+        } else if args.once {
+            // Gate butuh sinyal keluar yang jelas: submit diterima = sukses.
+            return Ok(());
         }
         // Selesai atau ditolak: tip sudah bergerak, job lama basi → ulangi.
     }

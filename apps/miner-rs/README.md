@@ -37,13 +37,13 @@ nex-miner --address NxC...
 nex-miner --rpc http://192.168.1.10:8000/rpc --address NxC... --threads 6
 ```
 
-| flag | default | keterangan |
-|---|---|---|
-| `--address` | wajib (prompt kalau TTY) | alamat penerima hadiah, `NxC`/`NxS` 43 char |
-| `--rpc` | `NEX_RPC_URL` → `http://localhost:8000/rpc` | endpoint JSON-RPC |
-| `--threads` | jumlah CPU logis | turunkan kalau laptop kepanasan |
-| `--user` | `NEX_RPC_USER` | username Basic Auth |
-| `-h`, `--help` | | bantuan |
+| flag           | default                                     | keterangan                                  |
+| -------------- | ------------------------------------------- | ------------------------------------------- |
+| `--address`    | wajib (prompt kalau TTY)                    | alamat penerima hadiah, `NxC`/`NxS` 43 char |
+| `--rpc`        | `NEX_RPC_URL` → `http://localhost:8000/rpc` | endpoint JSON-RPC                           |
+| `--threads`    | jumlah CPU logis                            | turunkan kalau laptop kepanasan             |
+| `--user`       | `NEX_RPC_USER`                              | username Basic Auth                         |
+| `-h`, `--help` |                                             | bantuan                                     |
 
 Password **tidak pernah lewat flag** (bocor ke process list dan riwayat shell).
 Pakai env `NEX_RPC_PASS`, atau biarkan miner menanyakan dengan input tersembunyi
@@ -83,13 +83,12 @@ digit nonce + padding), 1 blok kalau sisa payload < 49 byte.
 
 Terukur di i5-8350U (4C/8T, tanpa SHA-NI), payload blok nyata 567 byte:
 
-| jalur | throughput |
-|---|---|
-| miner Bun (`apps/miner/miner.ts`, `node:crypto`) | 0.10 MH/s |
+| jalur                    | throughput    |
+| ------------------------ | ------------- |
 | **miner Rust, 1 thread** | **1.18 MH/s** |
-| miner Rust, 2 thread | 1.9 MH/s |
-| miner Rust, 4 thread | 3.3 MH/s |
-| miner Rust, 8 thread | 4.4 MH/s |
+| miner Rust, 2 thread     | 1.9 MH/s      |
+| miner Rust, 4 thread     | 3.3 MH/s      |
+| miner Rust, 8 thread     | 4.4 MH/s      |
 
 Angka 8 thread itu di laptop yang sudah turun ke 1.4 GHz; CPU dengan SHA-NI
 jauh lebih cepat. Kalibrasi dengan `--threads` — melebihi jumlah core fisik
@@ -103,16 +102,20 @@ cargo test                                   # paritas hash + aturan difficulty
 cargo test --release -- --ignored --nocapture # benchmark 1 thread
 ```
 
-Test paritas memakai vektor yang dihasilkan dari `node:crypto` (sumber yang sama
-dengan `apps/miner/miner.ts`). Kalau aturan konsensus di `src/core/` berubah,
+Test paritas memakai vektor yang dihasilkan dari `node:crypto` (implementasi
+yang dipakai node di `src/core/`). Kalau aturan konsensus di `src/core/` berubah,
 perbarui `PARITY_VECTORS` di `src/midstate.rs` dan vektor difficulty di
 `src/difficulty.rs` — jangan hanya mengubah test-nya.
 
+`--once` menambang tepat satu blok lalu keluar (0 = submit diterima). Gate
+`bun run check:all` memakai itu terhadap binary yang sudah dibuild; bila binary
+belum ada, fase `live` dilewati dengan peringatan.
+
 ## Troubleshooting
 
-| gejala | penyebab |
-|---|---|
-| `getWork ditolak: ...` berulang | node belum selesai sync (IBD), atau `minerAddress` ditolak |
-| `401/403` walau password benar | node memakai `RPC_USER`/`RPC_PASSWORD` berbeda |
-| `HTTP: Connection refused` | salah port / node mati / bind hanya loopback di mesin lain |
+| gejala                            | penyebab                                                           |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `getWork ditolak: ...` berulang   | node belum selesai sync (IBD), atau `minerAddress` ditolak         |
+| `401/403` walau password benar    | node memakai `RPC_USER`/`RPC_PASSWORD` berbeda                     |
+| `HTTP: Connection refused`        | salah port / node mati / bind hanya loopback di mesin lain         |
 | selalu `Ditolak: ...` saat submit | hash tidak cocok — jangan ubah aturan nonce; jalankan `cargo test` |

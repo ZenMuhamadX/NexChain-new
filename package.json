@@ -5,10 +5,10 @@
 	"scripts": {
 		"build": "tsc",
 		"format": "prettier --write .",
-		"check": "bunx tsc && bun run clean",
+		"check": "bunx tsc \u0026\u0026 bun run clean",
 		"clean": "bun run scripts/clean.ts",
 		"prepare": "husky",
-		"check:browser": "esbuild scripts/browserWalletEntry.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist/browser-check.mjs --log-limit=0 && rm -f dist/browser-check.mjs",
+		"check:browser": "esbuild scripts/browserWalletEntry.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist/browser-check.mjs --log-limit=0 \u0026\u0026 rm -f dist/browser-check.mjs",
 		"check:tx": "bun run scripts/txPathCheck.ts",
 		"check:amount": "bun run scripts/amountCheck.ts",
 		"check:wallet": "bun run scripts/walletVaultCheck.ts",
@@ -47,7 +47,6 @@
 		"wallet:portable": "bun run --cwd wallet desktop:portable",
 		"wallet:installer": "bun run --cwd wallet desktop:installer",
 		"miner:rs": "cargo run --release --manifest-path apps/miner-rs/Cargo.toml --",
-		"miner:smoke": "bun run scripts/minerSmoke.ts",
 		"p2p:smoke": "bun run scripts/p2pSmoke.ts",
 		"p2p:fork": "bun run scripts/p2pForkSmoke.ts",
 		"p2p:evil": "bun run scripts/evilPeer.ts"

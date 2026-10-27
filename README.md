@@ -16,8 +16,7 @@ Nexchain is a new generation decentralized blockchain designed to provide a simp
 Arsitektur mining mengikuti standar Bitcoin: **blok tidak ditandatangani siapa pun** — hanya transaksi yang ditandatangani (oleh pengirimnya). Node **tidak memiliki wallet** dan tidak pernah menghitung PoW sendiri:
 
 - `bun run node:start` → node menyusun template blok, miner eksternal menerima job lewat `nex_getWork` (wajib mengirim `minerAddress`), mencari nonce, lalu mengirim solusi ke `nex_submitWork`.
-- Miner eksternal, tanpa toolchain Rust: `bun run apps/miner/miner.ts "NxC…"` atau `apps/miner/runMiner.ts` (keyless, murni HTTP).
-- Miner eksternal, Rust (jauh lebih cepat, ~10x per core): `cd apps/miner-rs && cargo build --release`, lalu `target/release/nex-miner --address NxC…`. Dari root: `bun run miner:rs -- --address NxC…`. Detail: `apps/miner-rs/README.md`.
+- Miner eksternal HANYA Rust (`apps/miner-rs/`, jauh lebih cepat: midstate SHA-256, multi-thread): `cd apps/miner-rs && cargo build --release`, lalu `target/release/nex-miner --address NxC…`. Dari root: `bun run miner:rs -- --address NxC…`. Detail: `apps/miner-rs/README.md`.
 - Integritas rantai diverifikasi lewat PoW + hash chain + merkle + struktur (lihat `src/core/consensus/verify/verifyIntegrity.ts`) — tanpa pemeriksaan signature blok.
 
 ### Genesis (hardcoded, tanpa premine)
@@ -82,7 +81,7 @@ Fase (berurutan, berhenti pada kegagalan pertama):
 1. `offline` — `check` (tsc) + semua `check:*` + `genesis:check` (tanpa node).
 2. `local` — `wallet:smoke` (tanpa node).
 3. `p2p` — `p2p:smoke` (skrip ini menyalakan tiga node sendiri).
-4. `live` — `miner:smoke`; runner menyalakan **satu node sementara** (data dir temp + port bebas, kredensial tulis kosong, P2P mati), jadi **tidak perlu menyalakan node manual**.
+4. `live` — miner Rust `--once` (tambang satu blok lalu keluar); runner menyalakan **satu node sementara** (data dir temp + port bebas, kredensial tulis kosong, P2P mati), jadi **tidak perlu menyalakan node manual**. Gate memakai binary `apps/miner-rs/target/release/nex-miner` yang **sudah dibuild**; bila belum ada, fase ini **dilewati dengan peringatan** (tidak ada gate yang memanggil `cargo`).
 5. `explorer` — `explorer smoke` memakai **node yang sudah ada** (URL dari `NEX_EXPLORER_RPC_URL`, atau `VITE_RPC_URL` di `explorer/.env`). Bila node tidak terjangkau atau bloknya < 5, fase ini **dilewati dengan peringatan** (bukan gagal).
 
 ```bash

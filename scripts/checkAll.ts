@@ -13,7 +13,7 @@
  *   3. p2p      — `p2p:smoke` (menyalakan TIGA node sendiri) dan `p2p:fork`
  *      (dua node terisolasi yang lalu dipertemukan untuk membuktikan reorg
  *      cabang-terberat di jaringan hidup).
- *   4. live     — `miner:smoke`. Butuh node HIDUP, jadi skrip ini menyalakan
+ *   4. live     — `miner:rs`. Butuh node HIDUP, jadi skrip ini menyalakan
  *      SATU node sementara untuknya: data dir di folder temp OS + port RPC
  *      bebas (tidak bentrok dengan node dev yang mungkin sedang jalan),
  *      kredensial tulis dikosongkan (-> loopback tanpa Basic Auth; nilai kosong
@@ -32,7 +32,7 @@
  *        - bila node tak terjangkau ATAU bloknya < 5, fase ini DILEWATI dengan
  *          peringatan (bukan gagal) — jalankan manual setelah node menyusul.
  *
- * Kesimpulan: TIDAK perlu menyalakan node manual; `miner:smoke` memakai node
+ * Kesimpulan: TIDAK perlu menyalakan node manual; `miner:rs` memakai node
  * sementara, dan `explorer smoke` memakai node milikmu bila ada.
  *
  * Pakai:
@@ -231,7 +231,7 @@ const rpc = async <T>(
 }
 
 // ---------------------------------------------------------------------------
-// Fase 4 — `miner:smoke` terhadap node sementara (tanpa node manual)
+// Fase 4 — `miner:rs` terhadap node sementara (tanpa node manual)
 // ---------------------------------------------------------------------------
 
 /** Cari port TCP bebas dari OS supaya tidak bentrok dengan node dev. */
@@ -327,7 +327,31 @@ const rmWithRetry = async (dir: string): Promise<void> => {
 	console.log(`  (catatan) tidak bisa menghapus ${dir} — dilewati`)
 }
 
+/** Alamat reward sekali pakai untuk gate (`NxC` + 40 nol) — node hanya cek format. */
+const SMOKE_ADDRESS = `NxC${'0'.repeat(40)}`
+
+/**
+ * Binary miner Rust yang SUDAH dibuild, atau `null`.
+ *
+ * Gate sengaja tidak memanggil `cargo`: toolchain Rust tidak ada di semua
+ * mesin (lihat AGENTS.md), dan build di dalam gate akan menambah menit.
+ * Tanpa binary, fase ini dilewati dengan peringatan — bukan gagal.
+ */
+const findMinerBinary = (): string | null => {
+	const name = process.platform === 'win32' ? 'nex-miner.exe' : 'nex-miner'
+	const bin = path.join(ROOT, 'apps', 'miner-rs', 'target', 'release', name)
+	return fs.existsSync(bin) ? bin : null
+}
+
 const runLivePhase = async (): Promise<void> => {
+	const bin = findMinerBinary()
+	if (bin === null) {
+		console.warn(
+			'  (dilewati) binary miner Rust belum ada — jalankan ' +
+				'`cargo build --release` di apps/miner-rs untuk mengaktifkan gate ini',
+		)
+		return
+	}
 	const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nex-checkall-'))
 	const port = await getFreePort()
 	const node = spawnLiveNode(dataDir, port)
@@ -335,9 +359,38 @@ const runLivePhase = async (): Promise<void> => {
 	try {
 		await waitReady(node)
 		console.log('  node siap (genesis tertulis)')
-		await runGate('smoke miner (node sementara)', 'miner:smoke', {
-			env: childEnv({ NEX_RPC_URL: node.url }),
+		gateIndex++
+		console.log(
+			`\n──────── [${gateIndex}] miner Rust --once (node sementara) ────────`,
+		)
+		const startedAt = Date.now()
+		const env = childEnv()
+		// Node sementara tanpa kredensial: jangan biarkan env shell mengirim
+		// Basic Auth yang tidak diminta.
+		delete env.NEX_RPC_USER
+		delete env.NEX_RPC_PASS
+		const code = await new Promise<number>((resolve) => {
+			const child = spawn(
+				bin,
+				[
+					'--once',
+					'--rpc',
+					node.url,
+					'--address',
+					SMOKE_ADDRESS,
+					'--threads',
+					'1',
+				],
+				{ cwd: ROOT, env, stdio: 'inherit' },
+			)
+			child.once('error', () => resolve(1))
+			child.once('exit', (exitCode) => resolve(exitCode ?? 1))
 		})
+		const secs = ((Date.now() - startedAt) / 1000).toFixed(1)
+		if (code !== 0) {
+			throw new Error(`miner Rust --once gagal (exit ${code}, ${secs}s)`)
+		}
+		console.log(`✓ miner Rust --once (${secs}s)`)
 	} finally {
 		await stopLiveNode(node.child)
 		await rmWithRetry(dataDir)
