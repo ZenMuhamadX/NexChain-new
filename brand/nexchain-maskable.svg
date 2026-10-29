@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="NexChain">
+	<title>NexChain — maskable</title>
+	<desc>PWA maskable icon. Full-bleed background; mark sits inside the 80% safe zone.</desc>
+	<defs>
+		<linearGradient id="nxMask" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#2b9fd8" />
+			<stop offset="1" stop-color="#0f766e" />
+		</linearGradient>
+	</defs>
+	<rect width="512" height="512" fill="url(#nxMask)" />
+	<g transform="translate(153.6 153.6) scale(3.2)">
+		<path d="M59 32 45.5 8.62H18.5L5 32l13.5 23.38h27L59 32Z"
+			fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linejoin="round" />
+		<path d="M21 20v24M21 20l22 24M43 20v24"
+			fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+		<g fill="#ffffff">
+			<circle cx="21" cy="20" r="3.4" />
+			<circle cx="21" cy="44" r="3.4" />
+			<circle cx="43" cy="20" r="3.4" />
+			<circle cx="43" cy="44" r="3.4" />
+			<circle cx="32" cy="32" r="4.6" />
+		</g>
+	</g>
+</svg>

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="NexChain — Hexagon Hub">
+	<title>01 · Hexagon Hub</title>
+	<desc>Hexagon block with six spokes radiating from a central nexus node. No letterform.</desc>
+	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+		<!-- hexagon shell (circumradius 27, flat-top) -->
+		<path d="M59 32 45.5 8.62H18.5L5 32l13.5 23.38h27L59 32Z" stroke-width="4.5" />
+		<!-- 6 spokes, stopping short of the rim (r = 17) -->
+		<g stroke-width="3">
+			<path d="M32 32 49 32" />
+			<path d="M32 32 40.5 46.72" />
+			<path d="M32 32 23.5 46.72" />
+			<path d="M32 32 15 32" />
+			<path d="M32 32 23.5 17.28" />
+			<path d="M32 32 40.5 17.28" />
+		</g>
+	</g>
+	<circle cx="32" cy="32" r="5.2" fill="currentColor" />
+</svg>

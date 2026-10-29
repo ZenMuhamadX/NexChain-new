@@ -11,6 +11,7 @@ import type { Screen, Tab } from './types'
 import { Icon } from './ui/Icon'
 import type { IconName } from './ui/Icon'
 import { Notice } from './ui/Notice'
+import { useAutoLock } from './hooks/useAutoLock'
 import { Welcome } from './screens/Welcome'
 import { SetupWallet } from './screens/SetupWallet'
 import { Unlock } from './screens/Unlock'
@@ -92,11 +93,43 @@ export const App = (): React.JSX.Element => {
 		}
 	}, [])
 
+	/**
+	 * Polling saldo — BERHENTI saat aplikasi tidak terlihat.
+	 *
+	 * Di HP, tab yang di-background tetap (kadang) menjalankan timer, dan setiap
+	 * tick berarti empat request RPC. Itu membangunkan radio dan menguras baterai
+	 * untuk data yang tidak dilihat siapa pun. Saat kembali terlihat, satu
+	 * refresh langsung dijalankan supaya angka yang tampil tidak basi.
+	 */
 	useEffect(() => {
 		if (!wallet) return
-		void refresh(wallet.address)
-		const timer = window.setInterval(() => void refresh(wallet.address), 15_000)
-		return () => window.clearInterval(timer)
+		const address = wallet.address
+		let timer: number | undefined
+
+		const stop = (): void => {
+			if (timer === undefined) return
+			window.clearInterval(timer)
+			timer = undefined
+		}
+
+		const start = (): void => {
+			if (timer !== undefined) return
+			void refresh(address)
+			timer = window.setInterval(() => void refresh(address), 15_000)
+		}
+
+		const onVisibilityChange = (): void => {
+			if (document.visibilityState === 'visible') start()
+			else stop()
+		}
+
+		if (document.visibilityState === 'visible') start()
+		document.addEventListener('visibilitychange', onVisibilityChange)
+
+		return () => {
+			document.removeEventListener('visibilitychange', onVisibilityChange)
+			stop()
+		}
 	}, [wallet, refresh])
 
 	const enterWallet = (instance: WalletVault): void => {
@@ -137,6 +170,13 @@ export const App = (): React.JSX.Element => {
 		setNonce(0)
 		setScreen('welcome')
 	}
+
+	/**
+	 * Kunci otomatis setelah 5 menit di background. Hanya aktif saat ada wallet
+	 * terbuka — kalau tidak, layar buka kunci sudah tampil dan tidak ada yang
+	 * perlu dikunci.
+	 */
+	useAutoLock(handleLock, Boolean(wallet))
 
 	if (booting) {
 		return (

@@ -1,4 +1,18 @@
 /// <reference types="vite/client" />
+/**
+ * Deklarasi `virtual:pwa-register` (+ `useRegisterSW`, dst.).
+ *
+ * Hanya target `web` yang memakai modul virtual ini, tetapi referensinya
+ * ditaruh global supaya `tsc` mengenal tipenya tanpa perlu konfigurasi khusus
+ * per target. Di dev/desktop modul ini tidak pernah diimpor.
+ */
+/// <reference types="vite-plugin-pwa/client" />
+
+/**
+ * Versi `wallet/package.json` yang di-bake `vite.config.ts` saat build.
+ * Di dev/preview nilainya juga terisi (define berlaku untuk semua target).
+ */
+declare const __APP_VERSION__: string
 
 /**
  * Env build-time yang dipakai paket `wallet/`.

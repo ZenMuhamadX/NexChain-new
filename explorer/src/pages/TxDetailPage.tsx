@@ -12,6 +12,7 @@ import { Unit } from '../components/common/Unit'
 import { useAsync } from '../hooks/useAsync'
 import { useChain } from '../hooks/useChainState'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { hasSignature, isCoinbaseRecord } from '../lib/tx'
 import {
 	formatDateTime,
 	formatNxc,
@@ -93,12 +94,20 @@ export function TxDetailPage() {
 	}
 
 	const meta = tx.metadata
+	const coinbase = isCoinbaseRecord(tx)
+	const signed = hasSignature(tx)
 	const tip = chain.state?.currentBlockHeight
 	const confirmations =
 		meta && tip !== undefined
 			? Math.max(tip - meta.blockHeight + 1, 1)
 			: undefined
 	const txHash = tx.txHash ?? hash
+	const status = meta ? 'confirmed' : 'pending'
+	// Hadiah blok bukan transaksi: tidak ditandatangani, nonce 0, fee 0.
+	// Menampilkannya sebagai "transfer dari COINBASE" adalah kebohongan
+	// struktural — sentinel itu hanya label riwayat.
+	const kindLabel = coinbase ? 'Block reward' : 'Transfer'
+	const kindBadge = coinbase ? 'badge-contract' : `badge-${status}`
 
 	return (
 		<div className="page detail-page">
@@ -119,24 +128,26 @@ export function TxDetailPage() {
 
 			<section className="detail-header" aria-labelledby="tx-title">
 				<div className="detail-heading">
-					<p className="detail-eyebrow">Transaction</p>
+					<p className="detail-eyebrow">
+						{coinbase ? 'Coinbase record' : 'Transaction'}
+					</p>
 					<h1 id="tx-title">
-						{meta ? 'Transaction' : 'Pending Transaction'}
-						<span className={`badge badge-${meta ? 'confirmed' : 'pending'}`}>
-							{meta ? 'confirmed' : 'pending'}
+						{kindLabel}
+						<span className={`badge ${kindBadge}`}>
+							{coinbase ? 'protocol' : status}
 						</span>
 					</h1>
 					<p>
 						{meta
 							? `${formatDateTime(meta.blockTimestamp)} · ${timeAgo(meta.blockTimestamp)}`
-							: 'Belum masuk blok'}
+							: 'Not yet included in a block'}
 						{confirmations !== undefined
 							? ` · ${formatNumber(confirmations)} confirmations`
 							: ''}
 					</p>
 				</div>
 				<div className="detail-hash">
-					<span>Transaction hash</span>
+					<span>{coinbase ? 'Reward id' : 'Transaction hash'}</span>
 					<HashValue value={txHash} head={16} tail={14} />
 				</div>
 			</section>
@@ -154,17 +165,23 @@ export function TxDetailPage() {
 				<div className="panel-body">
 					<dl className="detail-grid">
 						<div className="detail-row detail-row-full">
-							<dt>Transaction hash</dt>
+							<dt>{coinbase ? 'Reward id' : 'Transaction hash'}</dt>
 							<dd>
 								<HashValue value={txHash} head={20} tail={18} />
 							</dd>
 						</div>
 						<div className="detail-row">
+							<dt>Type</dt>
+							<dd>
+								{coinbase
+									? 'Block reward (coinbase)'
+									: 'Signed transfer'}
+							</dd>
+						</div>
+						<div className="detail-row">
 							<dt>Status</dt>
 							<dd>
-								<span className={`badge badge-${meta ? 'confirmed' : 'pending'}`}>
-									{meta ? 'confirmed' : 'pending'}
-								</span>
+								<span className={`badge badge-${status}`}>{status}</span>
 							</dd>
 						</div>
 						<div className="detail-row">
@@ -182,7 +199,9 @@ export function TxDetailPage() {
 						<div className="detail-row">
 							<dt>Timestamp</dt>
 							<dd>
-								{meta ? formatDateTime(meta.blockTimestamp) : 'Belum masuk blok'}
+								{meta
+									? formatDateTime(meta.blockTimestamp)
+									: 'Not yet included in a block'}
 							</dd>
 						</div>
 						<div className="detail-row">
@@ -194,7 +213,7 @@ export function TxDetailPage() {
 							</dd>
 						</div>
 						<div className="detail-row">
-							<dt>Amount</dt>
+							<dt>{coinbase ? 'Reward amount' : 'Amount'}</dt>
 							<dd>{formatNxc(tx.amount, 6)}</dd>
 						</div>
 						<div className="detail-row">
@@ -204,12 +223,26 @@ export function TxDetailPage() {
 						<div className="detail-row">
 							<dt>Transaction fee</dt>
 							<dd>
-								<Unit>{formatNumber(tx.fee)}</Unit>
+								{coinbase ? (
+									<span className="muted" title="Block rewards pay no fee">
+										— (protocol credit)
+									</span>
+								) : (
+									<Unit>{formatNumber(tx.fee)}</Unit>
+								)}
 							</dd>
 						</div>
 						<div className="detail-row">
 							<dt>Nonce</dt>
-							<dd>{formatNumber(tx.nonce)}</dd>
+							<dd>
+								{coinbase ? (
+									<span className="muted" title="Block rewards have no nonce">
+										—
+									</span>
+								) : (
+									formatNumber(tx.nonce)
+								)}
+							</dd>
 						</div>
 						{meta ? (
 							<div className="detail-row detail-row-full">
@@ -245,10 +278,16 @@ export function TxDetailPage() {
 				<div className="panel-body">
 					<div className="transfer-flow">
 						<div className="transfer-party">
-							<span>From</span>
-							<Link className="mono" to={`/address/${tx.from ?? ''}`}>
-								{tx.from ?? '—'}
-							</Link>
+							<span>{coinbase ? 'Source' : 'From'}</span>
+							{coinbase ? (
+								<span className="mono muted">
+									Coinbase (block reward)
+								</span>
+							) : (
+								<Link className="mono" to={`/address/${tx.from ?? ''}`}>
+									{tx.from ?? '—'}
+								</Link>
+							)}
 						</div>
 						<div className="transfer-arrow" aria-hidden="true">
 							→
@@ -260,6 +299,13 @@ export function TxDetailPage() {
 							</Link>
 						</div>
 					</div>
+					{coinbase ? (
+						<p className="muted pad-sm">
+							The coinbase credit is paid by the protocol to the miner of this
+							block. It carries no signature, nonce, or fee — so it is not a
+							transaction and never appears in a block&apos;s transaction list.
+						</p>
+					) : null}
 				</div>
 			</section>
 
@@ -274,29 +320,36 @@ export function TxDetailPage() {
 				</section>
 			) : null}
 
-			<details className="disclose">
-				<summary>Signature</summary>
-				<div className="disclose-body">
-					<dl className="detail-grid">
-						<div className="detail-row">
-							<dt>v</dt>
-							<dd className="mono">{tx.sign.v}</dd>
-						</div>
-						<div className="detail-row detail-row-full">
-							<dt>r</dt>
-							<dd>
-								<HashValue value={tx.sign.r} head={24} tail={20} />
-							</dd>
-						</div>
-						<div className="detail-row detail-row-full">
-							<dt>s</dt>
-							<dd>
-								<HashValue value={tx.sign.s} head={24} tail={20} />
-							</dd>
-						</div>
-					</dl>
-				</div>
-			</details>
+			{signed ? (
+				<details className="disclose">
+					<summary>Signature</summary>
+					<div className="disclose-body">
+						<dl className="detail-grid">
+							<div className="detail-row">
+								<dt>v</dt>
+								<dd className="mono">{tx.sign.v}</dd>
+							</div>
+							<div className="detail-row detail-row-full">
+								<dt>r</dt>
+								<dd>
+									<HashValue value={tx.sign.r} head={24} tail={20} />
+								</dd>
+							</div>
+							<div className="detail-row detail-row-full">
+								<dt>s</dt>
+								<dd>
+									<HashValue value={tx.sign.s} head={24} tail={20} />
+								</dd>
+							</div>
+						</dl>
+					</div>
+				</details>
+			) : (
+				<p className="muted pad-sm">
+					No signature: this record is a protocol credit, not a signed
+					transaction.
+				</p>
+			)}
 
 			<RawJson data={tx} summary="Raw transaction JSON" />
 		</div>

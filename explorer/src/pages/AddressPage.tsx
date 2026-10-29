@@ -57,7 +57,9 @@ export function AddressPage() {
 					hint={
 						<>
 							<code>{address}</code> is not a valid NexChain address. Expected
-							format: <code>NxC…</code>, 43 characters total.
+							format: <code>NxC</code> followed by 40 lowercase hex characters
+							(43 characters total). The legacy <code>NxS</code> prefix no
+							longer exists.
 						</>
 					}
 					action={
@@ -159,7 +161,7 @@ export function AddressPage() {
 						<p className="panel-eyebrow">Account data</p>
 						<h2 id="address-overview-title">Overview</h2>
 					</div>
-					<span className="panel-meta">Wallet</span>
+					<span className="panel-meta">Account</span>
 				</div>
 				<div className="panel-body">
 					<dl className="detail-grid">
@@ -180,11 +182,21 @@ export function AddressPage() {
 						</div>
 						<div className="detail-row">
 							<dt>Nonce</dt>
-							<dd>{formatNumber(balance.nonce)}</dd>
+							<dd title="Increments on OUTGOING transactions only">
+								{formatNumber(balance.nonce)}
+							</dd>
 						</div>
 						<div className="detail-row">
-							<dt>Transactions</dt>
-							<dd>{formatNumber(balance.transactionCount)}</dd>
+							<dt>Tx count (chain)</dt>
+							<dd title="Increments on send (+1) and on receive (+1). A self-send adds 2, even though it is a single history entry.">
+								{formatNumber(balance.transactionCount)}
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>History entries</dt>
+							<dd title="Rows recorded in the address index — may be fewer than the chain tx count (self-sends count once).">
+								{formatNumber(txCount)}
+							</dd>
 						</div>
 						<div className="detail-row">
 							<dt>Last activity</dt>

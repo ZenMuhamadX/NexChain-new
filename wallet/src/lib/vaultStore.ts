@@ -16,7 +16,10 @@ import { createIdbKV } from 'src/client/wallet/idbKv'
  * Backend `file` TIDAK diimplementasikan di sini karena ia butuh jembatan
  * ke proses desktop (IPC/preload) yang hanya ada di shell. Shell desktop
  * memanggil `installVaultKV()` dengan adaptor-nya sendiri SEBELUM render
- * pertama — lihat `shells/desktop/src/`.
+ * pertama — lihat `shells/desktop/src/`. Shell web melakukan hal yang sama
+ * untuk IndexedDB (`shells/web/main.tsx`), dan shell dev untuk memori
+ * (`shells/dev/main.tsx`): injeksi eksplisit mencegah `VITE_VAULT_BACKEND`
+ * yang tertinggal mengubah backend tanpa terlihat.
  *
  * Urutan pemilihan: yang disuntikkan shell selalu menang atas deteksi
  * otomatis. Deteksi otomatis hanya berlaku di browser.
@@ -24,20 +27,37 @@ import { createIdbKV } from 'src/client/wallet/idbKv'
 
 export type VaultBackendName = 'idb' | 'memory' | 'file'
 
-/** Dipilih eksplisit oleh shell (desktop) atau lewat `VITE_VAULT_BACKEND`. */
+/** Dipilih eksplisit oleh shell (desktop/web/dev) atau lewat `VITE_VAULT_BACKEND`. */
 let injected: WalletKV | undefined
+
+/**
+ * Nama backend yang disuntikkan shell.
+ *
+ * Shell boleh menyuntikkan backend APA PUN (desktop: berkas, web: IndexedDB,
+ * dev: memori), jadi nama tidak boleh ditebak dari "ada injeksi". Tanpa ini
+ * `vaultBackendName()` akan melaporkan `file` untuk PWA.
+ */
+let injectedName: VaultBackendName = 'file'
 
 /**
  * Pasang backend vault dari shell. WAJIB dipanggil sebelum `getVault()` /
  * sebelum React dirender, karena `getVault()` menyimpan promise singleton.
+ *
+ * `name` hanya untuk pelaporan/debugging; default `file` mempertahankan
+ * perilaku shell desktop.
  */
-export const installVaultKV = (kv: WalletKV): void => {
+export const installVaultKV = (
+	kv: WalletKV,
+	name: VaultBackendName = 'file',
+): void => {
 	injected = kv
+	injectedName = name
 }
 
 /** Buang backend yang disuntikkan (dipakai tes / hot-reload). */
 export const resetVaultKV = (): void => {
 	injected = undefined
+	injectedName = 'file'
 	cached = undefined
 }
 
@@ -61,7 +81,7 @@ let cached: Promise<WalletKV> | undefined
  * jangan dicabangkan di layar.
  */
 export const vaultBackendName = (): VaultBackendName => {
-	if (injected) return 'file'
+	if (injected) return injectedName
 	return envBackend() ?? 'idb'
 }
 

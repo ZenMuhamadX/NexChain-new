@@ -29,6 +29,8 @@ import {
 const MEMPOOL_PREVIEW = 6
 const RECENT_BLOCKS = 40
 const TABLE_BLOCKS = 10
+/** `nex_getMempool` dipotong 100 entri global — angka ini bukan total backlog. */
+const MEMPOOL_RPC_LIMIT = 100
 
 export function DashboardPage() {
 	useDocumentTitle()
@@ -71,6 +73,7 @@ export function DashboardPage() {
 				(windowed.length - 1)
 			: undefined
 	const pending = mempool.data ?? []
+	const pendingCapped = pending.length >= MEMPOOL_RPC_LIMIT
 
 	return (
 		<div className="page page-dashboard">
@@ -140,9 +143,18 @@ export function DashboardPage() {
 					<div>
 						<dt>Pending tx</dt>
 						<dd>
-							<Link to="/mempool">{formatNumber(pending.length)}</Link>
+							<Link to="/mempool">
+								{formatNumber(pending.length)}
+								{pendingCapped ? '+' : ''}
+							</Link>
 						</dd>
-						<span>{mempool.loading ? 'loading…' : 'in mempool'}</span>
+						<span>
+							{mempool.loading
+								? 'loading…'
+								: pendingCapped
+									? `RPC cap (${MEMPOOL_RPC_LIMIT})`
+									: 'in mempool'}
+						</span>
 					</div>
 					<div>
 						<dt>Block reward</dt>
@@ -261,6 +273,7 @@ export function DashboardPage() {
 								Pending Transactions{' '}
 								<span className="heading-count">
 									{formatNumber(pending.length)}
+									{pendingCapped ? '+' : ''}
 								</span>
 							</h2>
 						</div>

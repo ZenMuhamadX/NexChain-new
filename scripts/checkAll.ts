@@ -178,6 +178,7 @@ const OFFLINE_GATES: ReadonlyArray<{ label: string; script: string }> = [
 	{ label: 'urutan nonce', script: 'check:nonce-order' },
 	{ label: 'direktori data', script: 'check:data' },
 	{ label: 'log berkas', script: 'check:log' },
+	{ label: 'PWA wallet (build + artefak)', script: 'wallet:smoke:pwa' },
 	{ label: 'genesis', script: 'genesis:check' },
 ]
 

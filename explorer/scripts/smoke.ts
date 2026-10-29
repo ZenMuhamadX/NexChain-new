@@ -114,10 +114,12 @@ try {
 }
 
 // 10) account unknown valid-format → object default (bukan error)
+// Catatan: `isContract` TIDAK diuji — protokol v0.1 tidak punya kontrak,
+// jadi field itu bisa hilang kapan saja tanpa berarti ada yang rusak.
 const acct = await rpc.getAccount(`NxC${'1'.repeat(40)}`)
 check(
 	'getAccount unknown → default {balance:0}',
-	acct?.balance === 0 && acct.nonce === 0,
+	acct?.balance === 0 && acct?.nonce === 0 && acct?.lastTransactionDate === null,
 	`nonce=${acct?.nonce} lastTx=${acct?.lastTransactionDate}`,
 )
 

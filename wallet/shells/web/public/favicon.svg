@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NexChain">
+	<defs>
+		<linearGradient id="nx" x1="8" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#2b9fd8" />
+			<stop offset="1" stop-color="#0f766e" />
+		</linearGradient>
+	</defs>
+	<rect width="64" height="64" rx="15" fill="url(#nx)" />
+	<path d="M21 20v24M21 20l22 24M43 20v24" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+	<g fill="#ffffff">
+		<circle cx="21" cy="20" r="3.6" />
+		<circle cx="21" cy="44" r="3.6" />
+		<circle cx="43" cy="20" r="3.6" />
+		<circle cx="43" cy="44" r="3.6" />
+		<circle cx="32" cy="32" r="4.8" />
+	</g>
+</svg>

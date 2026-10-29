@@ -272,11 +272,15 @@ export function BlockDetailPage() {
 						</div>
 						<div className="detail-row">
 							<dt>Transactions</dt>
-							<dd>{formatNumber(block.transactions.length)}</dd>
+							<dd title="User transactions only — the coinbase reward is not a transaction">
+								{formatNumber(block.transactions.length)}
+							</dd>
 						</div>
 						<div className="detail-row">
 							<dt>Size</dt>
-							<dd>{formatSize(block.size)}</dd>
+							<dd title="Σ wire bytes of the user transactions. The coinbase reward and the JSON envelope are not counted, so genesis is 0.">
+								{formatSize(block.size)}
+							</dd>
 						</div>
 						<div className="detail-row">
 							<dt>Difficulty</dt>
@@ -312,14 +316,34 @@ export function BlockDetailPage() {
 						</div>
 						<div className="detail-row">
 							<dt>Miner</dt>
-							<dd className="mono">{block.minerId}</dd>
+							<dd>
+								<Link
+									className="link mono"
+									to={`/address/${block.minerId}`}
+									title={`${block.minerId} — reward receiver`}
+								>
+									{block.minerId}
+								</Link>
+							</dd>
 						</div>
 						<div className="detail-row detail-row-full">
 							<dt>Merkle root</dt>
-							<dd>
+							<dd title="Leaf = txHash. A block with a single transaction has merkleRoot === that TxC… hash; an empty block uses sha256('').">
 								<HashValue value={block.merkleRoot} head={20} tail={18} />
 							</dd>
 						</div>
+						{block.header.stateRoot ? (
+							<div className="detail-row detail-row-full">
+								<dt>State root</dt>
+								<dd title="Commitment to the account state after this block (chained-diff accumulator, not a trie).">
+									<HashValue
+										value={block.header.stateRoot}
+										head={20}
+										tail={18}
+									/>
+								</dd>
+							</div>
+						) : null}
 						<div className="detail-row detail-row-full">
 							<dt>Coinbase receiver</dt>
 							<dd>

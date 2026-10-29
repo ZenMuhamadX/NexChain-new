@@ -8,6 +8,8 @@ import {
 } from '../lib/rpcUrl'
 import { getExplorerUrl, persistExplorerUrl } from '../lib/explorerUrl'
 import { errorMessage } from '../lib/format'
+import { usePlatform } from '../hooks/usePlatform'
+import type { InstallHint, PersistenceState } from '../lib/platform'
 import { Icon } from '../ui/Icon'
 import { CopyButton } from '../ui/CopyButton'
 import { Modal } from '../ui/Modal'
@@ -17,6 +19,22 @@ interface SettingsProps {
 	onLock: () => void
 	onWipe: () => void | Promise<void>
 	mnemonic?: string
+}
+
+/** Kalimat status pemasangan menurut shell yang menjalankan wallet. */
+const installHintText: Record<Exclude<InstallHint, 'prompt'>, string> = {
+	installed: 'Wallet sudah berjalan sebagai aplikasi terpasang.',
+	ios: 'Di iPhone/iPad: buka lewat Safari, tekan Bagikan, lalu Tambah ke Layar Utama.',
+	menu: 'Buka menu browser, lalu pilih "Instal aplikasi" atau "Tambahkan ke layar utama".',
+	unsupported: '',
+}
+
+const persistenceText: Record<PersistenceState, string> = {
+	unknown: 'Memeriksa…',
+	persisted: 'Persisten — browser tidak akan membuang data ini tanpa izin.',
+	'best-effort':
+		'Best-effort — browser dapat membuang data bila ruang menipis.',
+	unsupported: 'Tidak didukung perangkat ini.',
 }
 
 export const Settings = ({
@@ -38,6 +56,8 @@ export const Settings = ({
 	const [wipeOpen, setWipeOpen] = useState(false)
 	const [wipeAcknowledged, setWipeAcknowledged] = useState(false)
 	const [wipeBusy, setWipeBusy] = useState(false)
+	const [installBusy, setInstallBusy] = useState(false)
+	const platform = usePlatform()
 
 	const saveRpc = (): void => {
 		try {
@@ -86,6 +106,15 @@ export const Settings = ({
 			setExplorerError(errorMessage(error))
 		} finally {
 			setWipeBusy(false)
+		}
+	}
+
+	const startInstall = async (): Promise<void> => {
+		setInstallBusy(true)
+		try {
+			await platform.requestInstall()
+		} finally {
+			setInstallBusy(false)
 		}
 	}
 
@@ -282,6 +311,88 @@ export const Settings = ({
 				</div>
 			</section>
 
+			{/*
+				Kartu ini HANYA dirender bila shell memasang jembatan platform
+				(`supported`). Shell dev dan desktop tidak memasangnya, jadi kartu
+				ini hilang tanpa satu pun cabang platform di layar lain.
+			*/}
+			{platform.supported ? (
+				<section className="card settings-card">
+					<div className="settings-section">
+						<div className="settings-section__heading">
+							<span className="settings-icon">
+								<Icon name="download" size={17} aria-hidden="true" />
+							</span>
+							<div>
+								<h2>Aplikasi</h2>
+								<p>Status pemasangan dan penyimpanan di perangkat ini.</p>
+							</div>
+						</div>
+
+						<div className="app-rows">
+							<div className="app-row">
+								<div>
+									<strong>Mode</strong>
+									<span>
+										{platform.standalone ? 'Aplikasi terpasang' : 'Tab browser'}
+									</span>
+								</div>
+								<span className="app-row__value mono">
+									{platform.version ? `v${platform.version}` : 'dev'}
+								</span>
+							</div>
+
+							<div className="app-row">
+								<div>
+									<strong>Penyimpanan</strong>
+									<span>{persistenceText[platform.persistence]}</span>
+								</div>
+								{platform.persistence === 'best-effort' ? (
+									<button
+										type="button"
+										className="button button--secondary button--sm"
+										onClick={() => void platform.requestPersistence()}
+									>
+										Minta persisten
+									</button>
+								) : null}
+							</div>
+						</div>
+
+						{platform.installHint === 'prompt' ? (
+							<button
+								type="button"
+								className="button button--primary"
+								onClick={() => void startInstall()}
+								disabled={installBusy}
+							>
+								<Icon name="download" size={15} aria-hidden="true" />
+								{installBusy ? 'Membuka dialog…' : 'Pasang aplikasi'}
+							</button>
+						) : platform.installHint === 'unsupported' ? null : (
+							<p className="input-hint">
+								{installHintText[platform.installHint]}
+							</p>
+						)}
+
+						{!platform.secure && !platform.standalone ? (
+							<Notice variant="error">
+								Pemasangan hanya bekerja pada alamat HTTPS atau localhost. Lewat
+								alamat IP dan http, browser mematikan service worker tanpa
+								peringatan.
+							</Notice>
+						) : null}
+
+						{platform.installHint === 'ios' ? (
+							<p className="input-hint">
+								Frasa pemulihan tetap satu-satunya cadangan: iOS bisa menghapus
+								data situs saat penyimpanan menipis.
+							</p>
+						) : null}
+					</div>
+				</section>
+			) : null}
+
 			<section className="card danger-zone">
 				<div className="settings-section__heading">
 					<span className="settings-icon settings-icon--danger">
@@ -346,11 +457,19 @@ export const Settings = ({
 						Ini menghapus vault terenkripsi dari browser ini. Tanpa frasa
 						pemulihan cadangan, dana dalam wallet ini tidak dapat dipulihkan.
 					</p>
-					<label className={`check-card ${wipeAcknowledged ? 'check-card--checked' : ''}`}>
-						<input type="checkbox" checked={wipeAcknowledged} onChange={(event) => setWipeAcknowledged(event.target.checked)} />
+					<label
+						className={`check-card ${wipeAcknowledged ? 'check-card--checked' : ''}`}
+					>
+						<input
+							type="checkbox"
+							checked={wipeAcknowledged}
+							onChange={(event) => setWipeAcknowledged(event.target.checked)}
+						/>
 						<span>
 							<strong>Saya punya frasa pemulihan</strong>
-							<small>Saya mengerti wallet ini tidak bisa dipulihkan tanpa frasa itu.</small>
+							<small>
+								Saya mengerti wallet ini tidak bisa dipulihkan tanpa frasa itu.
+							</small>
 						</span>
 					</label>
 				</div>

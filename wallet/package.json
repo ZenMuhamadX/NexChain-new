@@ -9,9 +9,13 @@
 		"dev": "vite --mode dev",
 		"build": "tsc --noEmit && vite build --mode dev",
 		"build:desktop": "tsc --noEmit && vite build --mode desktop",
+		"build:web": "tsc --noEmit && vite build --mode web",
+		"preview:web": "vite preview --mode web",
+		"icons": "pwa-assets-generator -c shells/web/pwa-assets.config.ts && pwa-assets-generator -c shells/web/pwa-assets.maskable.config.ts",
 		"typecheck": "tsc --noEmit",
 		"preview": "vite preview",
 		"smoke": "bun scripts/sendFlowSmoke.ts",
+		"smoke:pwa": "bun scripts/pwaCheck.ts",
 		"smoke:desktop": "electron scripts/desktopShellSmoke.cjs",
 		"smoke:portable": "node scripts/portableSmoke.cjs",
 		"smoke:packaged": "node scripts/packagedProbe.cjs",
@@ -33,9 +37,11 @@
 		"@types/qrcode": "^1.5.6",
 		"@types/react": "^19.0.0",
 		"@types/react-dom": "^19.0.0",
+		"@vite-pwa/assets-generator": "^2.0.0",
 		"electron": "44",
 		"electron-builder": "26",
 		"typescript": "^5.7.2",
-		"vite": "^6.0.5"
+		"vite": "^6.0.5",
+		"vite-plugin-pwa": "^2.0.0"
 	}
 }

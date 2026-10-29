@@ -16,6 +16,7 @@ export type IconName =
 	| 'eye'
 	| 'eyeOff'
 	| 'trash'
+	| 'download'
 
 const PATHS: Record<IconName, React.JSX.Element> = {
 	home: (
@@ -94,6 +95,13 @@ const PATHS: Record<IconName, React.JSX.Element> = {
 			<path d="M6.8 7l.8 12a2 2 0 0 0 2 1.9h4.8a2 2 0 0 0 2-1.9l.8-12" />
 			<path d="M10.5 11v6" />
 			<path d="M13.5 11v6" />
+		</>
+	),
+	download: (
+		<>
+			<path d="M12 4v10.5" />
+			<path d="M7.8 10.6 12 14.8l4.2-4.2" />
+			<path d="M4.5 19h15" />
 		</>
 	),
 }

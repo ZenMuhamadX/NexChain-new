@@ -71,7 +71,7 @@ export function SearchResultsPage() {
 			<section className="panel">
 				<EmptyState
 					title="Try one of these instead"
-					hint="Search accepts a block height, a 64-character block hash, a TxC… transaction hash, or an address starting with NxC."
+					hint="Search accepts a block height, a 64-character block hash, a TxC… transaction hash (67 characters), or an NxC… address (43 characters)."
 					action={
 						<div className="empty-actions">
 							<Link className="btn btn-primary" to="/blocks">

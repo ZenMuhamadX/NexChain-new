@@ -1,13 +1,19 @@
 /**
- * Pola klasifikasi input pencarian — sengaja meniru `isValidAddress`
- * backend (prefix NxC + panjang 43), bukan asumsi hex.
+ * Pola klasifikasi input pencarian — meniru `isValidAddress` backend v0.1:
+ * `NxC` + 40 hex huruf kecil = 43 karakter.
+ *
+ * Prefiks `NxS` dan tag byte alamat SUDAH TIDAK ADA (v0.1), jadi pola lama
+ * `/^Nx[CS].{40}$/` menerima alamat yang tidak akan pernah dikenali node —
+ * pencariannya berakhir di halaman "invalid address" tanpa menjelaskan apa
+ * pun. `.{40}` juga menerima karakter non-hex, sehingga salah ketik lolos
+ * sebagai "alamat".
  *
  * `TX_HASH_PATTERN` meniru `src/core/encoding/rlp/txHash.ts` (`isTxHash`):
  * `txHash` berbentuk `TxC` + 64 hex = 67 karakter, BUKAN 64 hex. Explorer
  * sengaja TIDAK mengimpor modul backend (file backend tidak ikut bundle),
  * jadi pola disalin di sini — samakan bila prefix kanonik berubah.
  */
-export const ADDRESS_PATTERN = /^NxC.{40}$/
+export const ADDRESS_PATTERN = /^NxC[0-9a-f]{40}$/
 export const HEIGHT_PATTERN = /^\d+$/
 export const HASH_PATTERN = /^(0x)?[0-9a-fA-F]{64}$/
 export const TX_HASH_PATTERN = /^TxC[0-9a-f]{64}$/

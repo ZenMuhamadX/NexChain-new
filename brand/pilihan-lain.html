@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="id" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NexChain &mdash; Enam Pilihan Mark Alternatif</title>
+<meta name="theme-color" content="#056a9c" />
+<style>
+:root{
+  --bg:#fff; --bg-soft:#f5f7fa; --panel:#fff; --line:#e2e8f0; --ink:#0f172a;
+  --muted:#64748b; --faint:#94a3b8; --accent:#056a9c; --accent-soft:#e6f1f8;
+  --ok:#15803d; --bad:#b91c1c; --warn:#b45309; --radius:14px;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.06);
+}
+html[data-theme="dark"]{
+  --bg:#0b1220; --bg-soft:#0f172a; --panel:#111c2e; --line:#1e293b; --ink:#e8eef7;
+  --muted:#94a3b8; --faint:#64748b; --accent:#4fb3e8; --accent-soft:#10252f;
+  --ok:#4ade80; --bad:#f87171; --warn:#fbbf24;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
+  padding:12px 24px;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.topbar .brand{display:flex;align-items:center;gap:10px;font-weight:700;
+  letter-spacing:-.3px;font-size:16px}
+.topbar .spacer{flex:1}
+.tbtn{font:inherit;font-size:13px;color:var(--muted);background:var(--panel);
+  border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
+.tbtn:hover{color:var(--accent);border-color:var(--accent)}
+
+.hero{padding:52px 0 34px;border-bottom:1px solid var(--line)}
+.hero h1{margin:0;font-size:38px;line-height:1.12;letter-spacing:-1.3px;max-width:22ch}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero p{margin:14px 0 0;color:var(--muted);max-width:76ch}
+.legend{display:flex;gap:22px;flex-wrap:wrap;margin-top:24px;font-size:13px;color:var(--muted)}
+.legend b{color:var(--ink)}
+
+h2{font-size:21px;letter-spacing:-.5px;margin:0 0 6px}
+.snum{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:1px}
+section{padding:52px 0 0}
+.slead{margin:0 0 22px;color:var(--muted);max-width:76ch}
+
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+
+.concept{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:14px}
+.chead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.chead h3{margin:0;font-size:17px;letter-spacing:-.3px;flex:1}
+.cnum{font-family:var(--mono);font-size:12px;color:var(--accent);
+  background:var(--accent-soft);border-radius:6px;padding:2px 7px}
+.verdict{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px;
+  letter-spacing:.3px;text-transform:uppercase}
+.v-rec{background:#dcfce7;color:#15803d}
+.v-comp{background:#dbeafe;color:#1d4ed8}
+.v-deriv{background:#fef3c7;color:#b45309}
+.v-back{background:var(--bg-soft);color:var(--faint)}
+html[data-theme="dark"] .v-rec{background:#052e16;color:#4ade80}
+html[data-theme="dark"] .v-comp{background:#0c1e3d;color:#7cc9f0}
+html[data-theme="dark"] .v-deriv{background:#3b2606;color:#fbbf24}
+
+.showcase{display:flex;gap:12px;align-items:center}
+.showcase>div{width:104px;height:104px;border-radius:20px;display:grid;place-items:center;flex:0 0 auto}
+.badge-lg{background:linear-gradient(135deg,#2b9fd8 0%,#0f766e 100%)}
+.bare-lg{background:var(--bg-soft);border:1px solid var(--line)}
+.dark-lg{background:#0b1220;border:1px solid #1e293b}
+.showcap{margin:-6px 0 0;font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+
+.strip{display:flex;align-items:flex-end;gap:16px;padding:12px 0 4px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.strip figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:5px}
+.strip .sb{display:grid;place-items:center;color:var(--ink)}
+.strip figcaption{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+
+.metaphor{margin:0;font-size:14px;color:var(--muted)}
+.pclist{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+.pclist ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+.pclist li{font-size:12.5px;line-height:1.45;padding-left:18px;position:relative;color:var(--muted)}
+.pros li::before{content:"+";position:absolute;left:3px;color:var(--ok);font-weight:700}
+.cons li::before{content:"\2212";position:absolute;left:3px;color:var(--bad);font-weight:700}
+.usefor{margin:0;font-size:12.5px;color:var(--muted)}
+.usefor b{color:var(--ink)}
+.note{margin:0;font-size:12.5px;font-style:italic;color:var(--faint);
+  border-left:2px solid var(--line);padding-left:10px}
+
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+thead th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint)}
+tbody th{font-weight:600;white-space:nowrap}
+.currow{background:var(--bg-soft)}
+.bar{display:inline-block;width:56px;height:6px;border-radius:3px;background:var(--bg-soft);
+  border:1px solid var(--line);vertical-align:middle;overflow:hidden;margin-right:7px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.val{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+
+.pick{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.pickcard{border:1px solid var(--line);border-radius:var(--radius);padding:16px;background:var(--panel)}
+.pickcard h3{margin:0 0 8px;font-size:15px}
+.pickcard p{margin:0;font-size:13.5px;color:var(--muted)}
+.pickcard .tag{font-family:var(--mono);font-size:11.5px;color:var(--accent)}
+footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);
+  color:var(--faint);font-size:12.5px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="m-cur" viewBox="0 0 64 64">
+<path d="M59 32 45.5 8.62H18.5L5 32l13.5 23.38h27L59 32Z" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round"/>
+<path d="M21 20v24M21 20l22 24M43 20v24" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+<g fill="currentColor"><circle cx="21" cy="20" r="3.4"/><circle cx="21" cy="44" r="3.4"/><circle cx="43" cy="20" r="3.4"/><circle cx="43" cy="44" r="3.4"/><circle cx="32" cy="32" r="4.6"/></g></symbol><symbol id="m-a1" viewBox="0 0 64 64">
+<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+<path d="M59 32 45.5 8.62H18.5L5 32l13.5 23.38h27L59 32Z" stroke-width="4.5"/>
+<g stroke-width="3"><path d="M32 32 49 32"/><path d="M32 32 40.5 46.72"/><path d="M32 32 23.5 46.72"/><path d="M32 32 15 32"/><path d="M32 32 23.5 17.28"/><path d="M32 32 40.5 17.28"/></g>
+</g>
+<circle cx="32" cy="32" r="5.2" fill="currentColor"/></symbol><symbol id="m-a2" viewBox="0 0 64 64">
+<g fill="none" stroke="currentColor" stroke-width="3.8" stroke-linejoin="round">
+<rect x="-14" y="-8" width="28" height="16" rx="8" transform="translate(25 23) rotate(45)"/>
+<rect x="-14" y="-8" width="28" height="16" rx="8" transform="translate(39 41) rotate(45)"/>
+</g></symbol><symbol id="m-a3" viewBox="0 0 64 64">
+<g fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round">
+<path d="M32 6 54.52 19v26L32 58 9.48 45V19Z"/>
+<path d="M32 32V6M32 32 9.48 45M32 32l22.52 13"/>
+</g>
+<circle cx="32" cy="32" r="4.6" fill="currentColor"/></symbol><symbol id="m-a4" viewBox="0 0 64 64">
+<circle cx="32" cy="32" r="27" fill="none" stroke="currentColor" stroke-width="3.2"/>
+<path d="M32 13 15.5 41.5h33Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+<g fill="currentColor"><circle cx="32" cy="13" r="4.6"/><circle cx="15.5" cy="41.5" r="4.6"/><circle cx="48.5" cy="41.5" r="4.6"/></g></symbol><symbol id="m-a5" viewBox="0 0 64 64">
+<path d="M18 50V14l28 36V14" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="miter" stroke-miterlimit="2" stroke-linecap="butt"/>
+<circle cx="32" cy="32" r="7.5" fill="none" stroke="currentColor" stroke-width="3.5"/></symbol><symbol id="m-a6" viewBox="0 0 64 64">
+<circle cx="32" cy="32" r="27" fill="none" stroke="currentColor" stroke-width="4.5"/>
+<g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linejoin="miter" stroke-miterlimit="2" stroke-linecap="butt">
+<path d="M22 42V22l6.46 6.46"/><path d="M42 22v20l-6.46-6.46"/>
+</g>
+<circle cx="32" cy="32" r="5.2" fill="none" stroke="currentColor" stroke-width="2.6"/></symbol>
+</defs></svg>
+
+<div class="topbar">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true" style="color:#056a9c"><use href="#m-cur"/></svg>
+    <span>NexChain <span style="color:var(--faint);font-weight:500">/ Pilihan Lain</span></span>
+  </div>
+  <div class="spacer"></div>
+  <button class="tbtn" id="themeBtn" type="button">Tema: Terang</button>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>Enam arah lain untuk mark <em>NexChain</em></h1>
+    <p>
+      Semua mark di bawah ini digambar dengan aturan yang sama seperti mark utama &mdash;
+      kanvas 64&times;64, margin optis 5px, bobot garis 3&ndash;8, satu warna lewat
+      <code>currentColor</code> &mdash; jadi salah satunya bisa dipakai tanpa mengubah
+      palet atau sistem ikon yang sudah ada. Yang membedakan hanya <b>metaforanya</b>.
+    </p>
+    <div class="legend">
+      <span><b>badge</b> &mdash; dipasang di gradient, warna putih</span>
+      <span><b>mono accent</b> &mdash; versi warna tunggal</span>
+      <span><b>strip ukuran</b> &mdash; 16 / 24 / 32 / 48 / 64 px</span>
+    </div>
+  </div>
+
+  <section>
+    <div class="snum">01 &mdash; 06</div>
+    <h2>Enam konsep</h2>
+    <p class="slead">
+      Setiap kartu menampilkan tiga perlakuan warna, uji ukuran, metafora, serta
+      kelebihan dan kekurangannya. Perhatikan strip ukuran: di situlah sebagian besar
+      konsep gugur.
+    </p>
+    <div class="grid">
+<article class="concept">
+  <header class="chead">
+    <span class="cnum">01</span>
+    <h3>Hexagon Hub</h3>
+    <span class="verdict v-back">Cadangan</span>
+  </header>
+
+  <div class="showcase">
+    <div class="badge-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a1"/></svg></div>
+    <div class="bare-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#056a9c"><use href="#m-a1"/></svg></div>
+    <div class="dark-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a1"/></svg></div>
+  </div>
+  <p class="showcap">badge &middot; mono accent &middot; di atas gelap</p>
+
+  <div class="strip"><figure><span class="sb"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a1"/></svg></span><figcaption>16</figcaption></figure><figure><span class="sb"><svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a1"/></svg></span><figcaption>24</figcaption></figure><figure><span class="sb"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a1"/></svg></span><figcaption>32</figcaption></figure><figure><span class="sb"><svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a1"/></svg></span><figcaption>48</figcaption></figure><figure><span class="sb"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a1"/></svg></span><figcaption>64</figcaption></figure></div>
+
+  <p class="metaphor">Heksagon blok dengan enam jari-jari yang memancar dari satu node pusat.</p>
+
+  <div class="pclist">
+    <ul class="pros"><li>Paling gamblang membaca &ldquo;blockchain&rdquo;</li><li>Node pusat menyiratkan konsensus</li><li>Tanpa huruf &rarr; netral untuk semua bahasa</li></ul>
+    <ul class="cons"><li>Paling ramai saat kecil &mdash; di 16px enam garis luluh jadi blob</li><li>Garis tipis hilang saat di-downscale atau dicetak kecil</li></ul>
+  </div>
+
+  <p class="usefor"><b>Cocok untuk:</b> Splash screen, halaman dokumentasi, watermark besar. <b>Bukan</b> untuk favicon.</p>
+  <p class="note">Kuat sebagai ilustrasi, lemah sebagai ikon.</p>
+</article>
+<article class="concept">
+  <header class="chead">
+    <span class="cnum">02</span>
+    <h3>Chain Links</h3>
+    <span class="verdict v-back">Cadangan</span>
+  </header>
+
+  <div class="showcase">
+    <div class="badge-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a2"/></svg></div>
+    <div class="bare-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#056a9c"><use href="#m-a2"/></svg></div>
+    <div class="dark-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a2"/></svg></div>
+  </div>
+  <p class="showcap">badge &middot; mono accent &middot; di atas gelap</p>
+
+  <div class="strip"><figure><span class="sb"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a2"/></svg></span><figcaption>16</figcaption></figure><figure><span class="sb"><svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a2"/></svg></span><figcaption>24</figcaption></figure><figure><span class="sb"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a2"/></svg></span><figcaption>32</figcaption></figure><figure><span class="sb"><svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a2"/></svg></span><figcaption>48</figcaption></figure><figure><span class="sb"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a2"/></svg></span><figcaption>64</figcaption></figure></div>
+
+  <p class="metaphor">Dua mata rantai kapsul yang saling mengunci pada sumbu 45&deg;.</p>
+
+  <div class="pclist">
+    <ul class="pros"><li>Metafora &ldquo;chain&rdquo; paling literal</li><li>Bentuk sangat sederhana, mudah diingat</li><li>Kontras bagus di semua ukuran</li></ul>
+    <ul class="cons"><li>Generik &mdash; puluhan proyek kripto memakai rantai</li><li>Sama sekali tidak menyiratkan &ldquo;Nex&rdquo;</li><li>Dua bentuk identik terasa tanpa arah</li></ul>
+  </div>
+
+  <p class="usefor"><b>Cocok untuk:</b> Materi marketing yang menekankan keamanan &amp; keterhubungan.</p>
+  <p class="note">Aman tapi tidak bisa dimiliki &mdash; siapa pun bisa memakainya.</p>
+</article>
+<article class="concept">
+  <header class="chead">
+    <span class="cnum">03</span>
+    <h3>Isometric Cube</h3>
+    <span class="verdict v-deriv">Ikon turunan</span>
+  </header>
+
+  <div class="showcase">
+    <div class="badge-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a3"/></svg></div>
+    <div class="bare-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#056a9c"><use href="#m-a3"/></svg></div>
+    <div class="dark-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a3"/></svg></div>
+  </div>
+  <p class="showcap">badge &middot; mono accent &middot; di atas gelap</p>
+
+  <div class="strip"><figure><span class="sb"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a3"/></svg></span><figcaption>16</figcaption></figure><figure><span class="sb"><svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a3"/></svg></span><figcaption>24</figcaption></figure><figure><span class="sb"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a3"/></svg></span><figcaption>32</figcaption></figure><figure><span class="sb"><svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a3"/></svg></span><figcaption>48</figcaption></figure><figure><span class="sb"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a3"/></svg></span><figcaption>64</figcaption></figure></div>
+
+  <p class="metaphor">Kubus isometrik &mdash; siluet heksagon dengan tiga rusuk bertemu di satu simpul.</p>
+
+  <div class="pclist">
+    <ul class="pros"><li>Terbaca sebagai &ldquo;blok&rdquo; tiga dimensi</li><li>Simpul tengah menjaga ide nexus</li><li>Geometri bersih, tidak ada garis mubazir</li></ul>
+    <ul class="cons"><li>Siluet heksagon terlalu mirip mark utama &mdash; berisiko tertukar</li><li>Ikon &ldquo;kubus&rdquo; sangat umum di ekosistem kripto</li></ul>
+  </div>
+
+  <p class="usefor"><b>Cocok untuk:</b> Ikon per blok di explorer &mdash; setiap blok satu kubus kecil.</p>
+  <p class="note">Lebih tepat jadi ikon turunan daripada mark utama.</p>
+</article>
+<article class="concept">
+  <header class="chead">
+    <span class="cnum">04</span>
+    <h3>Node Mesh</h3>
+    <span class="verdict v-back">Cadangan</span>
+  </header>
+
+  <div class="showcase">
+    <div class="badge-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a4"/></svg></div>
+    <div class="bare-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#056a9c"><use href="#m-a4"/></svg></div>
+    <div class="dark-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a4"/></svg></div>
+  </div>
+  <p class="showcap">badge &middot; mono accent &middot; di atas gelap</p>
+
+  <div class="strip"><figure><span class="sb"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a4"/></svg></span><figcaption>16</figcaption></figure><figure><span class="sb"><svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a4"/></svg></span><figcaption>24</figcaption></figure><figure><span class="sb"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a4"/></svg></span><figcaption>32</figcaption></figure><figure><span class="sb"><svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a4"/></svg></span><figcaption>48</figcaption></figure><figure><span class="sb"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a4"/></svg></span><figcaption>64</figcaption></figure></div>
+
+  <p class="metaphor">Tiga node validator dihubungkan tiga edge di dalam cincin tipis.</p>
+
+  <div class="pclist">
+    <ul class="pros"><li>Menyiratkan konsensus &amp; desentralisasi dengan jujur</li><li>Tiga node mudah dihitung mata sekilas</li><li>Cincin memberi bentuk yang rapi</li></ul>
+    <ul class="cons"><li>Segitiga dalam lingkaran sudah sangat umum</li><li>Tidak ada kaitan visual dengan huruf N</li><li>Tidak menyiratkan &ldquo;block&rdquo; sama sekali</li></ul>
+  </div>
+
+  <p class="usefor"><b>Cocok untuk:</b> Halaman status jaringan, visualisasi peer, indikator sinkronisasi.</p>
+  <p class="note">Bagus untuk menjelaskan, kurang untuk mengidentifikasi.</p>
+</article>
+<article class="concept">
+  <header class="chead">
+    <span class="cnum">05</span>
+    <h3>Angular N</h3>
+    <span class="verdict v-comp">Pelengkap</span>
+  </header>
+
+  <div class="showcase">
+    <div class="badge-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a5"/></svg></div>
+    <div class="bare-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#056a9c"><use href="#m-a5"/></svg></div>
+    <div class="dark-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a5"/></svg></div>
+  </div>
+  <p class="showcap">badge &middot; mono accent &middot; di atas gelap</p>
+
+  <div class="strip"><figure><span class="sb"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a5"/></svg></span><figcaption>16</figcaption></figure><figure><span class="sb"><svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a5"/></svg></span><figcaption>24</figcaption></figure><figure><span class="sb"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a5"/></svg></span><figcaption>32</figcaption></figure><figure><span class="sb"><svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a5"/></svg></span><figcaption>48</figcaption></figure><figure><span class="sb"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a5"/></svg></span><figcaption>64</figcaption></figure></div>
+
+  <p class="metaphor">N monoline tanpa container, sudut di-bevel tajam, cincin node di tengah diagonal.</p>
+
+  <div class="pclist">
+    <ul class="pros"><li>Paling fleksibel &mdash; jalan sebagai ikon <i>dan</i> wordmark</li><li>Karakter tajam &amp; teknis, kontras dengan UI yang membulat</li><li>Masih satu keluarga huruf dengan mark utama</li></ul>
+    <ul class="cons"><li>Tanpa container jadi kurang berbobot saat dipasang sebagai app icon</li><li>Bentuk N sendiri relatif generik</li></ul>
+  </div>
+
+  <p class="usefor"><b>Cocok untuk:</b> Companion wordmark, ikon inline di dalam teks, judul dokumentasi.</p>
+  <p class="note">Pilihan terbaik kalau butuh mark yang menyatu dengan tipografi.</p>
+</article>
+<article class="concept">
+  <header class="chead">
+    <span class="cnum">06</span>
+    <h3>NXC Token Disc</h3>
+    <span class="verdict v-rec">Rekomendasi</span>
+  </header>
+
+  <div class="showcase">
+    <div class="badge-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a6"/></svg></div>
+    <div class="bare-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#056a9c"><use href="#m-a6"/></svg></div>
+    <div class="dark-lg"><svg width="84" height="84" viewBox="0 0 64 64" aria-hidden="true" style="color:#ffffff"><use href="#m-a6"/></svg></div>
+  </div>
+  <p class="showcap">badge &middot; mono accent &middot; di atas gelap</p>
+
+  <div class="strip"><figure><span class="sb"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a6"/></svg></span><figcaption>16</figcaption></figure><figure><span class="sb"><svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a6"/></svg></span><figcaption>24</figcaption></figure><figure><span class="sb"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a6"/></svg></span><figcaption>32</figcaption></figure><figure><span class="sb"><svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a6"/></svg></span><figcaption>48</figcaption></figure><figure><span class="sb"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><use href="#m-a6"/></svg></span><figcaption>64</figcaption></figure></div>
+
+  <p class="metaphor">Koin: cincin luar, huruf N monoline yang terbelah di tengah oleh cincin node.</p>
+
+  <div class="pclist">
+    <ul class="pros"><li>Langsung terbaca sebagai &ldquo;aset&rdquo; / koin</li><li>Memberi wajah pada ticker NXC yang belum punya simbol</li><li>Kontras cincin vs N sangat kuat</li></ul>
+    <ul class="cons"><li>&ldquo;Koin&rdquo; adalah identitas token, bukan jaringan</li><li>Sangat mirip ikon mata uang kripto pada umumnya</li></ul>
+  </div>
+
+  <p class="usefor"><b>Cocok untuk:</b> Ticker, harga, daftar aset, hadiah mining 500 NXC.</p>
+  <p class="note">Jangan dipakai untuk node/explorer &mdash; itu identitas jaringan.</p>
+</article></div>
+  </section>
+
+  <section>
+    <div class="snum">07</div>
+    <h2>Matriks penilaian</h2>
+    <p class="slead">
+      Skala 1&ndash;5. Baris pertama adalah mark yang dipakai sekarang sebagai acuan.
+      Kriteria paling berat untuk proyek ini adalah <b>keterbacaan &le;24px</b>, karena
+      mark akan muncul sebagai favicon di tiga frontend.
+    </p>
+    <table>
+      <thead><tr><th>Konsep</th><th>Keterbacaan &le;24px</th><th>Keunikan</th><th>Skalabilitas</th><th>Kesinambungan dgn mark lama</th><th>Kecepatan dikenali</th></tr></thead>
+      <tbody><tr class="currow"><th><span class="cnum">&mdash;</span> Mark saat ini</th><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:100%"></i></span><span class="val">5</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td></tr><tr><th><span class="cnum">01</span> Hexagon Hub</th><td><span class="bar"><i style="width:40%"></i></span><span class="val">2</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td><td><span class="bar"><i style="width:40%"></i></span><span class="val">2</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td></tr><tr><th><span class="cnum">02</span> Chain Links</th><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:40%"></i></span><span class="val">2</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:40%"></i></span><span class="val">2</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td></tr><tr><th><span class="cnum">03</span> Isometric Cube</th><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td></tr><tr><th><span class="cnum">04</span> Node Mesh</th><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:40%"></i></span><span class="val">2</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td></tr><tr><th><span class="cnum">05</span> Angular N</th><td><span class="bar"><i style="width:100%"></i></span><span class="val">5</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td><td><span class="bar"><i style="width:100%"></i></span><span class="val">5</span></td><td><span class="bar"><i style="width:100%"></i></span><span class="val">5</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td></tr><tr><th><span class="cnum">06</span> NXC Token Disc</th><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td><td><span class="bar"><i style="width:60%"></i></span><span class="val">3</span></td><td><span class="bar"><i style="width:80%"></i></span><span class="val">4</span></td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <div class="snum">08</div>
+    <h2>Rekomendasi</h2>
+    <p class="slead">
+      Tidak harus memilih satu. Mark jaringan dan mark token menyelesaikan dua masalah
+      yang berbeda, jadi keduanya bisa hidup berdampingan.
+    </p>
+    <div class="pick">
+      <div class="pickcard">
+        <span class="tag">tetap</span>
+        <h3>Mark utama &mdash; Hexagon + N</h3>
+        <p>
+          Pertahankan sebagai identitas jaringan. Skor kesinambungannya paling tinggi dan
+          ia satu-satunya kandidat yang sudah punya <i>nexus node</i> &mdash; benang merah
+          ke favicon explorer lama.
+        </p>
+      </div>
+      <div class="pickcard">
+        <span class="tag">adopsi &rarr; 06</span>
+        <h3>NXC Token Disc</h3>
+        <p>
+          Kebutuhan yang belum terpenuhi: proyek ini punya ticker <b>NXC</b> dan reward
+          <b>500 NXC</b>, tapi ticker itu belum punya simbol. Disc 06 mengisi celah itu
+          tanpa menyerobot identitas jaringan.
+        </p>
+      </div>
+      <div class="pickcard">
+        <span class="tag">adopsi &rarr; 05</span>
+        <h3>Angular N</h3>
+        <p>
+          Pakai sebagai companion di lockup, header dokumentasi, dan ikon inline dalam
+          teks. Skor keterbacaan &le;24px paling tinggi dari enam konsep, jadi ia juga
+          bisa jadi favicon cadangan.
+        </p>
+      </div>
+      <div class="pickcard">
+        <span class="tag">lewati</span>
+        <h3>02 &amp; 04</h3>
+        <p>
+          Rantai dan segitiga-dalam-lingkaran adalah dua bentuk paling sering dipakai di
+          ekosistem kripto. Keduanya aman, tapi tidak bisa dimiliki secara eksklusif.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    NexChain Brand &middot; enam pilihan mark alternatif. Aset: <code>brand/alternatives/*.svg</code>
+    &mdash; semua memakai <code>currentColor</code> sehingga bisa diwarnai dari CSS.
+  </footer>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement,btn=document.getElementById('themeBtn');
+  function apply(m){root.setAttribute('data-theme',m);btn.textContent=m==='dark'?'Tema: Gelap':'Tema: Terang';}
+  var d=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+  apply(d?'dark':'light');
+  btn.addEventListener('click',function(){apply(root.getAttribute('data-theme')==='dark'?'light':'dark');});
+})();
+</script>
+</body>
+</html>

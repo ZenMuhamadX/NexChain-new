@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 252 64" width="252" height="64" role="img" aria-label="NexChain">
+	<title>NexChain — horizontal lockup</title>
+	<defs>
+		<linearGradient id="nxLock" x1="8" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#2b9fd8" />
+			<stop offset="1" stop-color="#0f766e" />
+		</linearGradient>
+	</defs>
+	<g>
+		<path d="M59 32 45.5 8.62H18.5L5 32l13.5 23.38h27L59 32Z"
+			fill="none" stroke="url(#nxLock)" stroke-width="4.5" stroke-linejoin="round" />
+		<path d="M21 20v24M21 20l22 24M43 20v24"
+			fill="none" stroke="url(#nxLock)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+		<g fill="url(#nxLock)">
+			<circle cx="21" cy="20" r="3.4" />
+			<circle cx="21" cy="44" r="3.4" />
+			<circle cx="43" cy="20" r="3.4" />
+			<circle cx="43" cy="44" r="3.4" />
+			<circle cx="32" cy="32" r="4.6" />
+		</g>
+	</g>
+	<text x="78" y="42"
+		font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+		font-size="30" font-weight="700" letter-spacing="-0.6">
+		<tspan fill="#0f172a">Nex</tspan><tspan fill="#056a9c">Chain</tspan>
+	</text>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="NexChain">
+	<title>NexChain — app icon</title>
+	<desc>
+		Badge penuh untuk ikon aplikasi. Proporsi mark sama persis dengan
+		nexchain-icon-solid.svg dan nexchain-favicon.svg, hanya diskalakan 8×:
+		margin 5px pada kanvas 64 menjadi 40px pada kanvas 512.
+	</desc>
+	<defs>
+		<linearGradient id="nxApp" x1="64" y1="48" x2="464" y2="464" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#2b9fd8" />
+			<stop offset="1" stop-color="#0f766e" />
+		</linearGradient>
+	</defs>
+	<rect width="512" height="512" rx="120" fill="url(#nxApp)" />
+	<g transform="scale(8)">
+		<path d="M21 20v24M21 20l22 24M43 20v24"
+			fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+		<g fill="#ffffff">
+			<circle cx="21" cy="20" r="3.6" />
+			<circle cx="21" cy="44" r="3.6" />
+			<circle cx="43" cy="20" r="3.6" />
+			<circle cx="43" cy="44" r="3.6" />
+			<circle cx="32" cy="32" r="4.8" />
+		</g>
+	</g>
+</svg>

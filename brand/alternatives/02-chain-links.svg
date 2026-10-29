@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="NexChain — Chain Links">
+	<title>02 · Chain Links</title>
+	<desc>Two interlocking capsule links on a 45-degree axis. Literal chain, no letterform.</desc>
+	<g fill="none" stroke="currentColor" stroke-width="3.8" stroke-linejoin="round">
+		<rect x="-14" y="-8" width="28" height="16" rx="8" transform="translate(25 23) rotate(45)" />
+		<rect x="-14" y="-8" width="28" height="16" rx="8" transform="translate(39 41) rotate(45)" />
+	</g>
+</svg>

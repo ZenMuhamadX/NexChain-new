@@ -16,6 +16,14 @@ import { formatNumber } from '../lib/format'
 const PAGE_SIZE = 25
 
 /**
+ * `nex_getMempool` memotong hasil di 100 entri secara GLOBAL (urut key),
+ * bukan per halaman. Angka itu karena itu BUKAN ukuran backlog sebenarnya:
+ * mempool 5.000 tx tetap tampil "100". Selalu tandai cap-nya, jangan
+ * menyajikan potongan sebagai total.
+ */
+const RPC_LIMIT = 100
+
+/**
  * Halaman Mempool — satu-satunya jalur "browse global" yang tersedia di
  * backend saat ini (`nex_getMempool`). Sebelumnya mempool hanya muncul
  * sebagai preview 8 baris di dashboard tanpa jalan menuju datanya.
@@ -30,6 +38,7 @@ export function MempoolPage() {
 	const pending = pool.data ?? []
 	const visible = pending.slice(0, shown)
 	const hasMore = pending.length > shown
+	const capped = pending.length >= RPC_LIMIT
 
 	if (pool.loading && !pool.data) {
 		return <LoadingState label="Loading mempool…" />
@@ -50,10 +59,18 @@ export function MempoolPage() {
 				<div>
 					<h1>Mempool</h1>
 					<p className="muted">
-						{formatNumber(pending.length)} transaction
+						{formatNumber(pending.length)}
+						{capped ? '+' : ''} transaction
 						{pending.length === 1 ? '' : 's'} waiting to be mined · tip #
 						{formatNumber(chain.state?.currentBlockHeight ?? 0)}
 					</p>
+					{capped ? (
+						<p className="muted">
+							The RPC returns at most {RPC_LIMIT} entries (global key order),
+							so the real backlog may be larger. This list is a sample, not a
+							count.
+						</p>
+					) : null}
 				</div>
 			</div>
 

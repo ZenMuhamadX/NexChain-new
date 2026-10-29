@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="NexChain">
+	<title>NexChain — solid badge</title>
+	<desc>App / avatar badge. Use from 24px up; below that use the favicon variant.</desc>
+	<defs>
+		<linearGradient id="nxBadge" x1="4" y1="2" x2="60" y2="62" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#2b9fd8" />
+			<stop offset="1" stop-color="#0f766e" />
+		</linearGradient>
+	</defs>
+	<rect width="64" height="64" rx="15" fill="url(#nxBadge)" />
+	<path d="M21 20v24M21 20l22 24M43 20v24"
+		fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+	<g fill="#ffffff">
+		<circle cx="21" cy="20" r="3.6" />
+		<circle cx="21" cy="44" r="3.6" />
+		<circle cx="43" cy="20" r="3.6" />
+		<circle cx="43" cy="44" r="3.6" />
+		<circle cx="32" cy="32" r="4.8" />
+	</g>
+</svg>

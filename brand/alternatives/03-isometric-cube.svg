@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="NexChain — Isometric Cube">
+	<title>03 · Isometric Cube</title>
+	<desc>Isometric cube: pointy-top hexagon silhouette with a Y of edges meeting at a node.</desc>
+	<g fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round">
+		<path d="M32 6 54.52 19v26L32 58 9.48 45V19Z" />
+		<path d="M32 32V6M32 32 9.48 45M32 32l22.52 13" />
+	</g>
+	<circle cx="32" cy="32" r="4.6" fill="currentColor" />
+</svg>

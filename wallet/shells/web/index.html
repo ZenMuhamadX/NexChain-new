@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="id">
+	<head>
+		<meta charset="UTF-8" />
+		<!--
+			`viewport-fit=cover` + `env(safe-area-inset-*)` di style.css: tanpa ini
+			konten masuk ke bawah notch/home-indicator pada iPhone, dan tanpa
+			`initial-scale=1` iOS memperbesar halaman saat input difokuskan.
+		-->
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+		/>
+		<!--
+			CSP ketat, sama seperti shell desktop. Tambahan `manifest-src` untuk
+			manifest PWA. `connect-src http: https:` diperlukan karena wallet
+			menembak `/rpc` ke origin yang sama — dilarangnya akan membuat semua
+			saldo gagal tanpa pesan yang jelas.
+		-->
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src http: https:; worker-src 'self' blob:; manifest-src 'self'"
+		/>
+		<meta name="theme-color" content="#2f6fab" />
+		<meta name="color-scheme" content="light" />
+		<meta
+			name="description"
+			content="Wallet NexChain dengan vault terenkripsi yang tersimpan di perangkat Anda."
+		/>
+
+		<!--
+			Meta iOS. Safari TIDAK memakai manifest untuk pemasangan, jadi tanpa
+			blok ini "Tambah ke Layar Utama" menghasilkan bookmark yang membuka
+			Safari lengkap dengan address bar.
+		-->
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="NexChain" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+		<title>NexChain Wallet</title>
+		<!--
+			`<link rel="manifest">` TIDAK ditulis tangan: vite-plugin-pwa
+			menyuntikkannya saat build bersama `sw.js`. Menambahkannya manual
+			berisiko menunjuk nama berkas yang tidak pernah dihasilkan.
+		--></head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="./main.tsx"></script>
+	</body>
+</html>

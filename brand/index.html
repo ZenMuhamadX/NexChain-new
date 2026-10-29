@@ -1,0 +1,1130 @@
+<!doctype html>
+<html lang="id" data-theme="light">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>NexChain — Referensi Ikon & Mark</title>
+		<meta name="theme-color" content="#056a9c" />
+		<meta
+			name="description"
+			content="Panduan ikon, mark, varian, ukuran, palet warna dan implementasi untuk identitas NexChain."
+		/>
+		<link
+			rel="icon"
+			href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='2' y1='1' x2='30' y2='31' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0' stop-color='%232b9fd8'/%3E%3Cstop offset='1' stop-color='%230f766e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7.5' fill='url(%23g)'/%3E%3Cpath d='M11 10v12M11 10l10 12M21 10v12' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cg fill='%23fff'%3E%3Ccircle cx='11' cy='10' r='2'/%3E%3Ccircle cx='11' cy='22' r='2'/%3E%3Ccircle cx='21' cy='10' r='2'/%3E%3Ccircle cx='21' cy='22' r='2'/%3E%3C/g%3E%3C/svg%3E"
+		/>
+		<style>
+			:root {
+				--bg: #ffffff;
+				--bg-soft: #f5f7fa;
+				--panel: #ffffff;
+				--line: #e2e8f0;
+				--line-soft: #eef2f7;
+				--ink: #0f172a;
+				--muted: #64748b;
+				--faint: #94a3b8;
+				--accent: #056a9c;
+				--accent-strong: #04455f;
+				--accent-soft: #e6f1f8;
+				--teal: #0f766e;
+				--ok: #15803d;
+				--bad: #b91c1c;
+				--radius: 14px;
+				--mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+				--sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+					sans-serif;
+				--shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+			}
+			html[data-theme="dark"] {
+				--bg: #0b1220;
+				--bg-soft: #0f172a;
+				--panel: #111c2e;
+				--line: #1e293b;
+				--line-soft: #17243a;
+				--ink: #e8eef7;
+				--muted: #94a3b8;
+				--faint: #64748b;
+				--accent: #4fb3e8;
+				--accent-strong: #7cc9f0;
+				--accent-soft: #10252f;
+				--teal: #14b8a6;
+				--ok: #4ade80;
+				--bad: #f87171;
+				--shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.35);
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				background: var(--bg);
+				color: var(--ink);
+				font-family: var(--sans);
+				font-size: 15px;
+				line-height: 1.65;
+				-webkit-font-smoothing: antialiased;
+			}
+			.wrap {
+				max-width: 1080px;
+				margin: 0 auto;
+				padding: 0 24px 96px;
+			}
+
+			/* ---------- topbar ---------- */
+			.topbar {
+				position: sticky;
+				top: 0;
+				z-index: 20;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				padding: 12px 24px;
+				background: color-mix(in srgb, var(--bg) 88%, transparent);
+				backdrop-filter: blur(12px);
+				border-bottom: 1px solid var(--line);
+			}
+			.topbar .brand {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				font-weight: 700;
+				letter-spacing: -0.3px;
+				font-size: 16px;
+			}
+			.topbar .spacer {
+				flex: 1;
+			}
+			.tbtn {
+				font: inherit;
+				font-size: 13px;
+				color: var(--muted);
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: 999px;
+				padding: 6px 14px;
+				cursor: pointer;
+			}
+			.tbtn:hover {
+				color: var(--accent);
+				border-color: var(--accent);
+			}
+
+			/* ---------- hero ---------- */
+			.hero {
+				padding: 56px 0 40px;
+				border-bottom: 1px solid var(--line);
+			}
+			.hero-lockup {
+				display: flex;
+				align-items: center;
+				gap: 22px;
+				flex-wrap: wrap;
+			}
+			.hero-mark {
+				width: 104px;
+				height: 104px;
+				flex: 0 0 auto;
+			}
+			.hero h1 {
+				margin: 0;
+				font-size: 42px;
+				line-height: 1.1;
+				letter-spacing: -1.4px;
+			}
+			.hero h1 span {
+				color: var(--accent);
+			}
+			.hero p {
+				margin: 10px 0 0;
+				color: var(--muted);
+				max-width: 60ch;
+			}
+			.chips {
+				display: flex;
+				gap: 8px;
+				flex-wrap: wrap;
+				margin-top: 22px;
+			}
+			.chip {
+				font-size: 12.5px;
+				font-family: var(--mono);
+				color: var(--muted);
+				background: var(--bg-soft);
+				border: 1px solid var(--line);
+				border-radius: 999px;
+				padding: 4px 11px;
+			}
+
+			/* ---------- sections ---------- */
+			section {
+				padding: 52px 0 0;
+			}
+			.shead {
+				display: flex;
+				align-items: baseline;
+				gap: 12px;
+				margin-bottom: 6px;
+			}
+			.snum {
+				font-family: var(--mono);
+				font-size: 12px;
+				color: var(--accent);
+				letter-spacing: 1px;
+			}
+			h2 {
+				margin: 0;
+				font-size: 22px;
+				letter-spacing: -0.5px;
+			}
+			.slead {
+				margin: 0 0 22px;
+				color: var(--muted);
+				max-width: 74ch;
+			}
+			h3 {
+				font-size: 14px;
+				margin: 0 0 10px;
+				letter-spacing: 0.2px;
+			}
+			.grid {
+				display: grid;
+				gap: 14px;
+			}
+			.g2 {
+				grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+			}
+			.g3 {
+				grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+			}
+			.g4 {
+				grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+			}
+			.card {
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: var(--radius);
+				padding: 18px;
+				box-shadow: var(--shadow);
+			}
+			.card.dark {
+				background: #0b1220;
+				border-color: #1e293b;
+				color: #e8eef7;
+			}
+			.card.dark .cap,
+			.card.dark .note {
+				color: #94a3b8;
+			}
+			.cap {
+				font-size: 12.5px;
+				color: var(--muted);
+				margin-top: 12px;
+			}
+			.note {
+				font-size: 12.5px;
+				color: var(--faint);
+			}
+			.center {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			/* ---------- anatomy ---------- */
+			.anat {
+				display: grid;
+				grid-template-columns: minmax(260px, 340px) 1fr;
+				gap: 28px;
+				align-items: center;
+			}
+			@media (max-width: 720px) {
+				.anat {
+					grid-template-columns: 1fr;
+				}
+			}
+			.alist {
+				display: flex;
+				flex-direction: column;
+				gap: 16px;
+			}
+			.arow {
+				display: flex;
+				gap: 13px;
+			}
+			.abub {
+				flex: 0 0 auto;
+				width: 24px;
+				height: 24px;
+				border-radius: 50%;
+				background: var(--accent);
+				color: #fff;
+				font-size: 12px;
+				font-weight: 700;
+				display: grid;
+				place-items: center;
+			}
+			.arow b {
+				display: block;
+				font-size: 14px;
+			}
+			.arow p {
+				margin: 2px 0 0;
+				font-size: 13.5px;
+				color: var(--muted);
+			}
+
+			/* ---------- size test ---------- */
+			.sizes {
+				display: flex;
+				align-items: flex-end;
+				gap: 20px;
+				flex-wrap: wrap;
+			}
+			.size {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 8px;
+			}
+			.size .cap {
+				margin: 0;
+				font-family: var(--mono);
+			}
+
+			/* ---------- swatches ---------- */
+			.sw {
+				border-radius: 12px;
+				overflow: hidden;
+				border: 1px solid var(--line);
+				background: var(--panel);
+			}
+			.sw .box {
+				height: 72px;
+			}
+			.sw .meta {
+				padding: 9px 12px;
+				border-top: 1px solid var(--line);
+			}
+			.sw .nm {
+				font-size: 13px;
+				font-weight: 600;
+			}
+			.sw .hx {
+				font-family: var(--mono);
+				font-size: 12px;
+				color: var(--muted);
+			}
+
+			/* ---------- do / dont ---------- */
+			.dd {
+				position: relative;
+			}
+			.dd .mark-box {
+				height: 88px;
+				display: grid;
+				place-items: center;
+				border-radius: 10px;
+				background: var(--bg-soft);
+				border: 1px solid var(--line);
+			}
+			.card.dark .mark-box {
+				background: #131c24;
+				border-color: #1e293b;
+			}
+			.badge {
+				display: inline-flex;
+				align-items: center;
+				gap: 5px;
+				font-size: 12px;
+				font-weight: 600;
+				margin-bottom: 10px;
+			}
+			.badge.ok {
+				color: var(--ok);
+			}
+			.badge.no {
+				color: var(--bad);
+			}
+			.dd .cap {
+				margin-top: 8px;
+			}
+
+			/* ---------- code ---------- */
+			pre {
+				margin: 0;
+				background: #0b1220;
+				color: #d7e3f4;
+				border: 1px solid #1e293b;
+				border-radius: 12px;
+				padding: 14px 16px;
+				overflow-x: auto;
+				font-family: var(--mono);
+				font-size: 12.5px;
+				line-height: 1.7;
+			}
+			pre .k {
+				color: #7cc9f0;
+			}
+			pre .s {
+				color: #6ee7b7;
+			}
+			pre .c {
+				color: #64748b;
+			}
+			code.inline {
+				font-family: var(--mono);
+				font-size: 12.5px;
+				background: var(--bg-soft);
+				border: 1px solid var(--line);
+				border-radius: 6px;
+				padding: 1px 6px;
+			}
+			.filelist {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+			.frow {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				padding: 10px 12px;
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				background: var(--panel);
+			}
+			.frow code {
+				font-family: var(--mono);
+				font-size: 12.5px;
+				color: var(--accent);
+				flex: 0 0 auto;
+				min-width: 236px;
+			}
+			.frow span {
+				font-size: 13px;
+				color: var(--muted);
+			}
+			table {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 13.5px;
+			}
+			th,
+			td {
+				text-align: left;
+				padding: 9px 12px;
+				border-bottom: 1px solid var(--line);
+				vertical-align: top;
+			}
+			th {
+				font-size: 12px;
+				text-transform: uppercase;
+				letter-spacing: 0.6px;
+				color: var(--faint);
+				font-weight: 600;
+			}
+			td code {
+				font-family: var(--mono);
+				font-size: 12.5px;
+			}
+			footer {
+				margin-top: 64px;
+				padding-top: 22px;
+				border-top: 1px solid var(--line);
+				color: var(--faint);
+				font-size: 12.5px;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- ============ symbol library ============ -->
+		<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+			<defs>
+				<linearGradient id="gNx" x1="8" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+					<stop offset="0" stop-color="#2b9fd8" />
+					<stop offset="1" stop-color="#0f766e" />
+				</linearGradient>
+
+				<symbol id="nxMark" viewBox="0 0 64 64">
+					<path
+						d="M59 32 45.5 8.62H18.5L5 32l13.5 23.38h27L59 32Z"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="4.5"
+						stroke-linejoin="round"
+					/>
+					<path
+						d="M21 20v24M21 20l22 24M43 20v24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="4.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+					<g fill="currentColor">
+						<circle cx="21" cy="20" r="3.4" />
+						<circle cx="21" cy="44" r="3.4" />
+						<circle cx="43" cy="20" r="3.4" />
+						<circle cx="43" cy="44" r="3.4" />
+						<circle cx="32" cy="32" r="4.6" />
+					</g>
+				</symbol>
+
+				<symbol id="nxMarkGrad" viewBox="0 0 64 64">
+					<path
+						d="M59 32 45.5 8.62H18.5L5 32l13.5 23.38h27L59 32Z"
+						fill="none"
+						stroke="url(#gNx)"
+						stroke-width="4.5"
+						stroke-linejoin="round"
+					/>
+					<path
+						d="M21 20v24M21 20l22 24M43 20v24"
+						fill="none"
+						stroke="url(#gNx)"
+						stroke-width="4.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+					<g fill="url(#gNx)">
+						<circle cx="21" cy="20" r="3.4" />
+						<circle cx="21" cy="44" r="3.4" />
+						<circle cx="43" cy="20" r="3.4" />
+						<circle cx="43" cy="44" r="3.4" />
+						<circle cx="32" cy="32" r="4.6" />
+					</g>
+				</symbol>
+
+				<symbol id="nxBadge" viewBox="0 0 64 64">
+					<rect width="64" height="64" rx="15" fill="url(#gNx)" />
+					<path
+						d="M21 20v24M21 20l22 24M43 20v24"
+						fill="none"
+						stroke="#fff"
+						stroke-width="5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+					<g fill="#fff">
+						<circle cx="21" cy="20" r="3.6" />
+						<circle cx="21" cy="44" r="3.6" />
+						<circle cx="43" cy="20" r="3.6" />
+						<circle cx="43" cy="44" r="3.6" />
+						<circle cx="32" cy="32" r="4.8" />
+					</g>
+				</symbol>
+
+				<symbol id="nxFav" viewBox="0 0 32 32">
+					<rect width="32" height="32" rx="7.5" fill="url(#gNx)" />
+					<path
+						d="M11 10v12M11 10l10 12M21 10v12"
+						fill="none"
+						stroke="#fff"
+						stroke-width="2.6"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+					<g fill="#fff">
+						<circle cx="11" cy="10" r="2" />
+						<circle cx="11" cy="22" r="2" />
+						<circle cx="21" cy="10" r="2" />
+						<circle cx="21" cy="22" r="2" />
+					</g>
+				</symbol>
+			</defs>
+		</svg>
+
+		<!-- ============ topbar ============ -->
+		<div class="topbar">
+			<div class="brand">
+				<svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true">
+					<use href="#nxBadge" />
+				</svg>
+				<span>NexChain <span style="color: var(--faint); font-weight: 500">/ Brand</span></span>
+			</div>
+			<div class="spacer"></div>
+			<button class="tbtn" id="themeBtn" type="button">Tema: Terang</button>
+		</div>
+
+		<div class="wrap">
+			<!-- ============ hero ============ -->
+			<div class="hero">
+				<div class="hero-lockup">
+					<svg class="hero-mark" viewBox="0 0 64 64" aria-label="Mark NexChain">
+						<use href="#nxMarkGrad" />
+					</svg>
+					<div>
+						<h1>Nex<span>Chain</span></h1>
+						<p>
+							Referensi ikon resmi. Satu mark tunggal — hexagon blok dengan huruf
+							<b>N</b> yang dibentuk sebagai graf node dan sebuah <i>nexus node</i> di
+							titik pusatnya.
+						</p>
+					</div>
+				</div>
+				<div class="chips">
+					<span class="chip">viewBox 0 0 64 64</span>
+					<span class="chip">#056a9c → #0f766e</span>
+					<span class="chip">SVG · vektor · 1 file</span>
+					<span class="chip">ukuran minimum 16px</span>
+					<span class="chip">chain ID 26 · NXC</span>
+				</div>
+			</div>
+
+			<!-- ============ 01 anatomi ============ -->
+			<section>
+				<div class="shead"><span class="snum">01</span><h2>Anatomi &amp; makna</h2></div>
+				<p class="slead">
+					Mark dibangun dari tiga lapis geometri di dalam kotak 64×64. Heksagon
+					memakai circumradius 27px (titik sudut menyentuh x=5 dan x=59), sehingga
+					margin optis 5px selalu tersisa dan mark terasa seimbang di dalam badge,
+					favicon, maupun lockup.
+				</p>
+				<div class="anat">
+					<div class="center">
+						<svg width="300" height="300" viewBox="-10 -10 84 84" aria-label="Anatomi mark">
+							<!-- construction guides -->
+							<g stroke="#94a3b8" stroke-width="0.4" fill="none" opacity="0.5">
+								<circle cx="32" cy="32" r="27" />
+								<line x1="32" y1="-10" x2="32" y2="74" />
+								<line x1="-10" y1="32" x2="74" y2="32" />
+								<rect x="5" y="8.62" width="54" height="46.76" />
+							</g>
+							<g stroke="#cbd5e1" stroke-width="0.35" fill="none" stroke-dasharray="1.5 1.5">
+								<line x1="21" y1="20" x2="21" y2="44" />
+								<line x1="43" y1="20" x2="43" y2="44" />
+								<line x1="21" y1="20" x2="43" y2="44" />
+							</g>
+							<use href="#nxMarkGrad" x="0" y="0" width="64" height="64" />
+							<g font-family="ui-monospace, monospace" font-size="4.4" font-weight="700">
+								<circle cx="2" cy="2" r="3.7" fill="#056a9c" />
+								<text x="2" y="3.7" fill="#fff" text-anchor="middle">1</text>
+								<circle cx="2" cy="62" r="3.7" fill="#0f766e" />
+								<text x="2" y="63.7" fill="#fff" text-anchor="middle">2</text>
+								<circle cx="66" cy="32" r="3.7" fill="#2b9fd8" />
+								<text x="66" y="33.7" fill="#fff" text-anchor="middle">3</text>
+							</g>
+						</svg>
+					</div>
+					<div class="alist">
+						<div class="arow">
+							<span class="abub">1</span>
+							<div>
+								<b>Hexagon = blok</b>
+								<p>
+									Bentuk heksagon merepresentasikan blok/kubus pada rantai —
+									enam sisi, geometri tertutup, dan langsung terbaca sebagai
+									“blockchain” tanpa harus memakai ikon koin generik.
+								</p>
+							</div>
+						</div>
+						<div class="arow">
+							<span class="abub">2</span>
+							<div>
+								<b>N sebagai graf node</b>
+								<p>
+									Huruf N bukan glyph font, melainkan dua garis vertikal dan
+									satu diagonal yang ujung-ujungnya adalah node. Huruf dan
+									jaringan jadi satu objek yang sama.
+								</p>
+							</div>
+						</div>
+						<div class="arow">
+							<span class="abub">3</span>
+							<div>
+								<b>Nexus node di pusat</b>
+								<p>
+									Titik tengah yang lebih besar adalah <i>nexus</i> — simpul
+									tempat semua jalur bertemu. Ini satu-satunya elemen yang
+									diwarisi langsung dari favicon explorer lama, jadi mark baru
+									terasa seperti evolusi, bukan penggantian.
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<!-- ============ 02 varian ============ -->
+			<section>
+				<div class="shead"><span class="snum">02</span><h2>Varian resmi</h2></div>
+				<p class="slead">
+					Hanya ada dua bentuk mark: <b>outline</b> (warna penuh) dan <b>badge</b>
+					(solid). Semua varian lain diturunkan dari keduanya dengan mengganti
+					warna — jangan pernah menggambar ulang geometrinya.
+				</p>
+				<div class="grid g4">
+					<div class="card center" style="flex-direction: column">
+						<svg width="72" height="72" viewBox="0 0 64 64"><use href="#nxMarkGrad" /></svg>
+						<p class="cap" style="text-align: center">Primary · gradient</p>
+					</div>
+					<div class="card center" style="flex-direction: column">
+						<svg width="72" height="72" viewBox="0 0 64 64" style="color: #056a9c">
+							<use href="#nxMark" />
+						</svg>
+						<p class="cap" style="text-align: center">Accent solid · <code class="inline">#056a9c</code></p>
+					</div>
+					<div class="card center" style="flex-direction: column">
+						<svg width="72" height="72" viewBox="0 0 64 64" style="color: #0f172a">
+							<use href="#nxMark" />
+						</svg>
+						<p class="cap" style="text-align: center">Ink · <code class="inline">#0f172a</code></p>
+					</div>
+					<div class="card center" style="flex-direction: column">
+						<svg width="72" height="72" viewBox="0 0 64 64"><use href="#nxBadge" /></svg>
+						<p class="cap" style="text-align: center">Badge · app / avatar</p>
+					</div>
+					<div class="card dark center" style="flex-direction: column">
+						<svg width="72" height="72" viewBox="0 0 64 64" style="color: #fff">
+							<use href="#nxMark" />
+						</svg>
+						<p class="cap" style="text-align: center">Inverse · di atas gelap</p>
+					</div>
+					<div class="card dark center" style="flex-direction: column">
+						<svg width="72" height="72" viewBox="0 0 64 64"><use href="#nxBadge" /></svg>
+						<p class="cap" style="text-align: center">Badge · dark UI</p>
+					</div>
+					<div class="card center" style="flex-direction: column">
+						<svg width="72" height="72" viewBox="0 0 32 32"><use href="#nxFav" /></svg>
+						<p class="cap" style="text-align: center">Favicon · ≤ 24px</p>
+					</div>
+					<div class="card center" style="flex-direction: column; background: #0f172a">
+						<div
+							style="
+								width: 72px;
+								height: 72px;
+								border-radius: 16px;
+								background: #fff;
+								display: grid;
+								place-items: center;
+							"
+						>
+							<svg width="52" height="52" viewBox="0 0 64 64" style="color: #056a9c">
+								<use href="#nxMark" />
+							</svg>
+						</div>
+						<p class="cap" style="text-align: center; color: #94a3b8">
+							Monokrom · cetak / watermark
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<!-- ============ 03 ukuran ============ -->
+			<section>
+				<div class="shead"><span class="snum">03</span><h2>Uji ukuran</h2></div>
+				<p class="slead">
+					Di bawah 24px, hexagon dan nexus node kehilangan keterbacaan — di situ
+					pakai varian <b>favicon</b> yang membuang keduanya dan menebalkan garis N.
+					Itulah aturan <i>size switch</i> dari sistem ini.
+				</p>
+				<div class="card">
+					<div class="sizes">
+						<div class="size">
+							<svg width="16" height="16" viewBox="0 0 32 32"><use href="#nxFav" /></svg>
+							<p class="cap">16</p>
+						</div>
+						<div class="size">
+							<svg width="24" height="24" viewBox="0 0 32 32"><use href="#nxFav" /></svg>
+							<p class="cap">24</p>
+						</div>
+						<div class="size">
+							<svg width="32" height="32" viewBox="0 0 32 32"><use href="#nxFav" /></svg>
+							<p class="cap">32</p>
+						</div>
+						<div class="size">
+							<svg width="48" height="48" viewBox="0 0 64 64"><use href="#nxMarkGrad" /></svg>
+							<p class="cap">48</p>
+						</div>
+						<div class="size">
+							<svg width="64" height="64" viewBox="0 0 64 64"><use href="#nxMarkGrad" /></svg>
+							<p class="cap">64</p>
+						</div>
+						<div class="size">
+							<svg width="96" height="96" viewBox="0 0 64 64"><use href="#nxMarkGrad" /></svg>
+							<p class="cap">96</p>
+						</div>
+						<div class="size">
+							<svg width="128" height="128" viewBox="0 0 64 64"><use href="#nxMarkGrad" /></svg>
+							<p class="cap">128</p>
+						</div>
+					</div>
+					<p class="cap" style="margin-top: 18px">
+						Ambang batas: <b>≥ 24px</b> → mark penuh. <b>&lt; 24px</b> → favicon
+						(badge + N saja). Ruang kosong minimum di sekeliling mark = 25% tinggi
+						mark.
+					</p>
+				</div>
+			</section>
+
+			<!-- ============ 04 warna ============ -->
+			<section>
+				<div class="shead"><span class="snum">04</span><h2>Palet warna</h2></div>
+				<p class="slead">
+					Diambil dari token yang sudah dipakai UI yang ada supaya ikon menyatu
+					dengan produk: accent explorer <code class="inline">#056a9c</code> dan
+					accent miner-ui <code class="inline">#0f766e</code>. Gradient mark adalah
+					garis lurus 135° antara versi terang keduanya.
+				</p>
+				<div class="grid g4">
+					<div class="sw">
+						<div class="box" style="background: #04455f"></div>
+						<div class="meta"><div class="nm">Nex Blue 700</div><div class="hx">#04455f</div></div>
+					</div>
+					<div class="sw">
+						<div class="box" style="background: #056a9c"></div>
+						<div class="meta"><div class="nm">Nex Blue 600 · primer</div><div class="hx">#056a9c</div></div>
+					</div>
+					<div class="sw">
+						<div class="box" style="background: #2b9fd8"></div>
+						<div class="meta"><div class="nm">Nex Blue 400 · gradient start</div><div class="hx">#2b9fd8</div></div>
+					</div>
+					<div class="sw">
+						<div class="box" style="background: #4fb3e8"></div>
+						<div class="meta"><div class="nm">Nex Blue 300 · dark mode</div><div class="hx">#4fb3e8</div></div>
+					</div>
+					<div class="sw">
+						<div class="box" style="background: #115e59"></div>
+						<div class="meta"><div class="nm">Nex Teal 600</div><div class="hx">#115e59</div></div>
+					</div>
+					<div class="sw">
+						<div class="box" style="background: #0f766e"></div>
+						<div class="meta"><div class="nm">Nex Teal 500 · sekunder</div><div class="hx">#0f766e</div></div>
+					</div>
+					<div class="sw">
+						<div class="box" style="background: #0f172a"></div>
+						<div class="meta"><div class="nm">Nex Ink</div><div class="hx">#0f172a</div></div>
+					</div>
+					<div class="sw">
+						<div class="box" style="background: #f5f7fa"></div>
+						<div class="meta"><div class="nm">Nex Cloud</div><div class="hx">#f5f7fa</div></div>
+					</div>
+				</div>
+				<div class="card" style="margin-top: 14px">
+					<h3>Gradient mark</h3>
+					<div
+						style="
+							height: 46px;
+							border-radius: 10px;
+							background: linear-gradient(135deg, #2b9fd8 0%, #0f766e 100%);
+						"
+					></div>
+					<p class="cap" style="margin-top: 10px">
+						<code class="inline">linear-gradient(135deg, #2b9fd8 0%, #0f766e 100%)</code>
+						· SVG: <code class="inline">&lt;linearGradient x1="8" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse"&gt;</code>
+					</p>
+				</div>
+			</section>
+
+			<!-- ============ 05 lockup ============ -->
+			<section>
+				<div class="shead"><span class="snum">05</span><h2>Lockup &amp; clear space</h2></div>
+				<p class="slead">
+					Wordmark: <b>Nex</b> dalam Nex Ink + <b>Chain</b> dalam Nex Blue 600, sans
+					geometris weight 700, letter-spacing −0.6px. Jarak mark ke teks = 14px
+					(≈ 22% tinggi mark).
+				</p>
+				<div class="card" style="padding: 26px">
+					<svg viewBox="0 0 252 64" width="100%" height="86" aria-label="Lockup horizontal">
+						<g>
+							<path
+								d="M59 32 45.5 8.62H18.5L5 32l13.5 23.38h27L59 32Z"
+								fill="none"
+								stroke="url(#gNx)"
+								stroke-width="4.5"
+								stroke-linejoin="round"
+							/>
+							<path
+								d="M21 20v24M21 20l22 24M43 20v24"
+								fill="none"
+								stroke="url(#gNx)"
+								stroke-width="4.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
+							<g fill="url(#gNx)">
+								<circle cx="21" cy="20" r="3.4" />
+								<circle cx="21" cy="44" r="3.4" />
+								<circle cx="43" cy="20" r="3.4" />
+								<circle cx="43" cy="44" r="3.4" />
+								<circle cx="32" cy="32" r="4.6" />
+							</g>
+						</g>
+						<text
+							x="78"
+							y="42"
+							font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+							font-size="30"
+							font-weight="700"
+							letter-spacing="-0.6"
+						>
+							<tspan fill="currentColor">Nex</tspan>
+							<tspan fill="#056a9c">Chain</tspan>
+						</text>
+					</svg>
+					<p class="cap" style="margin-top: 14px">
+						<code class="inline">nexchain-lockup.svg</code> — gunakan di header
+						website, dokumen, dan materi presentasi.
+					</p>
+				</div>
+			</section>
+
+			<!-- ============ 06 do & dont ============ -->
+			<section>
+				<div class="shead"><span class="snum">06</span><h2>Do &amp; Don't</h2></div>
+				<p class="slead">
+					Aturan ini yang paling sering dilanggar saat mark dipakai ulang di slide
+					atau konten sosial.
+				</p>
+				<div class="grid g3">
+					<div class="card dd">
+						<span class="badge ok">✓ Boleh</span>
+						<div class="mark-box">
+							<svg width="52" height="52" viewBox="0 0 64 64"><use href="#nxMarkGrad" /></svg>
+						</div>
+						<p class="cap">Skala proporsional, tetap di dalam clear space.</p>
+					</div>
+					<div class="card dd">
+						<span class="badge ok">✓ Boleh</span>
+						<div class="mark-box" style="background: #0b1220">
+							<svg width="52" height="52" viewBox="0 0 64 64" style="color: #fff">
+								<use href="#nxMark" />
+							</svg>
+						</div>
+						<p class="cap">Versi putih saat kontras latar rendah.</p>
+					</div>
+					<div class="card dd">
+						<span class="badge no">✗ Jangan</span>
+						<div class="mark-box">
+							<svg
+								width="52"
+								height="72"
+								viewBox="0 0 64 64"
+								preserveAspectRatio="none"
+							>
+								<use href="#nxMarkGrad" />
+							</svg>
+						</div>
+						<p class="cap">Jangan regangkan / ubah rasio aspek.</p>
+					</div>
+					<div class="card dd">
+						<span class="badge no">✗ Jangan</span>
+						<div class="mark-box">
+							<svg width="52" height="52" viewBox="0 0 64 64" style="color: #b91c1c">
+								<use href="#nxMark" />
+							</svg>
+						</div>
+						<p class="cap">Jangan pakai warna di luar palet Nex.</p>
+					</div>
+					<div class="card dd">
+						<span class="badge no">✗ Jangan</span>
+						<div class="mark-box" style="background: #2b9fd8">
+							<svg width="52" height="52" viewBox="0 0 64 64" style="color: #0f766e">
+								<use href="#nxMark" />
+							</svg>
+						</div>
+						<p class="cap">Jangan taruh gradient di atas warna senada.</p>
+					</div>
+					<div class="card dd">
+						<span class="badge no">✗ Jangan</span>
+						<div class="mark-box" style="overflow: hidden">
+							<svg
+								width="52"
+								height="52"
+								viewBox="0 0 64 64"
+								style="transform: rotate(-14deg)"
+							>
+								<use href="#nxMarkGrad" />
+							</svg>
+						</div>
+						<p class="cap">Jangan memutar, memberi shadow, atau outline tambahan.</p>
+					</div>
+				</div>
+			</section>
+
+			<!-- ============ 07 alternatif ============ -->
+			<section>
+				<div class="shead"><span class="snum">07</span><h2>Alternatif konsep</h2></div>
+				<p class="slead">
+					Tiga arah cadangan bila mark utama perlu diganti di masa depan. Semuanya
+					memakai palet dan bobot garis yang sama, jadi bisa dipertukarkan tanpa
+					mengubah sisa identitas.
+				</p>
+				<div class="grid g3">
+					<div class="card center" style="flex-direction: column">
+						<svg width="76" height="76" viewBox="0 0 64 64" aria-label="Alternatif A">
+							<g fill="none" stroke="url(#gNx)" stroke-width="4.5" stroke-linejoin="round">
+								<rect x="12" y="8" width="15" height="30" rx="7.5" />
+								<rect x="37" y="26" width="15" height="30" rx="7.5" />
+								<path d="M27 23 37 41" stroke-linecap="round" />
+							</g>
+							<g fill="url(#gNx)">
+								<circle cx="19.5" cy="19" r="3.4" />
+								<circle cx="44.5" cy="45" r="3.4" />
+							</g>
+						</svg>
+						<p class="cap" style="text-align: center">
+							<b>A · Chain-link N</b><br />N dari dua mata rantai yang saling
+							menyambung.
+						</p>
+					</div>
+					<div class="card center" style="flex-direction: column">
+						<svg width="76" height="76" viewBox="0 0 64 64" aria-label="Alternatif B">
+							<g fill="none" stroke="url(#gNx)" stroke-width="4" stroke-linejoin="round">
+								<path d="M32 8 56 22v20L32 56 8 42V22Z" />
+								<path d="M8 22l24 14 24-14M32 36v20" />
+							</g>
+							<circle cx="32" cy="36" r="4" fill="url(#gNx)" />
+						</svg>
+						<p class="cap" style="text-align: center">
+							<b>B · Isometric block</b><br />Kubus blok dengan simpul di titik
+							temu.
+						</p>
+					</div>
+					<div class="card center" style="flex-direction: column">
+						<svg width="76" height="76" viewBox="0 0 64 64" aria-label="Alternatif C">
+							<g fill="none" stroke="url(#gNx)" stroke-width="4.5" stroke-linecap="round">
+								<path d="M32 12 50 44H14Z" stroke-linejoin="round" />
+								<path d="M32 12v16M14 44l14-10M50 44 36 34" />
+							</g>
+							<g fill="url(#gNx)">
+								<circle cx="32" cy="12" r="3.6" />
+								<circle cx="14" cy="44" r="3.6" />
+								<circle cx="50" cy="44" r="3.6" />
+							</g>
+						</svg>
+						<p class="cap" style="text-align: center">
+							<b>C · Node mesh</b><br />Tiga validator terhubung dalam mesh
+							tertutup.
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<!-- ============ 08 implementasi ============ -->
+			<section>
+				<div class="shead"><span class="snum">08</span><h2>Implementasi</h2></div>
+				<p class="slead">
+					Salin langsung ke <code class="inline">explorer/index.html</code>,
+					<code class="inline">wallet/</code>, dan
+					<code class="inline">miner-ui/</code> agar ketiga frontend memakai mark
+					yang sama.
+				</p>
+				<div class="grid g2">
+					<div>
+						<h3>Favicon inline (data URI)</h3>
+						<pre><span class="c">&lt;!-- taruh di &lt;head&gt;, tidak perlu file terpisah --&gt;</span>
+&lt;<span class="k">link</span> rel=<span class="s">"icon"</span>
+  href=<span class="s">"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
+  viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='2' y1='1'
+  x2='30' y2='31' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0'
+  stop-color='%232b9fd8'/%3E%3Cstop offset='1' stop-color='%230f766e'/%3E
+  %3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7.5'
+  fill='url(%23g)'/%3E%3Cpath d='M11 10v12M11 10l10 12M21 10v12' fill='none'
+  stroke='%23fff' stroke-width='2.6' stroke-linecap='round'
+  stroke-linejoin='round'/%3E%3Cg fill='%23fff'%3E%3Ccircle cx='11' cy='10'
+  r='2'/%3E%3Ccircle cx='11' cy='22' r='2'/%3E%3Ccircle cx='21' cy='10'
+  r='2'/%3E%3Ccircle cx='21' cy='22' r='2'/%3E%3C/g%3E%3C/svg%3E"</span> /&gt;
+
+&lt;<span class="k">meta</span> name=<span class="s">"theme-color"</span> content=<span class="s">"#056a9c"</span> /&gt;</pre>
+					</div>
+					<div>
+						<h3>Komponen React</h3>
+						<pre><span class="c">// src/ui/NexLogo.tsx</span>
+<span class="k">export function</span> NexLogo({ size = 32 }: { size?: number }) {
+  <span class="k">return</span> (
+    &lt;<span class="k">svg</span> width={size} height={size} viewBox=<span class="s">"0 0 64 64"</span>
+      role=<span class="s">"img"</span> aria-label=<span class="s">"NexChain"</span>&gt;
+      &lt;<span class="k">defs</span>&gt;
+        &lt;<span class="k">linearGradient</span> id=<span class="s">"nxGrad"</span> x1=<span class="s">"8"</span> y1=<span class="s">"6"</span>
+          x2=<span class="s">"58"</span> y2=<span class="s">"58"</span>
+          gradientUnits=<span class="s">"userSpaceOnUse"</span>&gt;
+          &lt;<span class="k">stop</span> offset=<span class="s">"0"</span> stopColor=<span class="s">"#2b9fd8"</span> /&gt;
+          &lt;<span class="k">stop</span> offset=<span class="s">"1"</span> stopColor=<span class="s">"#0f766e"</span> /&gt;
+        &lt;/<span class="k">linearGradient</span>&gt;
+      &lt;/<span class="k">defs</span>&gt;
+      <span class="c">{/* hexagon + graf N + nexus node */}</span>
+    &lt;/<span class="k">svg</span>&gt;
+  )
+}</pre>
+					</div>
+				</div>
+				<div class="card" style="margin-top: 14px">
+					<h3>Manifest PWA</h3>
+					<pre>{
+  <span class="s">"name"</span>: <span class="s">"NexChain"</span>,
+  <span class="s">"theme_color"</span>: <span class="s">"#056a9c"</span>,
+  <span class="s">"background_color"</span>: <span class="s">"#0b1220"</span>,
+  <span class="s">"icons"</span>: [
+    { <span class="s">"src"</span>: <span class="s">"/brand/nexchain-favicon.svg"</span>, <span class="s">"sizes"</span>: <span class="s">"any"</span>, <span class="s">"type"</span>: <span class="s">"image/svg+xml"</span> },
+    { <span class="s">"src"</span>: <span class="s">"/brand/nexchain-maskable.svg"</span>, <span class="s">"sizes"</span>: <span class="s">"512x512"</span>, <span class="s">"purpose"</span>: <span class="s">"maskable"</span> }
+  ]
+}</pre>
+				</div>
+			</section>
+
+			<!-- ============ 09 aset ============ -->
+			<section>
+				<div class="shead"><span class="snum">09</span><h2>Daftar aset</h2></div>
+				<p class="slead">
+					Semua di <code class="inline">/brand</code>. SVG murni, tanpa font
+					tertanam, tanpa raster — bisa diwarnai dari CSS dengan
+					<code class="inline">currentColor</code> kecuali varian gradient.
+				</p>
+				<div class="filelist">
+					<div class="frow">
+						<code>brand/nexchain-icon.svg</code>
+						<span>Mark utama, gradient 135°, latar transparan.</span>
+					</div>
+					<div class="frow">
+						<code>brand/nexchain-icon-mono.svg</code>
+						<span>Monokrom, mewarisi <code class="inline">currentColor</code>.</span>
+					</div>
+					<div class="frow">
+						<code>brand/nexchain-icon-solid.svg</code>
+						<span>Badge solid rounded-square 64px — app icon, avatar, sosial.</span>
+					</div>
+					<div class="frow">
+						<code>brand/nexchain-favicon.svg</code>
+						<span>32px, badge + N saja. Untuk tab browser &lt; 24px.</span>
+					</div>
+					<div class="frow">
+						<code>brand/nexchain-maskable.svg</code>
+						<span>512px full-bleed, isi di dalam safe zone 80% — PWA/Android.</span>
+					</div>
+					<div class="frow">
+						<code>brand/nexchain-lockup.svg</code>
+						<span>Mark + wordmark horizontal, dua warna.</span>
+					</div>
+					<div class="frow">
+						<code>brand/index.html</code>
+						<span>Lembar referensi ini.</span>
+					</div>
+				</div>
+			</section>
+
+			<footer>
+				NexChain Brand Reference · mark, varian, palet, dan aturan pakai. Semua nilai
+				warna selaras dengan token UI explorer (<code class="inline">#056a9c</code>)
+				dan miner-ui (<code class="inline">#0f766e</code>).
+			</footer>
+		</div>
+
+		<script>
+			;(function () {
+				var root = document.documentElement
+				var btn = document.getElementById('themeBtn')
+				function apply(mode) {
+					root.setAttribute('data-theme', mode)
+					btn.textContent = mode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'
+				}
+				var prefers =
+					window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+				apply(prefers ? 'dark' : 'light')
+				btn.addEventListener('click', function () {
+					apply(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark')
+				})
+			})()
+		</script>
+	</body>
+</html>

@@ -29,7 +29,8 @@
 	--info: #216e9b;
 	--info-soft: #eef7fc;
 
-	--shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 4px rgba(16, 24, 40, 0.03);
+	--shadow-sm:
+		0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 4px rgba(16, 24, 40, 0.03);
 	--shadow-md: 0 12px 30px rgba(16, 24, 40, 0.08);
 	--radius-sm: 8px;
 	--radius-md: 12px;
@@ -52,7 +53,14 @@ body,
 body {
 	background: var(--bg);
 	color: var(--text);
-	font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	font-family:
+		Inter,
+		ui-sans-serif,
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		sans-serif;
 	font-size: 15px;
 	line-height: 1.5;
 	-webkit-font-smoothing: antialiased;
@@ -168,7 +176,12 @@ button:disabled {
 	font-size: 0.88rem;
 	font-weight: 650;
 	line-height: 1.2;
-	transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition), transform var(--transition);
+	transition:
+		background var(--transition),
+		border-color var(--transition),
+		color var(--transition),
+		box-shadow var(--transition),
+		transform var(--transition);
 }
 
 .button:hover:not(:disabled) {
@@ -239,7 +252,9 @@ button:disabled {
 	background: transparent;
 	color: var(--text-muted);
 	font-size: 1.25rem;
-	transition: background var(--transition), color var(--transition);
+	transition:
+		background var(--transition),
+		color var(--transition);
 }
 
 .icon-button:hover:not(:disabled) {
@@ -307,8 +322,17 @@ margin-top: 1rem;
 /* Auth and onboarding */
 .auth-shell {
 	min-height: 100vh;
+	/* `dvh` mengikuti tinggi viewport yang BENAR-BENAR terlihat: di iOS, 100vh
+	   mengabaikan address bar yang menyusut/membesar sehingga halaman bisa
+	   terpotong atau malah memunculkan scroll kosong. Baris kedua diabaikan
+	   browser lama, yang tetap memakai 100vh di atas. */
+	min-height: 100dvh;
 	background:
-		radial-gradient(900px 420px at 50% -140px, rgba(47, 111, 171, 0.1), transparent 65%),
+		radial-gradient(
+			900px 420px at 50% -140px,
+			rgba(47, 111, 171, 0.1),
+			transparent 65%
+		),
 		var(--bg);
 }
 
@@ -325,6 +349,11 @@ margin-top: 1rem;
 	max-width: 1120px;
 	margin: 0 auto;
 	padding: 1.25rem 1.5rem;
+	/* `viewport-fit=cover` membuat konten naik ke bawah status bar/notch.
+	   Inset atas bernilai 0 di sebagian besar konteks, jadi aman. */
+	padding-top: calc(1.25rem + env(safe-area-inset-top, 0px));
+	padding-left: calc(1.5rem + env(safe-area-inset-left, 0px));
+	padding-right: calc(1.5rem + env(safe-area-inset-right, 0px));
 }
 
 .auth-main {
@@ -332,6 +361,7 @@ margin-top: 1rem;
 	align-items: center;
 	justify-content: center;
 	min-height: calc(100vh - 76px);
+	min-height: calc(100dvh - 76px);
 	padding: 2rem 1rem 4rem;
 }
 
@@ -482,7 +512,7 @@ margin-top: 1rem;
 	margin-bottom: 1.5rem;
 }
 
-.page-heading--compact>p:last-child {
+.page-heading--compact > p:last-child {
 	margin-top: 0.45rem;
 	color: var(--text-muted);
 }
@@ -490,6 +520,7 @@ margin-top: 1rem;
 /* App shell */
 .app-shell {
 	min-height: 100vh;
+	min-height: 100dvh;
 	background: var(--bg);
 }
 
@@ -500,6 +531,8 @@ margin-top: 1rem;
 	border-bottom: 1px solid var(--border);
 	background: rgba(255, 255, 255, 0.94);
 	backdrop-filter: blur(12px);
+	/* Latar header ikut mengisi area status bar saat `viewport-fit=cover`. */
+	padding-top: env(safe-area-inset-top, 0px);
 }
 
 .app-header__inner {
@@ -533,7 +566,7 @@ margin-top: 1rem;
 	color: #fff;
 }
 
-.brand>span:last-child {
+.brand > span:last-child {
 	display: flex;
 	flex-direction: column;
 	line-height: 1.05;
@@ -568,7 +601,10 @@ margin-top: 1rem;
 	color: var(--text-muted);
 	font-size: 0.82rem;
 	font-weight: 600;
-	transition: background var(--transition), color var(--transition), border-color var(--transition);
+	transition:
+		background var(--transition),
+		color var(--transition),
+		border-color var(--transition);
 }
 
 .nav-link:hover {
@@ -984,7 +1020,10 @@ margin-top: 1rem;
 	color: var(--text-muted);
 	font-size: 0.73rem;
 	font-weight: 600;
-	transition: background var(--transition), color var(--transition), border-color var(--transition);
+	transition:
+		background var(--transition),
+		color var(--transition),
+		border-color var(--transition);
 }
 
 .copy-button:hover:not(:disabled) {
@@ -1130,7 +1169,10 @@ margin-top: 1rem;
 	color: var(--text-strong);
 	font-size: 0.88rem;
 	outline: none;
-	transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+	transition:
+		border-color var(--transition),
+		box-shadow var(--transition),
+		background var(--transition);
 }
 
 .input::placeholder {
@@ -1200,7 +1242,9 @@ textarea.input {
 	border-radius: var(--radius-md);
 	background: var(--surface-subtle);
 	cursor: pointer;
-	transition: border-color var(--transition), background var(--transition);
+	transition:
+		border-color var(--transition),
+		background var(--transition);
 }
 
 .check-card:hover,
@@ -1255,7 +1299,9 @@ textarea.input {
 	width: 0;
 	border-radius: inherit;
 	background: var(--danger);
-	transition: width var(--transition), background var(--transition);
+	transition:
+		width var(--transition),
+		background var(--transition);
 }
 
 .strength-meter__fill--1 {
@@ -1316,8 +1362,8 @@ textarea.input {
 	gap: 0.8rem;
 }
 
-.summary-list>div,
-.review-list>div {
+.summary-list > div,
+.review-list > div {
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
@@ -1326,8 +1372,8 @@ textarea.input {
 	border-bottom: 1px solid var(--border);
 }
 
-.summary-list>div:last-child,
-.review-list>div:last-child {
+.summary-list > div:last-child,
+.review-list > div:last-child {
 	padding-bottom: 0;
 	border-bottom: 0;
 }
@@ -1364,7 +1410,7 @@ textarea.input {
 	gap: 0.25rem;
 }
 
-.result-copy>span {
+.result-copy > span {
 	font-size: 0.78rem;
 }
 
@@ -1452,7 +1498,7 @@ textarea.input {
 	padding: 1.35rem;
 }
 
-.settings-section+.settings-section {
+.settings-section + .settings-section {
 	border-top: 1px solid var(--border);
 }
 
@@ -1547,7 +1593,7 @@ textarea.input {
 	border-top: 1px solid #f1d6d6;
 }
 
-.danger-row>div {
+.danger-row > div {
 	display: flex;
 	flex-direction: column;
 	gap: 0.2rem;
@@ -1561,6 +1607,112 @@ textarea.input {
 .danger-row span {
 	color: var(--text-muted);
 	font-size: 0.74rem;
+}
+
+/*
+ * Kartu "Aplikasi" (PWA) — hanya dirender di shell web.
+ *
+ * Barisnya meniru pola `.danger-row` (label di kiri, aksi di kanan) tetapi
+ * dengan warna netral: status pemasangan bukan peringatan.
+ */
+.app-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.app-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.9rem;
+	padding: 0.85rem 0.9rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--surface-subtle);
+}
+
+.app-row > div {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	min-width: 0;
+}
+
+.app-row strong {
+	color: var(--text-strong);
+	font-size: 0.82rem;
+}
+
+.app-row span {
+	color: var(--text-muted);
+	font-size: 0.74rem;
+}
+
+.app-row__value {
+	flex: 0 0 auto;
+	color: var(--text-subtle);
+	font-size: 0.72rem;
+}
+
+/*
+ * Banner update service worker (shell web).
+ *
+ * `position: fixed` di atas nav bawah pada layar sempit: nav mobile juga fixed,
+ * jadi banner harus duduk DI ATASNYA (50px nav + padding + safe area) atau ia
+ * akan menutupi tombol navigasi.
+ */
+.pwa-update {
+	position: fixed;
+	left: 50%;
+	bottom: 16px;
+	z-index: 60;
+	display: flex;
+	align-items: center;
+	gap: 0.9rem;
+	width: min(560px, calc(100% - 1.5rem));
+	padding: 0.75rem 0.9rem;
+	border: 1px solid var(--primary-border);
+	border-radius: var(--radius-md);
+	background: var(--surface);
+	box-shadow: var(--shadow-md);
+	transform: translateX(-50%);
+	animation: pwa-update-in 180ms ease-out;
+}
+
+.pwa-update__text {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	min-width: 0;
+}
+
+.pwa-update__text strong {
+	color: var(--text-strong);
+	font-size: 0.82rem;
+}
+
+.pwa-update__text span {
+	color: var(--text-muted);
+	font-size: 0.74rem;
+}
+
+.pwa-update__actions {
+	display: flex;
+	flex: 0 0 auto;
+	gap: 0.4rem;
+}
+
+@keyframes pwa-update-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, 8px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translate(-50%, 0);
+	}
 }
 
 /* Notices, progress, and modal */
@@ -1955,7 +2107,9 @@ textarea.input {
 		grid-template-columns: repeat(5, minmax(0, 1fr));
 		gap: 0;
 		width: 100%;
-		padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+		padding: 6px calc(8px + env(safe-area-inset-right, 0px))
+			calc(6px + env(safe-area-inset-bottom, 0px))
+			calc(8px + env(safe-area-inset-left, 0px));
 		border: 1px solid var(--border);
 		border-bottom: 0;
 		border-radius: 16px 16px 0 0;
@@ -1987,6 +2141,19 @@ textarea.input {
 
 	.content {
 		padding: 1.35rem 0.85rem calc(5.5rem + env(safe-area-inset-bottom, 0px));
+		padding-left: calc(0.85rem + env(safe-area-inset-left, 0px));
+		padding-right: calc(0.85rem + env(safe-area-inset-right, 0px));
+	}
+
+	.app-header__inner {
+		padding-left: calc(0.85rem + env(safe-area-inset-left, 0px));
+		padding-right: calc(0.85rem + env(safe-area-inset-right, 0px));
+	}
+
+	/* Nav bawah (fixed) menempati ~62px + safe area; banner update harus duduk
+	   di atasnya, bukan menutupi tombol navigasi. */
+	.pwa-update {
+		bottom: calc(74px + env(safe-area-inset-bottom, 0px));
 	}
 
 	input:not([type='checkbox']):not([type='radio']),
@@ -2082,6 +2249,27 @@ textarea.input {
 	.danger-row .button {
 		width: 100%;
 	}
+
+	.app-row {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.app-row .button {
+		width: 100%;
+	}
+
+	/* Banner update: teks di atas, tombol di bawah — dua tombol berdampingan
+	   tidak muat di 360px tanpa memotong kalimat. */
+	.pwa-update {
+		align-items: stretch;
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+
+	.pwa-update__actions .button {
+		flex: 1;
+	}
 }
 
 @media (max-width: 480px) {
@@ -2130,7 +2318,6 @@ textarea.input {
 }
 
 @media (prefers-reduced-motion: reduce) {
-
 	*,
 	*::before,
 	*::after {

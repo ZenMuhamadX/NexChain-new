@@ -6,12 +6,18 @@
  * `number` kembali eksak. Contoh bug satuan lama: saldo terbaca
  * `100.00049999999901 NXC`.
  *
- * Paket ini dibangun berdiri sendiri dan TIDAK mengimpor `nexchain/...`
+ * Paket ini dibangun berdiri sendiri dan TIDAK mengimpor `src/...`
  * (lihat vite.config.ts — backend tidak pernah ikut bundle), jadi logika
  * konversi diduplikasi di sini. PASTIKAN tetap sinkron dengan
- * `nexchain/nexucoin/formatNxc.ts`.
+ * `src/core/token/constants.ts` dan `src/core/token/formatNxc.ts`.
  */
 const DECIMALS = 8
+
+/** 1 NXC = 10^8 nexu. HARUS sama dengan `NEXU_PER_NXC` di node & wallet. */
+export const NEXU_PER_NXC = 100_000_000
+
+/** Plafon suplai, NXC. HARUS sama dengan `MAX_SUPPLY_NXC` di node. */
+export const MAX_SUPPLY_NXC = 50_000_000
 
 /**
  * nexu → string desimal **tanpa satu pun operasi floating point**.

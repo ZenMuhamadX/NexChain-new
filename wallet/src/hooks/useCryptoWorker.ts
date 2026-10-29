@@ -140,6 +140,68 @@ const initSingletonWorker = (): Promise<void> => {
 	})
 }
 
+/**
+ * Timer yang BERHENTI selama halaman tersembunyi.
+ *
+ * Masalah aslinya: `setTimeout` mengukur jam dinding. Di HP, PBKDF2 310k di
+ * worker berjalan lambat, dan kalau layar mati di tengah proses, JS dibekukan.
+ * Begitu aplikasi dibuka lagi, dua hal terjadi bersamaan: timer 180 detik
+ * "habis" (karena waktu nyata sudah lewat) dan worker baru saja melanjutkan
+ * pekerjaannya. Hasilnya promise ditolak sebagai "timeout" padahal unlock
+ * sebenarnya berhasil — pengguna melihat "gagal membuka" tanpa alasan.
+ *
+ * Solusinya: sisa waktu dihitung hanya saat halaman TERLIHAT, dan hitungan
+ * dilanjutkan saat halaman kembali.
+ */
+const createSuspendSafeTimer = (
+	ms: number,
+	onFire: () => void,
+): (() => void) => {
+	let remaining = ms
+	let startedAt = Date.now()
+	let handle: number | undefined
+	let done = false
+
+	const clear = (): void => {
+		if (handle !== undefined) {
+			window.clearTimeout(handle)
+			handle = undefined
+		}
+	}
+
+	const arm = (): void => {
+		startedAt = Date.now()
+		handle = window.setTimeout(fire, remaining)
+	}
+
+	function fire(): void {
+		if (done) return
+		done = true
+		cleanup()
+		onFire()
+	}
+
+	const onVisibilityChange = (): void => {
+		if (document.visibilityState === 'hidden') {
+			if (handle === undefined) return
+			clear()
+			remaining = Math.max(0, remaining - (Date.now() - startedAt))
+			return
+		}
+		if (!done && handle === undefined) arm()
+	}
+
+	function cleanup(): void {
+		clear()
+		document.removeEventListener('visibilitychange', onVisibilityChange)
+	}
+
+	document.addEventListener('visibilitychange', onVisibilityChange)
+	arm()
+
+	return cleanup
+}
+
 const singletonRequest = async <T>(
 	type: WorkerRequestType,
 	payload: any,
@@ -149,9 +211,20 @@ const singletonRequest = async <T>(
 	const worker = workerSingleton!
 	return new Promise((resolve, reject) => {
 		const id = generateId()
-		singletonPending.set(id, { resolve, reject })
 
-		worker.postMessage({ id, type, payload } as WorkerRequest)
+		/** Hentikan timer begitu permintaan selesai (sukses maupun gagal). */
+		let cancelTimer = (): void => {}
+		const settled =
+			<Value>(fn: (value: Value) => void) =>
+			(value: Value): void => {
+				cancelTimer()
+				fn(value)
+			}
+
+		singletonPending.set(id, {
+			resolve: settled(resolve),
+			reject: settled(reject),
+		})
 
 		// Dynamic timeout based on operation type and device capability
 		const timeout = getCryptoTimeout(
@@ -163,15 +236,16 @@ const singletonRequest = async <T>(
 						? 'SIGN'
 						: 'ENCRYPT',
 		)
-		setTimeout(() => {
-			if (singletonPending.has(id)) {
-				singletonPending.delete(id)
-				if (type === 'ENCRYPT_SECRET' || type === 'DECRYPT_SECRET') {
-					publishCryptoProgress({ phase: type, fraction: 1 })
-				}
-				reject(new Error(`${type} timeout after ${timeout}ms`))
+		cancelTimer = createSuspendSafeTimer(timeout, () => {
+			// `delete` mengembalikan false bila balasan worker sudah menang duluan.
+			if (!singletonPending.delete(id)) return
+			if (type === 'ENCRYPT_SECRET' || type === 'DECRYPT_SECRET') {
+				publishCryptoProgress({ phase: type, fraction: 1 })
 			}
-		}, timeout)
+			reject(new Error(`${type} timeout after ${timeout}ms`))
+		})
+
+		worker.postMessage({ id, type, payload } as WorkerRequest)
 	})
 }
 

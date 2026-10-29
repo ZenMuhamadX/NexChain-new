@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { HistoryEntry } from '../api/types'
 import { useTimeDisplay } from '../hooks/useTimeDisplay'
+import { isCoinbaseRecord } from '../lib/tx'
 import {
 	formatDateTime,
 	formatNxc,
@@ -109,13 +110,22 @@ export function TxTable({
 							{!compact ? (
 								<>
 									<td data-label="From">
-										<Link
-											className="link mono"
-											to={`/address/${tx.from ?? ''}`}
-											title={tx.from}
-										>
-											{truncateMiddle(tx.from ?? '', 8, 6)}
-										</Link>
+										{isCoinbaseRecord(tx) ? (
+											<span
+												className="muted"
+												title="Block reward — protocol credit, not a signed transfer"
+											>
+												Coinbase
+											</span>
+										) : (
+											<Link
+												className="link mono"
+												to={`/address/${tx.from ?? ''}`}
+												title={tx.from}
+											>
+												{truncateMiddle(tx.from ?? '', 8, 6)}
+											</Link>
+										)}
 									</td>
 									<td data-label="To">
 										<Link
@@ -133,7 +143,13 @@ export function TxTable({
 							</td>
 							{!compact ? (
 								<td data-label="Fee" className="num">
-									<Unit>{formatNumber(tx.fee)}</Unit>
+									{isCoinbaseRecord(tx) ? (
+										<span className="muted" title="Block rewards pay no fee">
+											—
+										</span>
+									) : (
+										<Unit>{formatNumber(tx.fee)}</Unit>
+									)}
 								</td>
 							) : null}
 							<td

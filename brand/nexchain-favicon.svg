@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="NexChain">
+	<title>NexChain — favicon</title>
+	<desc>Small-size lockup: badge + N. The hexagon and nexus node are dropped below 24px.</desc>
+	<defs>
+		<linearGradient id="nxFav" x1="2" y1="1" x2="30" y2="31" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#2b9fd8" />
+			<stop offset="1" stop-color="#0f766e" />
+		</linearGradient>
+	</defs>
+	<rect width="32" height="32" rx="7.5" fill="url(#nxFav)" />
+	<path d="M11 10v12M11 10l10 12M21 10v12"
+		fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+	<g fill="#ffffff">
+		<circle cx="11" cy="10" r="2" />
+		<circle cx="11" cy="22" r="2" />
+		<circle cx="21" cy="10" r="2" />
+		<circle cx="21" cy="22" r="2" />
+	</g>
+</svg>
