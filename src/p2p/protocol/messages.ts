@@ -1,5 +1,5 @@
 /**
- * Kontrak pesan P2P NexChain (protokol v2).
+ * Kontrak pesan P2P NexChain (protokol v0.1 / wire versi 0).
  *
  * Semua pesan adalah objek JSON dengan field `type` sebagai diskriminan.
  * Modul ini SENGAJA murni (tanpa I/O, tanpa Node API) supaya bisa dipakai
@@ -26,15 +26,18 @@ import { isTxHash } from 'src/core/encoding/rlp/txHash'
  * Versi protokol wire. Naikkan bila ketidakcocokan antar-node harus TERLIHAT
  * di handshake, bukan sebagai ban membingungkan di tengah sync.
  *
- * v2 → v3 (C1): skema pesan tidak berubah, tapi ATURAN VERIFIKASI blok
- * berubah tidak-kompatibel (`size` kini diverifikasi: wajib = Σ byte wire tx
- * dan ≤ `MAX_BLOCK_WIRE_BYTES`, jumlah tx ≤ `MAX_TX_PER_BLOCK`). Node lama
- * menghasilkan blok yang pasti ditolak node baru dan sebaliknya — tanpa
- * bump, keduanya saling membanned setelah terhubung; dengan bump, mereka
- * menolak satu sama lain di handshake (fatal → ban, jalur yang sama).
- * Semua node dan semua `NEX_P2P_PEERS` harus naik bersamaan.
+ * v0.1: lepas dari penomoran lama (v3) — rilis fork "State Commitment" yang
+ * mengubah bentuk ALAMAT di wire: `NxS` hilang dan tag byte alamat dibuang,
+ * jadi alamat jadi 20 byte (dulu 21). Akibatnya `sighash`/`txHash` dan payload
+ * blok/transaksi tidak-kompatibel total. Nilainya **bilangan bulat `0`**:
+ * wire hanya menerima bilangan aman (`isSafeInt`), jadi "0.1" tidak bisa
+ * dikirim — nomor versi wire `0` mewakili rilis 0.1.
+ *
+ * Node lama dan node baru saling menolak di handshake (fatal → ban, jalur yang
+ * sama seperti bump sebelumnya). Semua node dan semua `NEX_P2P_PEERS` harus
+ * naik bersamaan.
  */
-export const P2P_PROTOCOL_VERSION = 3
+export const P2P_PROTOCOL_VERSION = 0
 
 /** Batas jumlah hash dalam satu `inv` / item dalam satu `getdata`. */
 export const MAX_INV_BATCH = 256

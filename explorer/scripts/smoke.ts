@@ -117,7 +117,7 @@ try {
 const acct = await rpc.getAccount(`NxC${'1'.repeat(40)}`)
 check(
 	'getAccount unknown → default {balance:0}',
-	acct?.balance === 0 && acct.isContract === false,
+	acct?.balance === 0 && acct.nonce === 0,
 	`nonce=${acct?.nonce} lastTx=${acct?.lastTransactionDate}`,
 )
 

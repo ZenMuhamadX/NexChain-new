@@ -1,32 +1,25 @@
 ﻿import { TxInterface } from 'src/types/transaction'
 import { rocksMempool } from 'src/core/state/db/memPool'
-import { TX_KEY_RANGES } from './mempoolIndex'
+import { TX_KEY_RANGE } from './mempoolIndex'
 
 /**
  * Pembaca tunggal entri mempool.
  *
  * `limit` undefined = SELURUH entri (bekal penyusunan template blok);
- * angka = potongan per rentang (bekal tampilan).
+ * angka = potongan global (bekal tampilan).
  */
 const readMempool = async (limit?: number): Promise<TxInterface[]> => {
 	const transactions: TxInterface[] = []
-	const seen = new Set<string>()
 
-	for (const range of TX_KEY_RANGES) {
-		for await (const [, value] of rocksMempool.iterator({
-			gte: range.gte,
-			lt: range.lt,
-			values: true,
-			keys: false,
-			// `exactOptionalPropertyTypes` menolak `limit: undefined`.
-			...(limit === undefined ? {} : { limit }),
-		})) {
-			const data = JSON.parse(value.toString()) as TxInterface
-			// hindari duplikat bila txHash sama
-			if (data.txHash && seen.has(data.txHash)) continue
-			if (data.txHash) seen.add(data.txHash)
-			transactions.push(data)
-		}
+	for await (const [, value] of rocksMempool.iterator({
+		gte: TX_KEY_RANGE.gte,
+		lt: TX_KEY_RANGE.lt,
+		values: true,
+		keys: false,
+		// `exactOptionalPropertyTypes` menolak `limit: undefined`.
+		...(limit === undefined ? {} : { limit }),
+	})) {
+		transactions.push(JSON.parse(value.toString()) as TxInterface)
 	}
 
 	return transactions

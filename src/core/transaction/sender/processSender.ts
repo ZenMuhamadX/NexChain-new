@@ -11,6 +11,7 @@ export const processSender = async (
 	amount: number,
 	fee: number,
 	txNonce: number,
+	blockTimestamp: number,
 ) => {
 	const balanceStatus = await hasSufficientBalance(senderAddress, amount, fee)
 	if (!balanceStatus) {
@@ -26,8 +27,8 @@ export const processSender = async (
 		// Dulu: `return` diam-diam — `processTransact` lanjut ke
 		// `processReceiver` → penerima dikredit TANPA pengirim didebet
 		// (uang tercetak), lalu transaksi malah dikonfirmasi. Sekarang:
-		// lempar → ditangkap catch per-tx → transaksi TETAP di mempool dan
-		// dicoba lagi di blok berikutnya (gagal-aman). `!balanceStatus`
+		// lempar → `processTransact` TIDAK menangkap → `commitBlock`
+		// membatalkan seluruh blok (rollback lewat journal). `!balanceStatus`
 		// juga menangani `undefined` (error baca saldo) — ikut ditolak.
 		throw new Error(
 			`Insufficient balance: ${senderAddress} (amount=${amount}, fee=${fee})`,
@@ -57,8 +58,9 @@ export const processSender = async (
 		address: senderAddress,
 		balance: calculateBalance,
 		transactionCount: oldData.transactionCount + 1,
-		isContract: false,
-		lastTransactionDate: generateTimestampz(),
+		// Timestamp BLOK, bukan `Date.now()`: state harus deterministik di
+		// semua node (syarat `stateRoot`).
+		lastTransactionDate: blockTimestamp,
 		nonce: txNonce + 1,
 	}
 	await putAccount(senderAddress, newData)

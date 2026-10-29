@@ -8,7 +8,6 @@ import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByH
 import { getGenesisBlock, GENESIS_HASH } from 'src/core/block/genesis'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import { Block } from 'src/core/block/blockModel'
-import { putAccount } from 'src/core/state/account/putAccount'
 import { saveBlock } from 'src/core/state/storage/block/saveBlock'
 import { logToConsole } from 'src/logging/logging'
 import { installFileLogging } from 'src/logging/fileSink'
@@ -17,6 +16,7 @@ import { DATA_DIR } from 'src/core/state/db/dataDir'
 import { checkBindAndAuth, hasConfiguredCredentials } from 'src/rpc/authLogic'
 import { startP2P } from 'src/p2p/node'
 import { recoverJournal } from 'src/core/state/journal/store'
+import { replayState } from 'src/core/consensus/verify/verifyState'
 
 // Sink berkas dipasang PALING DULU supaya galat bind/auth di bawah ikut
 // tercatat ke berkas log harian.
@@ -111,15 +111,9 @@ app.listen(PORT, HOST, async () => {
 	if (!genesis) {
 		try {
 			const block = getGenesisBlock()
-			const receiver = block.block.coinbaseTransaction.receiver
-			await putAccount(receiver, {
-				address: receiver,
-				balance: block.block.coinbaseTransaction.amount,
-				transactionCount: 1,
-				isContract: false,
-				lastTransactionDate: block.block.metadata!.created_at,
-				nonce: 0,
-			})
+			// Genesis tidak menulis akun: hadiahnya 0 dan state genesis
+			// dijanjikan KOSONG oleh `header.stateRoot` (root kosong). Menulis
+			// leaf nol di sini akan membuat state ≠ komitmen blok.
 			// saveBlock MENANGKAP error lalu membalikkan `false` — tanpa cek
 			// ini, gagal menulis genesis (termasuk penolakan plafon suplai di
 			// `setBlockState`) tetap dianggap sukses dan node mulai di atas
@@ -150,6 +144,28 @@ app.listen(PORT, HOST, async () => {
 			`Genesis verified (hash cocok konstanta ${GENESIS_HASH.slice(0, 16)}…).`,
 		)
 	}
+
+	// ---- STATE ROOT: replay & bandingkan dengan header --------------------
+	// Akumulator state tidak menyimpan pohon, jadi satu-satunya cara mendeteksi
+	// state yang diubah di luar eksekusi (DB diedit tangan) adalah mengeksekusi
+	// ulang rantai dan mencocokkan `stateRoot` tiap blok. FAIL-CLOSED: lebih
+	// baik node berhenti daripada melayani saldo yang tidak pernah dikomit.
+	// `--rebuild-state` menulis hasil replay kembali (lihat `verifyState.ts`).
+	const rebuildState = process.argv.includes('--rebuild-state')
+	const stateReplay = await replayState(rebuildState)
+	if (!stateReplay.ok) {
+		console.error(
+			`State tidak cocok dengan rantai di height ${stateReplay.height}: ` +
+				`${stateReplay.reason}\n` +
+				`Jalankan ulang dengan --rebuild-state untuk membangun ulang state dari blok ` +
+				`(hanya bila Anda yakin blok-nya benar), atau reset direktori data "${DATA_DIR}".`,
+		)
+		process.exit(1)
+	}
+	logToConsole(
+		`State verified: root ${stateReplay.root.slice(0, 16)}… di height ` +
+			`${stateReplay.height}${rebuildState ? ' (dibangun ulang dari blok)' : ''}.`,
+	)
 
 	// Nyalakan lapisan P2P SETELAH genesis terverifikasi. Default MATI
 	// (`NEX_P2P_ENABLED` belum diset) sehingga node tunggal tak berubah.

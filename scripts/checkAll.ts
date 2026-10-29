@@ -170,6 +170,7 @@ const OFFLINE_GATES: ReadonlyArray<{ label: string; script: string }> = [
 	{ label: 'kebijakan tx', script: 'check:txpolicy' },
 	{ label: 'storage', script: 'check:storage' },
 	{ label: 'journal', script: 'check:journal' },
+	{ label: 'state root', script: 'check:state' },
 	{ label: 'reorg', script: 'check:reorg' },
 	{ label: 'reserve mempool', script: 'check:mempool-reserve' },
 	{ label: 'sweep mempool', script: 'check:mempool-sweep' },

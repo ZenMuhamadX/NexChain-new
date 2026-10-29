@@ -104,7 +104,6 @@ const fund = async (address: string): Promise<void> => {
 		address,
 		balance: FUND,
 		transactionCount: 0,
-		isContract: false,
 		lastTransactionDate: 1_700_000_000_000,
 		nonce: 0,
 	})
@@ -124,7 +123,7 @@ const makeTx = (
 		receiver: RECEIVER,
 		amount,
 		from,
-		txHash: `nonce-order-${from.slice(-6)}-${tag}-${nonce}`,
+		txHash: `TxC${`${from.slice(-6)}-${tag}-${nonce}`.padEnd(64, '0')}`,
 		// r/s 32 byte huruf kecil supaya `encodeTxPayload` bisa menghitung
 		// ukuran wire (dipakai seleksi berprioritas laju-fee); tanda tangan
 		// tetap palsu — `commitBlock` tidak memeriksanya.
@@ -155,7 +154,6 @@ const snapshot = async (address: string) => {
 		address: receiver,
 		balance: genesis.block.coinbaseTransaction.amount,
 		transactionCount: 1,
-		isContract: false,
 		lastTransactionDate: 1_700_000_000_000,
 		nonce: 0,
 	})
@@ -196,10 +194,18 @@ await fund(SENDER_P2P)
 	const tipBefore = (await getTip()) as Block
 	const tipHashBefore = tipBefore.block.header.hash
 	// Template di atas tip, berisi tx nonce-lompat (nonce akun 0, tx nonce 5).
+	// Akun diberi nonce 5 HANYA saat template dibuat — `createBlockTemplate`
+	// mensimulasikan eksekusi untuk `stateRoot`, jadi tx-nya harus sah di
+	// titik itu. Nonce dikembalikan ke 0 sesudahnya: bagi `connectBlock`
+	// blok ini kembali nonce-lompat, persis blok peer yang disusun di atas
+	// state lain.
+	const funded = (await getAccount(SENDER_P2P))!
+	await putAccount(SENDER_P2P, { ...funded, nonce: 5 })
 	const bad = await createBlockTemplate(
 		[makeTx(SENDER_P2P, 5, 'p2p-fatal')],
 		MINER,
 	)
+	await putAccount(SENDER_P2P, funded)
 	ok(
 		'template P2P menempel ke tip (height=tip+1)',
 		bad.block.height === tipBefore.block.height + 1,
@@ -263,18 +269,33 @@ await fund(SENDER_P2P)
 // ---------------------------------------------------------------------------
 // GROUP 1 — pra-penerbangan menolak, template menerima yang sah
 // ---------------------------------------------------------------------------
-console.log('\nGROUP 1 — commitBlock menolak urutan rusak:')
+console.log('\nGROUP 1 — urutan rusak tak bisa menjadi template:')
+
+/**
+ * `true` bila template dengan urutan nonce rusak DITOLAK. `createBlockTemplate`
+ * mengeksekusi tx-nya untuk `stateRoot`, jadi urutan yang melanggar nonce
+ * gagal di titik itu — blok seperti ini tak pernah bisa dibangun, apalagi
+ * dikomit.
+ */
+const buildRejects = async (txs: TxInterface[]): Promise<boolean> => {
+	try {
+		await createBlockTemplate(txs, MINER)
+		return false
+	} catch {
+		return true
+	}
+}
 
 await fund(SENDER_T1)
 {
 	const before = await snapshot(SENDER_T1)
 	// Urutan acak: nonce 1 dulu lalu 0 — wajib ditolak.
-	const rejected = await commitTxs([
+	const rejected = await buildRejects([
 		makeTx(SENDER_T1, 1, 't1-acak'),
 		makeTx(SENDER_T1, 0, 't1-acak'),
 	])
 	const after = await snapshot(SENDER_T1)
-	ok('blok nonce acak (1,0) DITOLAK', rejected === false)
+	ok('template nonce acak (1,0) DITOLAK', rejected === true)
 	ok(
 		'penolakan bersih: saldo/nonce tak berubah',
 		after.balance === before.balance && after.nonce === before.nonce,
@@ -286,12 +307,12 @@ await fund(SENDER_T2)
 {
 	const before = await snapshot(SENDER_T2)
 	// Lubang: nonce 0 lalu 2 (1 hilang) — wajib ditolak.
-	const rejected = await commitTxs([
+	const rejected = await buildRejects([
 		makeTx(SENDER_T2, 0, 't2-gap'),
 		makeTx(SENDER_T2, 2, 't2-gap'),
 	])
 	const after = await snapshot(SENDER_T2)
-	ok('blok berlubang (0,2) DITOLAK', rejected === false)
+	ok('template berlubang (0,2) DITOLAK', rejected === true)
 	ok(
 		'penolakan gap bersih: saldo/nonce tak berubah',
 		after.balance === before.balance && after.nonce === before.nonce,
@@ -364,12 +385,16 @@ await fund(SENDER_T5)
 // ---------------------------------------------------------------------------
 console.log('\nGROUP 3 — bentuk galat pra-penerbangan:')
 
-await fund(`NxC${'ee'.repeat(20)}`)
+const ERR_ADDR = `NxC${'ee'.repeat(20)}`
+await fund(ERR_ADDR)
 {
-	const bad = await createBlockTemplate(
-		[makeTx(`NxC${'ee'.repeat(20)}`, 5, 't-err')],
-		MINER,
-	)
+	// Nonce akun dinaikkan HANYA selama template disusun: `stateRoot`
+	// mensimulasikan eksekusi, jadi tx-nya harus sah saat itu. Dikembalikan
+	// ke 0 sesudahnya — `verifyBlockNonceOrder` harus melihat tx lompat.
+	const funded = (await getAccount(ERR_ADDR))!
+	await putAccount(ERR_ADDR, { ...funded, nonce: 5 })
+	const bad = await createBlockTemplate([makeTx(ERR_ADDR, 5, 't-err')], MINER)
+	await putAccount(ERR_ADDR, funded)
 	let caught: unknown = null
 	try {
 		await verifyBlockNonceOrder(bad)

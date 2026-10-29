@@ -1,3 +1,4 @@
+import { EMPTY_STATE_ROOT } from 'src/core/state/root'
 /// <reference types="bun-types" />
 /**
  * Peer jahat P2P — harness OBSERVASI untuk lapisan `src/p2p/`.
@@ -288,6 +289,7 @@ const buildForkBlock = (): Block => {
 			difficulty: FORK_DIFFICULTY_BITS,
 			version: GENESIS_VERSION,
 			hashingAlgorithm: GENESIS_HASHING_ALGORITHM,
+			stateRoot: EMPTY_STATE_ROOT,
 		},
 		height: 1,
 		size: 1,

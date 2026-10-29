@@ -5,6 +5,7 @@ import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { getBlockState } from './getState'
 import { MAX_SUPPLY_NEXU, NEXU_PER_NXC } from 'src/core/token/constants'
 import { assertNexuCapped } from 'src/core/token/isNexuCapped'
+import { isNotFound } from 'src/core/state/db/notFound'
 
 export interface blockState {
 	currentBlockHeight: number
@@ -64,16 +65,6 @@ const issuanceOf = (block: Block): number => block.block.blockReward
  * plafon ke nol dan membuat guard melewatkan commit yang seharusnya
  * ditolak. Hanya "not found" yang boleh diplesetkan jadi 0.
  */
-const isNotFound = (error: unknown): boolean => {
-	if (typeof error !== 'object' || error === null) return false
-	const e = error as { code?: unknown; notFound?: unknown; name?: unknown }
-	return (
-		e.notFound === true ||
-		e.code === 'LEVEL_NOT_FOUND' ||
-		e.code === 'ERR_LEVEL_NOT_FOUND' ||
-		e.name === 'NotFoundError'
-	)
-}
 
 /**
  * Proyeksi `totalIssued` SETELAH blok ini di-commit — **tanpa menulis apa

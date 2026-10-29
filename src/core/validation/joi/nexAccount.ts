@@ -13,5 +13,4 @@ export const nexAccountValidator = Joi.object({
 	timesTransaction: Joi.number().required().min(0), // Jumlah transaksi
 	lastTransactionDate: Joi.number().allow(null), // Tanggal transaksi terakhir (bisa null)
 	nonce: Joi.number().required().min(0), // Nonce untuk menghindari replay attack
-	isContract: Joi.boolean().required(), // Legacy: selalu false (fitur smart contract sudah dihapus)
 })

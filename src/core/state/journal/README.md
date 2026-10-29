@@ -14,41 +14,51 @@ lama, state seperti itu tidak bisa dipulihkan. Journal menyimpan nilai lama
 
 ## Alur commit (`blockchain.commitBlock`)
 
-1. enumerasi touch-set — murni dari blok, tanpa eksekusi
-   (`enumerateTouchSet`);
-2. baca nilai lama semua kunci touch (`capturePrev`);
-3. tulis `journal:<height>` = `{ hash, entries }` dengan `sync:true`
-   (`writeJournalRecord`) — WAL aman di disk;
-4. `beginJournalContext(touch)` → semua tulisan state/history/block dicek
-   keanggotaannya oleh `assertJournalAllows` (dipanggil dari `putAccount`,
-   `saveTxHistory`, `saveTxByAddress`, `saveBlock`, `writeBlockHash`);
-   (`setPendingBalance` dihapus Gelombang 2 — reserve kini turunan indeks
-   mempool, bukan tulisan state — sehingga namanya tidak lagi terdaftar
-   sebagai penulis.)
-5. `saveBlockToChain` + `processTransact`;
-6. `endJournalContext()`, lalu `pruneJournal(height)`.
+1. verifikasi (merkle, hadiah, timestamp, difficulty, plafon suplai, nonce);
+2. `beginWriteBuffer()` — `saveBlockToChain` + `processTransact` hanya
+   menumpuk tulisan + nilai lama di RAM (`writeBuffer.ts`); **nol byte ke
+   disk**, jadi crash di sini tidak meninggalkan apa pun;
+3. `bufferEntries()` → `journal:<height>` = `{ hash, entries }` dengan
+   `sync:true` (`writeJournalRecord`) — WAL aman di disk;
+4. `flushWriteBuffer()` — satu batch `sync:true` per store, badan blok dulu;
+5. `committed:<height>` `sync:true` (`writeCommittedMarker`) — **langkah
+   terakhir**; blok baru permanen setelah penanda ini;
+6. `discardWriteBuffer()`, lalu `pruneJournal(height)`.
 
-Bila langkah 4–5 gagal, `commitBlock` melakukan `rollbackBlock(height)`
-best-effort; `recoverJournal()` saat boot adalah jaring pengaman terakhir.
+Bila langkah 2–5 gagal, buffer dibuang dan `commitBlock` melakukan
+`rollbackBlock(height)` best-effort; `recoverJournal()` saat boot adalah jaring
+pengaman terakhir.
+
+**Isi journal = tulisan sebenarnya**, bukan enumerasi terpisah. Tidak ada lagi
+`guard.ts`/`enumerateTouchSet`: penulis yang lupa terdaftar tidak mungkin ada,
+karena daftarnya diambil dari tulisan itu sendiri.
 
 ## Recovery boot (`apps/node/server.ts`)
 
 Dipanggil SEBELUM genesis dibaca/diverifikasi. `recoverJournal()` membalik
-semua `journal:<h>` dengan `h > currentBlockHeight` (menurun), lalu memangkas
-journal lebih tua dari `MAX_REORG_DEPTH` (128). Idempoten — aman diulang
+setiap `journal:<h>` yang **tidak punya `committed:<h>`** (flush belum tuntas)
+atau berada di atas tip (sisa reorg), menurun, lalu memangkas journal lebih tua
+dari `MAX_REORG_DEPTH` (128) bersama penandanya. Idempoten — aman diulang
 setelah crash di tengah rollback. Gagal recovery → node berhenti (fail-closed).
 
 ## Aturan penting
 
 - `journal:<h>` hanya boleh dihapus SETELAH entri-entrinya diterapkan
   (`applyRecord` menerapkan dulu, baru `del`).
-- Rollback berjalan dengan guard MATI (menulis `prev` bukan tulisan blok).
+- `rollbackBlock` menolak record yang `hash`-nya tidak cocok dengan
+  `blockHeight:<h>` di state — rollback ke rantai yang salah lebih buruk
+  daripada tidak rollback.
+- Rollback berjalan dengan buffer MATI (menulis `prev` langsung ke DB).
 - Mempool **tidak** di-journal (opsi B: re-add eksplisit saat reorg, M2).
-- Menambah penulis state/history/block baru WAJIB memperbarui
-  `enumerateTouchSet`; bila tidak, guard akan menolak commit — itu disengaja.
+- Penulis baru di store state/history/block cukup memakai `bufferPut`/
+  `bufferGet`; tidak ada daftar yang perlu diperbarui. Penulis yang menulis
+  LANGSUNG ke `rocks*` saat commit akan lolos dari journal — jangan.
+- Pembaca yang harus melihat tulisan yang belum di-flush (mis. `getAccount`
+  antar-transaksi dalam satu blok) memakai `bufferGet`.
 
 ## Gate
 
-`bun run check:journal` (lihat `scripts/journalCheck.ts`): guard fail-closed,
-touch-set == tulisan aktual (spy), round-trip rollback persis, recovery crash,
-dan prune.
+`bun run check:journal` (lihat `scripts/journalCheck.ts`): isolasi buffer,
+journal == tulisan aktual (spy), round-trip rollback persis, rollback hash
+salah ditolak, recovery crash di tiap titik (sebelum WAL / setelah WAL /
+setelah flush sebelum `committed`), dan prune.

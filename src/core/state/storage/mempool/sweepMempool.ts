@@ -6,7 +6,6 @@ import {
 	ALL_INDEX_GTE,
 	ALL_INDEX_LT,
 	ensureMempoolIndex,
-	legacyMempoolTxKey,
 	mempoolTxKey,
 	readMempoolEntry,
 	runMempoolOp,
@@ -182,7 +181,6 @@ const sweepBody = async (): Promise<SweepResult> => {
 		})
 		ops.push({ type: 'del', key: senderIndexKey(from, entry.txHash) })
 		ops.push({ type: 'del', key: mempoolTxKey(entry.txHash) })
-		ops.push({ type: 'del', key: legacyMempoolTxKey(entry.txHash) })
 		logToConsole(
 			`Sweep: buang ${entry.txHash} (${from} nonce ${entry.nonce}, cost ${entry.cost}) — ${reason}`,
 		)

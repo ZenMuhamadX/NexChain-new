@@ -15,8 +15,8 @@
  *
  * Identitas blok adalah `sha256(JSON.stringify(preimage) ‖ nonce)` dengan
  * preimage dari `prepareBlockForHashing`: `previousBlockHash`, `timestamp`,
- * `version`, `hashingAlgorithm`, `difficulty`, `height`, `merkleRoot`,
- * `chainId`, `status`, `blockReward`, `minerId`, `totalReward`,
+ * `version`, `hashingAlgorithm`, `difficulty`, `stateRoot`, `height`,
+ * `merkleRoot`, `chainId`, `status`, `blockReward`, `minerId`, `totalReward`,
  * `coinbaseTransaction`, `transactions`. Karena hash dihitung dari
  * REPRESENTASI OBJEK, setiap field di preimage harus round-trip nilai DAN
  * urutan key-nya (JSON.stringify sensitif urutan). Field di luar preimage
@@ -27,7 +27,7 @@
  * Urutan list — KONTRAK, jangan diubah tanpa menaikkan versi protokol:
  *
  *     0  header: [ previousBlockHash, timestamp, hash, nonce,
- *                  version, difficulty, hashingAlgorithm ]
+ *                  version, difficulty, hashingAlgorithm, stateRoot ]
  *     1  height
  *     2  size                  (float64 8 byte — `size` = jumlah byte payload tx)
  *     3  totalTransactionFees  (uint WAJIB)
@@ -91,7 +91,7 @@ const LABEL = 'blockCodec'
 
 /** Panjang list di tiap tingkat — bagian dari kontrak. */
 const BLOCK_ITEM_COUNT = 13
-const HEADER_ITEM_COUNT = 7
+const HEADER_ITEM_COUNT = 8
 const COINBASE_ITEM_COUNT = 3
 const METADATA_ITEM_COUNT = 3
 
@@ -145,6 +145,9 @@ export const blockToRlpList = (block: blockStruct): RlpInput[] => {
 		block.header.hashingAlgorithm === undefined
 			? new Uint8Array(0)
 			: stringToBytes(block.header.hashingAlgorithm),
+		// Komitmen state (32 byte). Wajib: blok tanpa `stateRoot` berarti
+		// dibuat sebelum v0.1 dan TIDAK boleh menyamar sebagai blok baru.
+		hexToBytes(block.header.stateRoot),
 	]
 
 	const coinbase: RlpInput[] = [
@@ -283,6 +286,7 @@ export const rlpListToBlock = (list: RlpInput): blockStruct => {
 		// wajib, Joi tidak — `undefined` membuat key hilang dari JSON.stringify,
 		// persis seperti blok aslinya.
 		hashingAlgorithm: (hashingAlgorithm || undefined) as string,
+		stateRoot: bytesToHex(item(headerItems, 7, 'header.stateRoot')),
 	}
 
 	return {

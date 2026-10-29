@@ -1,3 +1,4 @@
+import { EMPTY_STATE_ROOT } from 'src/core/state/root'
 /**
  * Gerbang regresi "penyimpanan job & blok (P1b)".
  *
@@ -234,6 +235,7 @@ const fixtureBlock = (hash: string, height: number, prev: string): Block =>
 			version: '1.0.0',
 			difficulty: 20,
 			hashingAlgorithm: 'SHA256',
+			stateRoot: EMPTY_STATE_ROOT,
 		},
 		height,
 		size: 1,

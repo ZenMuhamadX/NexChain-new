@@ -1,8 +1,11 @@
+/**
+ * Akun seperti yang dilihat RPC/klien. `address` diisi dari KUNCI saat dibaca
+ * (tidak disimpan di leaf — lihat `encoding/rlp/accountCodec.ts`).
+ */
 export interface structBalance {
-	address: string // Alamat akun Ethereum
-	balance: number // Saldo dalam wei (unit terkecil ETH)
-	transactionCount: number // Jumlah transaksi
-	lastTransactionDate: number | null // Tanggal transaksi terakhir
-	nonce: number // Nonce untuk menghindari replay attack
-	isContract: boolean // Legacy: selalu false (fitur smart contract sudah dihapus)
+	address: string
+	balance: number // saldo dalam nexu (unit terkecil, 1 NXC = 10^6 nexu)
+	transactionCount: number // jumlah transaksi masuk + keluar (indikator aktivitas)
+	lastTransactionDate: number | null // timestamp BLOK transaksi terakhir, epoch ms
+	nonce: number // hanya bertambah untuk transaksi KELUAR (anti-replay)
 }

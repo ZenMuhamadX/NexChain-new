@@ -97,7 +97,6 @@ const balanceOf = (address: string, balance: number) => ({
 	address,
 	balance,
 	transactionCount: 1,
-	isContract: false,
 	lastTransactionDate: 1_700_000_000_000,
 	nonce: 0,
 })
@@ -246,6 +245,34 @@ ok(
 	'  → marker dipulihkan ke genesis',
 	verifyMarker.getVerifyMarker()?.hash === GENESIS_HASH,
 )
+
+// F0.3: penunjuk tip yang MENDAHULUI data blok tidak boleh dianggap
+// "verified". Dulu loop berhenti di blok pertama yang hilang lalu
+// mengembalikan true — lubang di rantai lolos tanpa jejak.
+{
+	const { stringToHex } = await import('src/core/encoding/hex/stringToHex')
+	const original = (await getBlockState())!
+	await rocksState.put(
+		'blockState',
+		stringToHex(JSON.stringify({ ...original, currentBlockHeight: 1 })),
+		{ sync: true },
+	)
+	ok(
+		'tip mendahului data blok → verifikasi PENUH menolak',
+		(await verify.verifyChainIntegrity()) === false,
+	)
+	ok(
+		'  → inkremental juga menolak (marker tidak menyembunyikan lubang)',
+		(await verify.verifyChainIncremental()) === false,
+	)
+	await rocksState.put('blockState', stringToHex(JSON.stringify(original)), {
+		sync: true,
+	})
+	ok(
+		'  → kembali true setelah blockState dipulihkan',
+		(await verify.verifyChainIntegrity()) === true,
+	)
+}
 
 // ---------------------------------------------------------------------------
 // GROUP 1 — fork choice murni

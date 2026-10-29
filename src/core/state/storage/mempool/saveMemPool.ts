@@ -1,11 +1,6 @@
 import { TxInterface } from 'src/types/transaction'
 import { rocksMempool } from 'src/core/state/db/memPool'
-import {
-	legacyMempoolTxKey,
-	mempoolTxKey,
-	runMempoolOp,
-	senderIndexKey,
-} from './mempoolIndex'
+import { mempoolTxKey, runMempoolOp, senderIndexKey } from './mempoolIndex'
 
 /**
  * Simpan transaksi ke mempool BERSAMA indeks per-pengirimnya.
@@ -77,7 +72,6 @@ export const replaceMempool = async (
 		rocksMempool.batch(
 			[
 				{ type: 'del', key: mempoolTxKey(oldTxHash) },
-				{ type: 'del', key: legacyMempoolTxKey(oldTxHash) },
 				{ type: 'del', key: senderIndexKey(from, oldTxHash) },
 				{
 					type: 'put',

@@ -249,7 +249,7 @@ export const Send = ({
 							{pasteError ? <p className="input-error">{pasteError}</p> : null}
 							{!touched || errors.receiver ? (
 								<p className="input-hint">
-									Alamat diawali NxC atau NxS dan terdiri dari 43 karakter.
+									Alamat diawali NxC dan terdiri dari 43 karakter.
 								</p>
 							) : null}
 						</div>

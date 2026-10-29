@@ -13,6 +13,10 @@ export const prepareBlockForHashing = ({ block }: Block): string => {
 		// adalah penegakan ulang `expectedDifficulty` di validator
 		// (commitBlock/connectBlock/verifyChainIntegrity).
 		difficulty: block.header.difficulty,
+		// Komitmen state (Fase 1c). Ikut preimage supaya klaim state tidak bisa
+		// diganti setelah PoW ditemukan — inilah yang membuat penambang wajib
+		// mengeksekusi blok persis seperti node verifier.
+		stateRoot: block.header.stateRoot,
 		height: block.height,
 		merkleRoot: block.merkleRoot,
 		chainId: block.chainId,

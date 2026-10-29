@@ -1,119 +1,30 @@
-import { loggingErr } from 'src/logging/errorLog'
 import { structBalance } from 'src/types/balance'
-import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
-import { rocksState } from 'src/core/state/db/state'
-import { stringToHex } from 'src/core/encoding/hex/stringToHex'
-import { HexString } from 'src/types/block'
 import { assertNexuCapped } from 'src/core/token/isNexuCapped'
-import { assertJournalAllows } from 'src/core/state/journal/guard'
+import { encodeAccount } from 'src/core/encoding/rlp/accountCodec'
+import { bufferPut } from 'src/core/state/journal/writeBuffer'
 
 /**
- * Updates the balance for a given address in RocksDB.
- * @param address - The address whose balance will be updated.
- * @param balance - The balance data to store.
+ * Tulis akun sebagai leaf RLP v1 (`encoding/rlp/accountCodec.ts`). Kunci =
+ * alamat; `address` di objek hanya dipakai lapisan atas dan tidak ikut
+ * disimpan.
+ *
+ * Selama commit, tulisan masuk write-buffer (jadi ikut undo journal); di luar
+ * commit (genesis, rollback, gate) langsung ke DB. Kegagalan MELEMPAR, tidak
+ * ditelan: tulisan state yang hilang diam-diam membuat blok tampak sukses
+ * dengan saldo yang tidak pernah tersimpan.
  */
 export const putAccount = async (
 	address: string,
 	balance: structBalance,
 ): Promise<void> => {
 	// ---- GUARD FAIL-CLOSED — sengaja di LUAR try/catch -------------------
-	// `handleUnexpectedError` di bawah MENELAN error lalu kembali normal,
-	// sehingga guard yang diletakkan di dalam try hanya akan dicatat dan
-	// state tetap tertulis dengan nilai rusak. Dilempar supaya memanggil
-	// (`processSender`/`processReceiver`, keduanya di-catch per-transaksi
-	// oleh `processTransact`) membatalkan transaksi alih-alih menyimpannya.
-	//
 	// Ini choke point TUNGGAL penulisan saldo: seluruh jalur — transfer,
 	// kredit coinbase, pembuatan akun — melewati fungsi ini.
-	// `balance?.balance` — input null/undefined harus menghasilkan pesan
-	// guard yang jelas, bukan `TypeError: Cannot read properties of undefined`
-	// yang bocor dari lapisan di atas.
 	assertNexuCapped(balance?.balance, `putAccount(${address}).balance`)
 
-	// Journal guard (fail-closed): alamat saldo WAJIB terenumerasi di
-	// touch-set blok yang sedang di-commit. Di LUAR try supaya
-	// `handleUnexpectedError` (yang menelan error) tidak menelannya.
-	assertJournalAllows('state', address)
-
-	try {
-		// Validate input
-		if (!isValidInput(address, balance)) {
-			logInvalidInputError()
-			return
-		}
-
-		// Ensure timesTransaction is defined
-		balance.transactionCount = balance.transactionCount ?? 0
-
-		// Encode balance and save to RocksDB
-		const encodedBalance = encodeBalanceData(balance)
-		await saveToDB(address, encodedBalance)
-	} catch (error) {
-		handleUnexpectedError(error)
+	if (!address || !balance) {
+		throw new Error(`putAccount: address atau balance kosong (${address})`)
 	}
-}
 
-/**
- * Validates the input for address and balance.
- * @param address - The address to validate.
- * @param balance - The balance object to validate.
- * @returns True if the input is valid, false otherwise.
- */
-const isValidInput = (address: string, balance: structBalance): boolean => {
-	return Boolean(address && balance)
-}
-
-/**
- * Logs an error when the input validation fails.
- */
-const logInvalidInputError = (): void => {
-	loggingErr({
-		level: 'error',
-		message: 'Error putting data or data not found',
-		stack: new Error().stack!,
-		hint: 'Address or balance is missing',
-		timestamp: generateTimestampz(),
-		priority: 'high',
-		context: 'leveldb putBalance',
-	})
-}
-
-/**
- * Encodes the balance data to a byte format.
- * @param balance - The balance object to encode.
- * @returns A hex containing the encoded balance data.
- */
-const encodeBalanceData = (balance: structBalance): HexString => {
-	return stringToHex(JSON.stringify(balance))
-}
-
-/**
- * Saves encoded balance data to RocksDB.
- * @param address - The address associated with the balance.
- * @param encodedBalance - The encoded balance data.
- */
-const saveToDB = async (
-	address: string,
-	encodedBalance: HexString,
-): Promise<void> => {
-	await rocksState.put(address, encodedBalance, {
-		sync: false, // Option for asynchronous write
-	})
-}
-
-/**
- * Handles unexpected errors during the put operation.
- * @param error - The error that occurred.
- */
-const handleUnexpectedError = (error: unknown): void => {
-	console.error(error)
-	loggingErr({
-		level: 'error',
-		message: 'Error putting data',
-		timestamp: generateTimestampz(),
-		priority: 'high',
-		context: 'leveldb putBalance',
-		stack: new Error().stack! as string,
-		hint: 'An unexpected error occurred while putting data.',
-	})
+	await bufferPut('state', address, encodeAccount(balance))
 }

@@ -6,7 +6,7 @@ import { TX_HASH_PREFIX } from 'src/core/encoding/rlp/txHash'
 /**
  * Penanda hadiah blok pada RECORD RIWAYAT.
  *
- * Sengaja BUKAN format address (`NxC`/`NxS`) sehingga tidak mungkin dimiliki
+ * Sengaja BUKAN format address (`NxC` + 40 hex) sehingga tidak mungkin dimiliki
  * pihak mana pun. Setelah coinbase dikeluarkan dari daftar transaksi, sentinel
  * ini TIDAK lagi bagian dari konsensus — ia hanya label tampilan, supaya
  * wallet & explorer bisa mengenali entri hadiah dan memberi label yang tepat.

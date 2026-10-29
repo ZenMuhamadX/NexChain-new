@@ -16,6 +16,15 @@ import {
 } from 'src/core/consensus/verify/module/verifyTimestamp'
 import { resolveBlock } from 'src/core/consensus/reorg/ancestry'
 import { CHAIN_ID } from 'src/crypto/chainId'
+import { getBlockByHeight } from './query/onChain/block/getBlockByHeight'
+import { processTransact } from 'src/core/transaction/processTransaction'
+import {
+	beginWriteBuffer,
+	bufferStateLeaves,
+	discardWriteBuffer,
+} from 'src/core/state/journal/writeBuffer'
+import { computeStateRoot, EMPTY_STATE_ROOT } from 'src/core/state/root'
+import { withCommitLock } from 'src/core/blockchain/commitLock'
 
 /**
  * Timestamp kronologis (tua→baru) dari `parent` dan leluhurnya, maksimal
@@ -34,6 +43,59 @@ const collectAncestorTimestamps = async (parent: Block): Promise<number[]> => {
 		current = prev ? await resolveBlock(prev) : undefined
 	}
 	return out.reverse()
+}
+
+/**
+ * Blok induk `parent` yang belum ada di rantai lokal (cabang), urut tua→baru.
+ * Berhenti begitu menemukan blok yang SUDAH ada di rantai lokal: di situlah
+ * cabang menyambung, dan efeknya sudah termuat di state DB.
+ */
+const branchBlocks = async (parent: Block): Promise<Block[]> => {
+	const out: Block[] = []
+	let current: Block | undefined = parent
+	while (current !== undefined && current.block.height > 0) {
+		const onChain = (await getBlockByHeight(current.block.height)) as
+			Block | undefined
+		if (onChain?.block.header.hash === current.block.header.hash) break
+		out.push(current)
+		const prev: string = current.block.header.previousBlockHash
+		current = prev ? await resolveBlock(prev) : undefined
+	}
+	return out.reverse()
+}
+
+/**
+ * `stateRoot` template = hasil EKSEKUSI NYATA blok ini di write-buffer
+ * (mode `simulate`: baca state asli, nol tulis, mempool tidak disentuh).
+ *
+ * Satu fungsi eksekusi (`processTransact`) dipakai template dan commit, jadi
+ * template tidak bisa "menebak" state dengan aturan berbeda dari validator.
+ *
+ * shortcut: bila induk bukan tip, efek blok cabang di atasnya diterapkan di
+ * atas state TIP (bukan state titik sambung). Untuk cabang yang menyentuh akun
+ * berbeda hasilnya tepat; bila menyentuh akun yang sama, root template bisa
+ * berbeda dari root replay — bloknya lalu ditolak saat replay (fail-closed),
+ * tidak pernah diterima dengan state salah. Upgrade: state historis per blok.
+ */
+const simulateStateRoot = async (
+	draft: Block,
+	parent: Block,
+): Promise<string> => {
+	beginWriteBuffer('simulate')
+	try {
+		// Efek blok cabang di bawah induk DITERAPKAN (supaya nilai akun yang
+		// sama tidak dibaca dari state tip), tetapi leaf-nya DIBUANG: root
+		// tiap blok hanya mengomit state yang disentuhnya sendiri, dan
+		// `parent.header.stateRoot` sudah memuat efek blok-blok itu.
+		for (const branchBlock of await branchBlocks(parent)) {
+			await processTransact(branchBlock.block.transactions, branchBlock.block)
+		}
+		bufferStateLeaves()
+		await processTransact(draft.block.transactions, draft.block)
+		return computeStateRoot(parent.block.header.stateRoot, bufferStateLeaves())
+	} finally {
+		discardWriteBuffer()
+	}
 }
 
 /**
@@ -118,15 +180,18 @@ export const createBlockTemplate = async (
 		latestBlock.block.height,
 	)
 
-	return new Block({
+	const draft = new Block({
 		header: {
 			difficulty,
 			hash: '',
 			nonce: 0,
 			previousBlockHash: latestBlock.block.header.hash,
 			timestamp,
-			version: '1.0.0',
+			version: '0.1.0',
 			hashingAlgorithm: 'SHA256',
+			// Diisi hasil simulasi di bawah — placeholder tidak pernah keluar
+			// dari fungsi ini, jadi tidak bisa masuk preimage PoW yang dikirim.
+			stateRoot: EMPTY_STATE_ROOT,
 		},
 		height,
 		// `size` = Σ byte wire transaksi PENGGUNA (`encodeTxPayload`) — satuan
@@ -156,4 +221,12 @@ export const createBlockTemplate = async (
 		transactions,
 		chainId: CHAIN_ID,
 	})
+
+	// `stateRoot` adalah bagian preimage PoW, jadi harus final SEBELUM miner
+	// mencari nonce. Di bawah commit lock supaya simulasi tidak bertabrakan
+	// dengan commit blok lain (P2P/reorg) yang memakai write-buffer global.
+	draft.block.header.stateRoot = await withCommitLock(() =>
+		simulateStateRoot(draft, latestBlock),
+	)
+	return draft
 }

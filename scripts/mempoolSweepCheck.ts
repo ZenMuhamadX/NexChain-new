@@ -77,7 +77,6 @@ const fund = async (address: string, balance: number): Promise<void> => {
 		address,
 		balance,
 		transactionCount: 0,
-		isContract: false,
 		lastTransactionDate: 1_700_000_000_000,
 		nonce: 0,
 	})
@@ -96,7 +95,7 @@ const fakeTx = (
 		receiver: RECEIVER,
 		amount: cost - 50,
 		from,
-		txHash: `sweep-${tag}-${nonce}`,
+		txHash: `TxC${`${tag}${nonce}`.padEnd(64, '0')}`,
 		sign: { v: 27, r: '0x01', s: '0x01' },
 	}) as TxInterface
 
@@ -208,7 +207,6 @@ await putAccount(SENDER_T, {
 	address: SENDER_T,
 	balance: 50_000,
 	transactionCount: 3,
-	isContract: false,
 	lastTransactionDate: 1_700_000_000_000,
 	nonce: 3,
 })

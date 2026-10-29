@@ -81,12 +81,14 @@ const fakeTx = (
 	}) as TxInterface
 
 // Pengirim A: tiga tx dengan cost berbeda; pengirim B: satu tx (isolasi).
+// `txHash` wajib berbentuk `TxC` + 64 hex — key mempool dibaca lewat range
+// `TxC`..`TxD`, jadi hash mainan berformat lain akan dianggap tidak ada.
 const txsA = [
-	fakeTx(SENDER_A, 'a1'.padEnd(64, '0'), 100, 5, 0),
-	fakeTx(SENDER_A, 'a2'.padEnd(64, '0'), 250, 10, 1),
-	fakeTx(SENDER_A, 'a3'.padEnd(64, '0'), 1_000, 25, 2),
+	fakeTx(SENDER_A, `TxC${'a1'.padEnd(64, '0')}`, 100, 5, 0),
+	fakeTx(SENDER_A, `TxC${'a2'.padEnd(64, '0')}`, 250, 10, 1),
+	fakeTx(SENDER_A, `TxC${'a3'.padEnd(64, '0')}`, 1_000, 25, 2),
 ]
-const txB = fakeTx(SENDER_B, 'b1'.padEnd(64, '0'), 50, 5, 0)
+const txB = fakeTx(SENDER_B, `TxC${'b1'.padEnd(64, '0')}`, 50, 5, 0)
 
 for (const tx of [...txsA, txB]) await saveMempool(tx)
 

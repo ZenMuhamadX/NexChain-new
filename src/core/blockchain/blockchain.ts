@@ -21,15 +21,21 @@ import { loggingDebug } from 'src/logging/debug'
 import { projectTotalIssued } from 'src/core/state/storage/state/setState'
 import { MAX_SUPPLY_NEXU, NEXU_PER_NXC } from 'src/core/token/constants'
 import {
-	beginJournalContext,
-	endJournalContext,
-} from 'src/core/state/journal/guard'
+	bufferEntries,
+	bufferStateLeaves,
+	beginWriteBuffer,
+	discardWriteBuffer,
+	flushWriteBuffer,
+	type JournalRecord,
+} from 'src/core/state/journal/writeBuffer'
+import { computeStateRoot, EMPTY_STATE_ROOT } from 'src/core/state/root'
 import {
-	prepareJournalRecord,
 	pruneJournal,
 	rollbackBlock,
+	writeCommittedMarker,
 	writeJournalRecord,
 } from 'src/core/state/journal/store'
+import { withCommitLock } from './commitLock'
 
 export class BlockChains {
 	constructor() {
@@ -49,22 +55,27 @@ export class BlockChains {
 	 *   3. verifikasi PLAFON SUPLAI — `totalIssued` proyektif belum melewati
 	 *      50 juta NXC. Dilakukan di sini (sebelum menulis apa pun) supaya
 	 *      penolakan bersih, bukan setengah-blok di DB;
-	 *   4. **undo journal (WAL)** — enumerasi touch-set, snapshot nilai lama,
-	 *      lalu tulis `journal:<h>` dengan `sync:true` SEBELUM tulisan state
-	 *      apa pun. Sejak titik ini guard journal aktif: menulis kunci yang
-	 *      tak terenumerasi → throw (fail-closed) → blok dibatalkan +
-	 *      rollback best-effort (boot recovery sebagai jaring pengaman);
-	 *   5. simpan blok ke DB (hash/height/state) — nilai return `saveBlock`
-	 *      kini DIPERIKSA (dulu diabaikan: blok bisa gagal tersimpan tapi
-	 *      hadiah & transaksi tetap diproses);
-	 *   6. proses SELURUH transaksi blok lewat `processTransact` — termasuk
-	 *      transaksi coinbase, sehingga hadiah blok terkredit melalui
-	 *      pipeline transaksi yang sama (pengganti `giveReward`/`putAccount`
-	 *      langsung) dan ikut terindex di riwayat alamat.
+	 *   4. **eksekusi di write-buffer** — `saveBlock` + `processTransact`
+	 *      hanya menumpuk tulisan (kunci + nilai lama) di RAM, nol byte ke
+	 *      disk. Isi buffer itu sendiri yang menjadi undo journal, jadi tidak
+	 *      ada enumerasi terpisah yang bisa meleset dari tulisan sebenarnya;
+	 *   5. **WAL** `journal:<h>` `sync:true`;
+	 *   6. **flush** seluruh buffer, lalu `committed:<h>` `sync:true` sebagai
+	 *      langkah terakhir — blok baru permanen setelah penanda ini. Eror di
+	 *      titik mana pun ⟹ buffer dibuang + rollback dari WAL.
 	 *
 	 * (Langkah deploy kontrak DIHAPUS bersama fitur smart contract.)
 	 */
 	public async commitBlock(
+		block: Block,
+	): Promise<{ status: boolean; block: Block | undefined }> {
+		// Serialisasi global: jalur mining, P2P, dan reorg punya antrean
+		// masing-masing, tetapi yang harus dijamin satu-satu adalah COMMIT-nya
+		// (write-buffer journal bersifat global) — lihat `commitLock.ts`.
+		return withCommitLock(() => this.commitUnlocked(block))
+	}
+
+	private async commitUnlocked(
 		block: Block,
 	): Promise<{ status: boolean; block: Block | undefined }> {
 		// Tinggi blok yang WAL-nya sudah tertulis; `null` = belum ada tulisan
@@ -105,22 +116,25 @@ export class BlockChains {
 			// ditolak di sini — inilah yang menutup celah "mine at floor".
 			// Genesis (height 0) dikecualikan: ditulis lewat jalur bootstrap,
 			// bukan commitBlock.
-			if (block.block.height > 0) {
-				const parent = (await getBlockByHeight(block.block.height - 1)) as
-					Block | undefined
-				if (parent) {
-					const expected = expectedDifficulty(
-						parent.block.header.difficulty,
-						parent.block.header.timestamp,
-						block.block.header.timestamp,
-						parent.block.height,
+			//
+			// Induk yang sama dipakai lagi di bawah untuk `stateRoot`.
+			const parent =
+				block.block.height > 0
+					? ((await getBlockByHeight(block.block.height - 1)) as
+							Block | undefined)
+					: undefined
+			if (parent) {
+				const expected = expectedDifficulty(
+					parent.block.header.difficulty,
+					parent.block.header.timestamp,
+					block.block.header.timestamp,
+					parent.block.height,
+				)
+				if (block.block.header.difficulty !== expected) {
+					throw new Error(
+						`Difficulty mismatch at height ${block.block.height}: ` +
+							`header ${block.block.header.difficulty}, expected ${expected}`,
 					)
-					if (block.block.header.difficulty !== expected) {
-						throw new Error(
-							`Difficulty mismatch at height ${block.block.height}: ` +
-								`header ${block.block.header.difficulty}, expected ${expected}`,
-						)
-					}
 				}
 			}
 
@@ -152,16 +166,12 @@ export class BlockChains {
 			// ini (disimpan langsung via `saveBlock` saat bootstrap).
 			await verifyBlockNonceOrder(block)
 
-			// ---- UNDO JOURNAL (WAL, sebelum tulisan state apa pun) --------
-			// Enumerasi semua kunci yang akan disentuh + snapshot nilai
-			// lamanya, lalu tulis `journal:<h>` (sync). Guard dinyalakan
-			// SETELAH WAL aman di disk; semua tulisan state/history/block
-			// berikutnya dicek keanggotaannya.
-			const { record, touch } = await prepareJournalRecord(block)
-			await writeJournalRecord(record)
-			journalHeight = record.height
-			beginJournalContext(touch)
-
+			// ---- EKSEKUSI DI BUFFER (belum menyentuh disk) -----------------
+			// Selama buffer aktif, `putAccount`/`saveTxHistory`/`saveTxByAddress`/
+			// `saveBlock`/`writeBlockHash` hanya menumpuk tulisan + nilai lama.
+			// Jadi journal di bawah BUKAN hasil enumerasi yang bisa bocor: ia
+			// adalah daftar tulisan yang benar-benar akan terjadi.
+			beginWriteBuffer()
 			await this.saveBlockToChain(block)
 
 			// Tidak lagi dipisah `transactionsToProcess` vs hadiah: satu
@@ -172,7 +182,39 @@ export class BlockChains {
 			// menyimpan timestamp.
 			await processTransact(block.block.transactions, block.block)
 
-			endJournalContext()
+			// ---- stateRoot: BANDINGKAN dengan hasil eksekusi sendiri -------
+			// Eksekusi di buffer adalah kebenaran; `header.stateRoot` hanya
+			// klaim. Bedanya sedikit saja berarti blok dibangun di atas state
+			// yang berbeda (atau klaimnya dipalsukan) → blok ditolak SEBELUM
+			// WAL, jadi tidak ada yang perlu di-rollback (journalHeight null).
+			const computedRoot = computeStateRoot(
+				parent?.block.header.stateRoot ?? EMPTY_STATE_ROOT,
+				bufferStateLeaves(),
+			)
+			if (block.block.header.stateRoot !== computedRoot) {
+				throw new Error(
+					`stateRoot mismatch at height ${block.block.height}: ` +
+						`header ${block.block.header.stateRoot}, computed ${computedRoot}`,
+				)
+			}
+
+			// ---- WAL (sync) -----------------------------------------------
+			// Sampai titik ini nol byte state menyentuh disk; crash di sini
+			// tidak meninggalkan apa pun.
+			const record: JournalRecord = {
+				height: block.block.height,
+				hash: block.block.header.hash,
+				entries: bufferEntries(),
+			}
+			await writeJournalRecord(record)
+			journalHeight = record.height
+
+			// ---- FLUSH + penanda commit (langkah TERAKHIR) ----------------
+			// Crash di antara keduanya = blok di disk tetapi belum permanen;
+			// recovery membalik lewat journal, jadi tidak ada blok "setengah".
+			await flushWriteBuffer()
+			await writeCommittedMarker(record.height)
+			discardWriteBuffer()
 
 			// Journal blok ini kini "terpakai"; pangkas yang lebih tua dari
 			// MAX_REORG_DEPTH supaya store tidak tumbuh tanpa batas.
@@ -180,11 +222,10 @@ export class BlockChains {
 
 			return { block, status: true }
 		} catch (error) {
-			endJournalContext()
+			discardWriteBuffer()
 
-			// Best-effort rollback: bila WAL sudah tertulis tetapi commit
-			// gagal di tengah (mis. guard menolak kunci tak terdaftar, atau
-			// storage error), kembalikan state persis ke sebelum blok ini.
+			// Best-effort rollback: bila WAL sudah tertulis tetapi flush/penanda
+			// gagal, kembalikan state persis ke sebelum blok ini (idempoten).
 			// Boot recovery tetap jaring pengaman bila proses mati di sini.
 			if (journalHeight !== null) {
 				try {

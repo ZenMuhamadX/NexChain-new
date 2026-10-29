@@ -6,8 +6,7 @@ import { isTxExecuted } from 'src/core/transaction/isTxExecuted'
  * Galat khusus urutan nonce per-pengirim di dalam blok.
  *
  * Dibedakan dari galat lain supaya penolakan nonce mudah dikenali di log
- * (`commitBlock` mencatat pesan ini) — mengikuti pola `JournalGuardError`
- * (kelas + type-guard `is*Error`).
+ * (`commitBlock` mencatat pesan ini) — pola kelas + type-guard `is*Error`.
  */
 export class NonceMismatchError extends Error {
 	readonly sender: string

@@ -232,7 +232,6 @@ const structurallyValidAccount = (): Record<string, unknown> => ({
 	timesTransaction: 0,
 	lastTransactionDate: null,
 	nonce: 0,
-	isContract: false,
 })
 joiPass(
 	'accountValidator: balance = 0',
@@ -305,7 +304,6 @@ const balanceWith = (balance: number): structBalance => ({
 	transactionCount: 0,
 	lastTransactionDate: null,
 	nonce: 0,
-	isContract: false,
 })
 
 /**

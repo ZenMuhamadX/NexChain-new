@@ -9,6 +9,7 @@ import { toNexu } from 'src/core/token/toNexu'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { hashWithNonce } from 'src/core/consensus/Pow'
 import { prepareBlockForHashing } from './prepareBlock'
+import { EMPTY_STATE_ROOT } from 'src/core/state/root'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import { logToConsole } from 'src/logging/logging'
 
@@ -33,7 +34,7 @@ import { logToConsole } from 'src/logging/logging'
  */
 
 export const GENESIS_TIMESTAMP = 1727524800000 // 2024-09-28T12:00:00Z — tetap
-export const GENESIS_VERSION = '1.0.0'
+export const GENESIS_VERSION = '0.1.0'
 export const GENESIS_HASHING_ALGORITHM = 'SHA256'
 export const GENESIS_PREVIOUS_BLOCK_HASH = '0'.repeat(64)
 export const GENESIS_MERKLE_ROOT = '0'.repeat(64)
@@ -67,10 +68,16 @@ export const GENESIS_MESSAGE = 'NexChain Devnet Genesis — Bitcoin-style PoW'
  *     jadi nonce & hash di-re-solve.
  *   - M0 difficulty: `difficulty` kini IKUT preimage PoW (sebelumnya di luar),
  *     sehingga preimage genesis berubah → nonce & hash di-re-solve.
+ *   - v0.1 (Fase 1c): `stateRoot` kini IKUT preimage PoW (root kosong untuk
+ *     genesis) → nonce & hash di-re-solve.
+ *   - v0.1 (Fase 1e): `version` header 1.0.0 → 0.1.0 (rilis fork "State
+ *     Commitment": alamat jadi 20 byte, `NxS` hilang, protokol P2P wire 0) →
+ *     nonce & hash di-re-solve. Genesis baru membuat node yang lupa wipe data
+ *     lama tidak bisa bertukar blok dengan jaringan baru (identitas jaringan).
  */
-export const GENESIS_NONCE = 1219569
+export const GENESIS_NONCE = 809755
 export const GENESIS_HASH =
-	'00000f7117e28ab1237b19406c6ad9dc120f3597c25436409d1c6f227e4e0b09'
+	'000005f6b2c6eeea04dad86eae57794cf95c8a8f4b46eb5d3503d2cd224df08f'
 
 /**
  * Susun blok genesis sesuai konstanta. Murni & deterministik — tidak
@@ -90,6 +97,10 @@ export const buildGenesisBlock = (): Block => {
 			timestamp,
 			version: GENESIS_VERSION,
 			hashingAlgorithm: GENESIS_HASHING_ALGORITHM,
+			// State genesis = KOSONG: hadiah genesis 0 dan tidak ada akun yang
+			// ditulis, jadi root-nya root-kosong (`state/root.ts`). Replay
+			// membandingkan ini, sehingga leaf liar di DB genesis terdeteksi.
+			stateRoot: EMPTY_STATE_ROOT,
 		},
 		blockReward: reward,
 		totalTransactionFees: 0,

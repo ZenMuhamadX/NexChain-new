@@ -20,6 +20,7 @@ export class Block {
 				// pernah memakai angka yang sama.
 				difficulty: blockData.header.difficulty,
 				hashingAlgorithm: blockData.header.hashingAlgorithm,
+				stateRoot: blockData.header.stateRoot,
 			},
 			height: blockData.height,
 			size: blockData.size,

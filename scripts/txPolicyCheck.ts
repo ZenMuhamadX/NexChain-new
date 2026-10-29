@@ -273,7 +273,6 @@ const accountA: structBalance = {
 	address: SENDER_A,
 	balance: 0,
 	transactionCount: 0,
-	isContract: false,
 	lastTransactionDate: null,
 	nonce: 7,
 }
@@ -361,7 +360,6 @@ await putAccount(SENDER_C, {
 	address: SENDER_C,
 	balance: 100_000_000,
 	transactionCount: 0,
-	isContract: false,
 	lastTransactionDate: null,
 	nonce: 0,
 })
@@ -389,6 +387,8 @@ const buildValid = (
 const pool = new MemPool()
 const txC1 = buildValid(100_000, 5_000, 0)
 const txC2 = buildValid(200_000, 5_000, 1)
+/** Timestamp blok tetap untuk pengujian determinisme state. */
+const BLOCK_TS = 1_700_000_000_000
 const COST_C1 = 100_000 + 5_000
 const COST_C2 = 200_000 + 5_000
 
@@ -416,7 +416,7 @@ ok(
 // Eksekusi mendebit saldo TANPA menyentuh reserve — tx masih di mempool,
 // jadi dananya tetap terkunci (inilah mengapa pelepasan milik
 // `removeMemPool`, bukan `processSender`).
-await processSender(SENDER_C, 100_000, 5_000, 0)
+await processSender(SENDER_C, 100_000, 5_000, 0, BLOCK_TS)
 ok(
 	'eksekusi mendebit tepat amount+fee dari saldo',
 	(await getAccount(SENDER_C))?.balance === 100_000_000 - COST_C1,
@@ -440,7 +440,7 @@ ok(
 	'pembaca tetap identik dengan indeks setelah pelepasan',
 	afterFirst === (await sumCostBySender(SENDER_C)),
 )
-await processSender(SENDER_C, 200_000, 5_000, 1)
+await processSender(SENDER_C, 200_000, 5_000, 1, BLOCK_TS)
 await removeMemPool(txC2.txHash!)
 ok(
 	'reserve → 0 setelah semua tx keluar dari mempool',
@@ -452,7 +452,7 @@ ok(
 // tripwire yang menangkap divergensi pre-flight vs eksekusi. Gagal-dulu:
 // state tidak boleh tersentuh sama sekali. SENDER_C kini nonce 2.
 const badNonce = await caughtAsync(() =>
-	processSender(SENDER_C, 1_000, 1_000, 99),
+	processSender(SENDER_C, 1_000, 1_000, 99, BLOCK_TS),
 )
 ok(
 	'processSender MELEMPAR NonceMismatchError pada nonce salah',
@@ -669,7 +669,6 @@ await putAccount(SENDER_T, {
 	address: SENDER_T,
 	balance: T_COST_OTHER + T_COST_NEW,
 	transactionCount: 0,
-	isContract: false,
 	lastTransactionDate: null,
 	nonce: 0,
 })
@@ -717,7 +716,6 @@ await putAccount(SENDER_D, {
 	address: SENDER_D,
 	balance: 5_000_000,
 	transactionCount: 0,
-	isContract: false,
 	lastTransactionDate: null,
 	nonce: 0,
 })
@@ -828,7 +826,7 @@ const SENDER_H = `NxC${'b1'.repeat(20)}`
 const capTx = (from: string, nonce: number, fee: number): TxInterface =>
 	({
 		from,
-		txHash: `TxF${from.slice(-4)}${nonce.toString(16).padStart(16, '0')}${fee
+		txHash: `TxC${from.slice(-4)}${nonce.toString(16).padStart(16, '0')}${fee
 			.toString(16)
 			.padStart(16, '0')}`,
 		nonce,

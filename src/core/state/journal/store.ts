@@ -1,128 +1,98 @@
 /**
- * Operasi undo journal (WAL): siapkan, tulis, terapkan (rollback), pulihkan
- * saat boot, dan pangkas.
+ * Operasi undo journal (WAL): tulis, terapkan (rollback), pulihkan saat boot,
+ * dan pangkas.
  *
- * Alur commit (lihat `journal-difficulty-design.md` A.3):
- *   1. enumerasi touch-set (murni, dari blok);
- *   2. baca nilai lama SEMUA kunci touch (SEBELUM tulisan apa pun);
- *   3. tulis `journal:<h>` = { hash, entries } dengan `sync:true` (WAL);
- *   4. tulisan state/history/block (dijaga guard);
- *   5. selesai — record disimpan untuk reorg/nanti.
+ * Alur commit (lihat `writeBuffer.ts` untuk sumber isinya):
+ *   1. eksekusi blok di buffer (belum menyentuh disk);
+ *   2. `journal:<h>` = { hash, entries } ditulis `sync:true` — WAL;
+ *   3. flush buffer, lalu `committed:<h>` `sync:true` sebagai langkah TERAKHIR.
  *
- * Recovery boot (A.4): rollback semua `journal:<h>` dengan
- * `h > blockState.currentBlockHeight`. Karena `blockState` + `blockHeight:<h>`
- * satu batch atomik, `blockState = h` menjamin tulisan blok `h` selesai —
- * tak perlu "done marker". Rollback idempoten (memulihkan `prev`) sehingga
- * aman diulang setelah crash di tengah rollback.
+ * Recovery boot: setiap `journal:<h>` yang TIDAK punya `committed:<h>` (flush
+ * belum tuntas) atau berada di atas tip (sisa reorg) dibalik. Karena penanda
+ * commit ditulis setelah semua batch selesai, "ada blok" dan "ada penanda"
+ * tidak bisa berbeda pendapat.
+ *
+ * Rollback memulihkan `prev` sehingga idempoten dan aman diulang setelah crash
+ * di tengah rollback.
  */
 import { rocksJournal } from 'src/core/state/db/journal'
-import { rocksState } from 'src/core/state/db/state'
-import { rocksHistory } from 'src/core/state/db/history'
-import { rocksBlock } from 'src/core/state/db/block'
+import { isNotFound } from 'src/core/state/db/notFound'
 import { getBlockState } from 'src/core/state/storage/state/getState'
 import { logToConsole } from 'src/logging/logging'
-import { Block } from 'src/core/block/blockModel'
 import {
-	enumerateTouchSet,
+	bufferGet,
+	dbFor,
 	type JournalEntry,
 	type JournalRecord,
-} from './entry'
-import type { JournalStoreName, JournalTouchSet } from './guard'
+	type JournalStoreName,
+} from './writeBuffer'
 
 /** Kedalaman reorg maksimum yang bisa dibalik (journal lebih tua dipangkas). */
 export const MAX_REORG_DEPTH = 128
 
 const journalKey = (height: number): string => `journal:${height}`
+const committedKey = (height: number): string => `committed:${height}`
 
-/** `null` bila kunci memang belum ada; error lain DILEMPAR (jangan disamarkan). */
-const isNotFound = (error: unknown): boolean => {
-	if (typeof error !== 'object' || error === null) return false
-	const e = error as { code?: unknown; notFound?: unknown; name?: unknown }
-	return (
-		e.notFound === true ||
-		e.code === 'LEVEL_NOT_FOUND' ||
-		e.code === 'ERR_LEVEL_NOT_FOUND' ||
-		e.name === 'NotFoundError'
-	)
-}
-
-const dbFor = (store: JournalStoreName) => {
-	if (store === 'state') return rocksState
-	if (store === 'history') return rocksHistory
-	return rocksBlock
-}
-
-/** Normalisasi nilai DB ke string|null (nilai non-string di-JSON-kan). */
-const toPrev = (value: unknown): string | null => {
-	if (value === undefined || value === null) return null
-	if (typeof value === 'string') return value
-	return JSON.stringify(value)
-}
-
-const readPrev = async (
-	store: JournalStoreName,
-	key: string,
-): Promise<string | null> => {
-	try {
-		return toPrev(await dbFor(store).get(key))
-	} catch (error) {
-		if (isNotFound(error)) return null
-		throw error
-	}
-}
-
-/** Baca nilai lama semua kunci touch (langkah 2 alur commit). */
-export const capturePrev = async (
-	touch: JournalTouchSet,
-): Promise<JournalEntry[]> => {
-	const entries: JournalEntry[] = []
-	const stores: JournalStoreName[] = ['state', 'history', 'block']
-	for (const store of stores) {
-		for (const key of touch[store]) {
-			entries.push({ store, key, prev: await readPrev(store, key) })
-		}
-	}
-	return entries
-}
-
-/** Siapkan record journal untuk sebuah blok (enumerasi + snapshot prev). */
-export const prepareJournalRecord = async (
-	block: Block,
-): Promise<{ record: JournalRecord; touch: JournalTouchSet }> => {
-	const touch = enumerateTouchSet(block)
-	const entries = await capturePrev(touch)
-	return {
-		record: {
-			height: block.block.height,
-			hash: block.block.header.hash,
-			entries,
-		},
-		touch,
-	}
-}
-
-/** Tulis WAL (langkah 3): `sync:true` → ada di disk SEBELUM tulisan state. */
+/** Tulis WAL: `sync:true` → ada di disk SEBELUM satu byte state ditulis. */
 export const writeJournalRecord = async (
 	record: JournalRecord,
 ): Promise<void> => {
 	await rocksJournal.put(journalKey(record.height), record, { sync: true })
 }
 
+/** Penanda "blok ini permanen". Ditulis SETELAH flush buffer selesai. */
+export const writeCommittedMarker = async (height: number): Promise<void> => {
+	await rocksJournal.put(committedKey(height), '1', { sync: true })
+}
+
+const hasCommittedMarker = async (height: number): Promise<boolean> => {
+	try {
+		return (await rocksJournal.get(committedKey(height))) === '1'
+	} catch (error) {
+		if (isNotFound(error)) return false
+		throw error
+	}
+}
+
+/**
+ * Rollback hanya boleh membalik blok yang MEMANG blok di tinggi itu. Tanpa
+ * cek ini, record basi/tertukar akan "memulihkan" nilai lama ke atas rantai
+ * yang berbeda — kerusakan state yang lebih buruk daripada tidak rollback.
+ */
+const assertRecordMatchesChain = async (
+	record: JournalRecord,
+): Promise<void> => {
+	const pointer = await bufferGet('state', `blockHeight:${record.height}`)
+	if (pointer !== null && pointer !== record.hash) {
+		throw new Error(
+			`Journal: record tinggi ${record.height} ber-hash ${record.hash} ` +
+				`tidak cocok dengan rantai (${pointer}) — rollback ditolak.`,
+		)
+	}
+}
+
 /**
  * Terapkan (rollback) satu record: pulihkan `prev`/del tiap kunci, LALU hapus
- * `journal:<h>`. Urutan "terapkan dulu baru hapus" membuat operasi idempoten
- * saat crash di tengah rollback.
+ * record + penanda. Urutan "terapkan dulu baru hapus" membuat operasi
+ * idempoten saat crash di tengah rollback.
  */
 export const applyRecord = async (record: JournalRecord): Promise<void> => {
-	for (const entry of record.entries) {
-		const db = dbFor(entry.store)
-		if (entry.prev === null) {
-			await db.del(entry.key)
-		} else {
-			await db.put(entry.key, entry.prev as never)
+	for (const store of ['block', 'state', 'history'] as JournalStoreName[]) {
+		const ops = record.entries
+			.filter((entry) => entry.store === store)
+			.map((entry: JournalEntry) =>
+				entry.prev === null
+					? { type: 'del' as const, key: entry.key }
+					: { type: 'put' as const, key: entry.key, value: entry.prev },
+			)
+		if (ops.length > 0) {
+			await dbFor(store).batch(ops as never, { sync: true })
 		}
 	}
+	// Journal dihapus lebih dulu: sisa penanda tanpa journal diabaikan
+	// recovery, sedangkan journal tanpa penanda akan dibalik (idempoten).
 	await rocksJournal.del(journalKey(record.height))
+	await rocksJournal.del(committedKey(record.height))
 }
 
 /** Tinggi tip saat ini dari `blockState`; -1 bila rantai masih kosong. */
@@ -164,6 +134,7 @@ const readRecord = async (height: number): Promise<JournalRecord | null> => {
 export const rollbackBlock = async (height: number): Promise<boolean> => {
 	const record = await readRecord(height)
 	if (!record) return false
+	await assertRecordMatchesChain(record)
 	await applyRecord(record)
 	return true
 }
@@ -176,35 +147,44 @@ export const rollbackAbove = async (targetHeight: number): Promise<number> => {
 	const heights = (await listJournalHeights()).filter((h) => h > targetHeight)
 	let rolled = 0
 	for (const h of heights.sort((a, b) => b - a)) {
-		await rollbackBlock(h)
-		rolled++
+		if (await rollbackBlock(h)) rolled++
 	}
 	return rolled
 }
 
 /**
- * Recovery saat boot (A.4): rollback record dengan `h > currentBlockHeight`,
- * lalu pangkas journal tua. Mengembalikan jumlah blok yang dibalik.
+ * Recovery saat boot: balik journal yang flush-nya belum tuntas (tanpa
+ * `committed:<h>`) atau yang berada di atas tip, lalu pangkas journal tua.
+ * Mengembalikan jumlah blok yang dibalik.
  */
 export const recoverJournal = async (): Promise<number> => {
-	const tip = await currentHeight()
-	const rolled = await rollbackAbove(tip)
+	let rolled = 0
+	const heights = (await listJournalHeights()).sort((a, b) => b - a)
+	for (const height of heights) {
+		if (await hasCommittedMarker(height)) {
+			if (height <= (await currentHeight())) continue
+		}
+		await rollbackBlock(height)
+		rolled++
+	}
 	if (rolled > 0) {
 		logToConsole(
-			`Journal recovery: ${rolled} blok tak-tuntas dibalik (tip=${tip}).`,
+			`Journal recovery: ${rolled} blok tak-tuntas dibalik ` +
+				`(tip=${await currentHeight()}).`,
 		)
 	}
-	await pruneJournal(tip)
+	await pruneJournal(await currentHeight())
 	return rolled
 }
 
-/** Simpan `MAX_REORG_DEPTH` record terbaru; hapus sisanya. */
+/** Simpan `MAX_REORG_DEPTH` record terbaru (+ penandanya); hapus sisanya. */
 export const pruneJournal = async (tipHeight: number): Promise<number> => {
 	if (tipHeight < 0) return 0
 	const cutoff = tipHeight - MAX_REORG_DEPTH
 	const heights = (await listJournalHeights()).filter((h) => h <= cutoff)
 	for (const h of heights) {
 		await rocksJournal.del(journalKey(h))
+		await rocksJournal.del(committedKey(h))
 	}
 	return heights.length
 }

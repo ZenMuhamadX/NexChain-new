@@ -1,13 +1,13 @@
 /**
  * Pola klasifikasi input pencarian — sengaja meniru `isValidAddress`
- * backend (prefix NxS/NxC + panjang 43), bukan asumsi hex.
+ * backend (prefix NxC + panjang 43), bukan asumsi hex.
  *
  * `TX_HASH_PATTERN` meniru `src/core/encoding/rlp/txHash.ts` (`isTxHash`):
  * `txHash` berbentuk `TxC` + 64 hex = 67 karakter, BUKAN 64 hex. Explorer
  * sengaja TIDAK mengimpor modul backend (file backend tidak ikut bundle),
  * jadi pola disalin di sini — samakan bila prefix kanonik berubah.
  */
-export const ADDRESS_PATTERN = /^Nx[CS].{40}$/
+export const ADDRESS_PATTERN = /^NxC.{40}$/
 export const HEIGHT_PATTERN = /^\d+$/
 export const HASH_PATTERN = /^(0x)?[0-9a-fA-F]{64}$/
 export const TX_HASH_PATTERN = /^TxC[0-9a-f]{64}$/

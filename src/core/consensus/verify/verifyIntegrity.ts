@@ -16,6 +16,7 @@ import { logToConsole } from 'src/logging/logging'
 import { loggingErr } from 'src/logging/errorLog'
 import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { GENESIS_HASH } from 'src/core/block/genesis'
+import { currentHeight as storedTipHeight } from 'src/core/state/journal/store'
 import {
 	getVerifyMarker,
 	resetVerifyMarker,
@@ -107,6 +108,25 @@ const verifyRange = async (
 	while (true) {
 		const block = (await getBlockByHeight(currentHeight)) as Block | undefined
 		if (!block) {
+			// Dulu blok hilang di TENGAH rantai dianggap "verified" — lubang
+			// lolos tanpa jejak. Tinggi terakhir yang benar-benar dibaca wajib
+			// sama dengan tip yang diakui `blockState`: kurang = blok hilang,
+			// lebih = penunjuk tip mendahului data.
+			const tip = await storedTipHeight()
+			const reached = currentHeight - 1
+			if (reached !== tip) {
+				loggingErr({
+					message: `Chain integrity gagal: verifikasi berhenti di height ${reached}, tetapi blockState.currentBlockHeight=${tip}`,
+					stack: new Error().stack!,
+					timestamp: generateTimestampz(),
+					level: 'error',
+					priority: 'high',
+					context: 'verifyChainIntegrity',
+					hint: 'Blok hilang di tengah rantai atau penunjuk tip mendahului data. Reset direktori data (NEX_DATA_DIR) atau pulihkan dari node lain.',
+				})
+				resetVerifyMarker()
+				return false
+			}
 			logToConsole('Chain integrity verified.')
 			return true
 		}

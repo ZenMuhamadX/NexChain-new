@@ -97,9 +97,7 @@ const nextNonce = async (address: string): Promise<number> =>
 const senderPhrase: string =
 	process.env.NEX_E2E_SENDER_MNEMONIC?.trim() || (await genRandomMnemonic())
 const senderKeys = generateKeysFromMnemonic(senderPhrase)
-const sender: string = generateAddressFromPublicKey(
-	senderKeys.publicKey,
-)
+const sender: string = generateAddressFromPublicKey(senderKeys.publicKey)
 const privateKey = senderKeys.privateKey
 
 const freshAddress = async (): Promise<string> => {
@@ -262,7 +260,7 @@ if ((await getBal(sender)) === 0) {
 
 // ---- 1. RPC kontrak dihapus ----
 try {
-	await rpcCall('nex_getContractBalance', `NxS${'11'.repeat(20)}`)
+	await rpcCall('nex_getContractBalance', `NxC${'11'.repeat(20)}`)
 	ok('nex_getContractBalance sudah dihapus', false, 'method masih terdaftar!')
 } catch (error) {
 	const text = JSON.stringify(error ?? '')

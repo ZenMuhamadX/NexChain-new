@@ -1,16 +1,13 @@
-import { loggingErr } from 'src/logging/errorLog'
 import { TxInterface } from 'src/types/transaction'
 import { processSender } from './sender/processSender'
 import { removeMemPool } from 'src/core/state/storage/mempool/removeMempool'
-import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { saveTxHistory } from './saveTxHistory'
 import { processReceiver } from './receiver/processReceiver'
 import { saveTxByAddress } from 'src/core/transaction/saveTransactionByAddress'
 import { createCoinbaseRecord } from 'src/core/transaction/createCoinbaseTransaction'
 import { isTxExecuted } from './isTxExecuted'
 import { blockStruct } from 'src/types/block'
-import { isJournalGuardError } from 'src/core/state/journal/guard'
-import { isNonceMismatchError } from 'src/core/consensus/verify/module/verifyNonce'
+import { isSimulation } from 'src/core/state/journal/writeBuffer'
 
 /**
  * Lampirkan asal blok ke entri riwayat.
@@ -47,6 +44,9 @@ const withBlockMetadata = (tx: TxInterface, block: blockStruct) => ({
  * Record riwayat tetap ditulis agar hadiah muncul di riwayat alamat penambang
  * seperti sebelumnya. Ia berbentuk sama dengan transaksi, tapi tidak pernah
  * menjadi bagian dari daftar transaksi blok.
+ *
+ * Kegagalan TIDAK ditelan: hadiah yang gagal dikredit berarti blok tidak
+ * ter-commit, bukan blok sukses yang diam-diam tidak membayar penambang.
  */
 const applyBlockReward = async (block: blockStruct): Promise<void> => {
 	const { receiver, amount } = block.coinbaseTransaction
@@ -54,24 +54,25 @@ const applyBlockReward = async (block: blockStruct): Promise<void> => {
 
 	// Idempotensi: kalau record hadiah blok ini sudah ada, jangan kredit dua
 	// kali (mis. proses diulang setelah restart).
-	if (record.txHash && (await isTxExecuted(record.txHash))) return
+	//
+	// Dikecualikan saat SIMULASI: id hadiah hanya bergantung pada TINGGI, jadi
+	// blok cabang (2b) memakai id yang sama dengan blok lokal di tinggi itu
+	// (2a) yang akan dibuang reorg. Tanpa pengecualian, simulasi mengira
+	// hadiah sudah dibayar, menghasilkan root kosong, dan blok cabangnya
+	// ditolak saat reorg.
+	if (!isSimulation() && record.txHash && (await isTxExecuted(record.txHash)))
+		return
 
-	try {
-		await processReceiver(receiver, amount)
-		await saveTxByAddress(record.from!, record.receiver, record.txHash!)
-		await saveTxHistory(record.txHash!, withBlockMetadata(record, block))
-	} catch (error) {
-		if (isJournalGuardError(error)) throw error
-		loggingErr({
-			message: error instanceof Error ? error.message : 'Unknown error',
-			stack: new Error().stack!,
-			hint: 'Error applying block reward (coinbase)',
-			timestamp: generateTimestampz(),
-			level: 'error',
-			priority: 'high',
-			context: 'leveldb processTransaction coinbase',
-		})
-	}
+	// Timestamp BLOK, bukan `Date.now()`: dua node yang mengeksekusi blok yang
+	// sama wajib menghasilkan state yang sama (syarat `stateRoot`).
+	await processReceiver(receiver, amount, block.header.timestamp)
+	await saveTxByAddress(
+		record.from!,
+		record.receiver,
+		record.txHash!,
+		block.height,
+	)
+	await saveTxHistory(record.txHash!, withBlockMetadata(record, block))
 }
 
 /**
@@ -99,29 +100,22 @@ export const processTransact = async (
 			continue
 		}
 
-		try {
-			await processSender(tx.from!, tx.amount, tx.fee!, tx.nonce)
-			await processReceiver(tx.receiver, tx.amount)
-			await saveTxByAddress(tx.from!, tx.receiver, tx.txHash!)
-			await saveTxHistory(tx.txHash!, withBlockMetadata(tx, block))
-			// Ditunggu: penghapusan kini menyertakan indeks per-pengirim
-			// (satu batch atomik) — lihat `removeMemPool`.
-			await removeMemPool(tx.txHash!)
-		} catch (error) {
-			// Nonce error ikut dilempar, bukan ditelan: coinbase sudah
-			// membayarkan total fee blok, jadi men-skip tx nonce-salah
-			// berarti membayar fee tanpa mendebet pengirim (inflasi).
-			// Commit gagal → `commitBlock` me-rollback via journal.
-			if (isJournalGuardError(error) || isNonceMismatchError(error)) throw error
-			loggingErr({
-				message: error instanceof Error ? error.message : 'Unknown error',
-				stack: new Error().stack!,
-				hint: 'Error processing transaction',
-				timestamp: generateTimestampz(),
-				level: 'error',
-				priority: 'high',
-				context: 'leveldb processTransaction',
-			})
-		}
+		// SEMUA kegagalan eksekusi dilempar, termasuk `Insufficient balance`:
+		// coinbase sudah membayarkan total fee blok, jadi men-skip tx berarti
+		// membayar fee tanpa mendebet pengirim (inflasi) dan blok tetap
+		// `status:true`. Dilempar → `commitBlock` me-rollback lewat journal.
+		await processSender(
+			tx.from!,
+			tx.amount,
+			tx.fee!,
+			tx.nonce,
+			block.header.timestamp,
+		)
+		await processReceiver(tx.receiver, tx.amount, block.header.timestamp)
+		await saveTxByAddress(tx.from!, tx.receiver, tx.txHash!, block.height)
+		await saveTxHistory(tx.txHash!, withBlockMetadata(tx, block))
+		// Ditunggu: penghapusan kini menyertakan indeks per-pengirim
+		// (satu batch atomik) — lihat `removeMemPool`.
+		await removeMemPool(tx.txHash!)
 	}
 }

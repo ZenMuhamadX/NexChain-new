@@ -48,7 +48,7 @@ fn usage() -> &'static str {
 	   nex-miner --address NxC... [opsi]\n\
 	 \n\
 	 Opsi:\n\
-	   --address <alamat>   alamat penerima hadiah (wajib, NxC/NxS 43 char)\n\
+	   --address <alamat>   alamat penerima hadiah (wajib, NxC + 40 hex = 43 char)\n\
 	   --rpc <url>          endpoint JSON-RPC (default: NEX_RPC_URL atau\n\
 	                        http://localhost:8000/rpc)\n\
 	   --threads <n>        jumlah thread hashing (default: jumlah CPU logis)\n\
@@ -114,7 +114,7 @@ fn parse_args() -> Result<Args, String> {
     };
     if !is_valid_address(&address) {
         return Err(format!(
-            "alamat tidak valid: {address:?} — harus diawali NxC/NxS dan 43 karakter"
+            "alamat tidak valid: {address:?} - harus diawali NxC dan 43 karakter"
         ));
     }
 
@@ -141,7 +141,7 @@ fn parse_args() -> Result<Args, String> {
 
 /// Salinan `isValidAddress` node.
 fn is_valid_address(address: &str) -> bool {
-    (address.starts_with("NxC") || address.starts_with("NxS")) && address.len() == 43
+    address.starts_with("NxC") && address.len() == 43
 }
 
 fn now_ms() -> u64 {
@@ -617,10 +617,9 @@ mod tests {
     #[test]
     fn address_rule_matches_node() {
         let good_x = format!("NxC{}", "a".repeat(40));
-        let good_s = format!("NxS{}", "b".repeat(40));
         assert_eq!(good_x.len(), 43);
         assert!(is_valid_address(&good_x));
-        assert!(is_valid_address(&good_s));
+        assert!(!is_valid_address(&format!("NxS{}", "b".repeat(40))));
         assert!(!is_valid_address("NxC"));
         assert!(!is_valid_address(&format!("NxC{}", "a".repeat(41))));
         assert!(!is_valid_address(&format!("NxA{}", "a".repeat(40))));

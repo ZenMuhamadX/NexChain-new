@@ -1,10 +1,6 @@
 import { rocksMempool } from 'src/core/state/db/memPool'
-import {
-	legacyMempoolTxKey,
-	mempoolTxKey,
-	runMempoolOp,
-	senderIndexKey,
-} from './mempoolIndex'
+import { isSimulation } from 'src/core/state/journal/writeBuffer'
+import { mempoolTxKey, runMempoolOp, senderIndexKey } from './mempoolIndex'
 
 type RemoveOp = { type: 'del'; key: string }
 
@@ -36,31 +32,24 @@ const senderOf = (stored: unknown): string | undefined => {
  * indeks yatim akan menaikkan ekspektasi nonce selamanya dan mengunci
  * pengirim (persis cacat yang diperbaiki indeks ini).
  *
- * Data format lama (`Tx-0x…`) ikut dibaca sebagai cadangan dan key lamanya
- * ikut dihapus — eksekusi transaksi lama akhirnya benar-benar bersih.
- *
  * TIDAK PERNAH menolak: kegagalan dicatat lalu dilewati (pemanggil lama
  * memanggilnya tanpa `await` di jalur zombie; transaksi tetap dianggap
  * selesai dieksekusi dan pembersihan berikutnya bersifat idempoten).
  */
 export const removeMemPool = async (txHash: string): Promise<void> => {
 	if (!txHash) return
+	// Simulasi (template/replay) TIDAK boleh menghapus tx: template yang tak
+	// pernah ditambang, atau replay saat boot, tidak berarti tx sudah masuk
+	// blok. Mempool hanya berubah saat commit nyata.
+	if (isSimulation()) return
 	try {
 		await runMempoolOp(async () => {
-			const currentKey = mempoolTxKey(txHash)
-			const legacyKey = legacyMempoolTxKey(txHash)
+			const key = mempoolTxKey(txHash)
 
-			const stored = await rocksMempool.get(currentKey).catch(() => null)
-			const legacyStored =
-				stored === null
-					? await rocksMempool.get(legacyKey).catch(() => null)
-					: null
+			const stored = await rocksMempool.get(key).catch(() => null)
 
-			const ops: RemoveOp[] = [
-				{ type: 'del', key: currentKey },
-				{ type: 'del', key: legacyKey },
-			]
-			const from = senderOf(stored ?? legacyStored)
+			const ops: RemoveOp[] = [{ type: 'del', key }]
+			const from = senderOf(stored)
 			if (from) ops.push({ type: 'del', key: senderIndexKey(from, txHash) })
 
 			await rocksMempool.batch(ops, { sync: true })

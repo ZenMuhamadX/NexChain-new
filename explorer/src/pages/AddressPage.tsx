@@ -159,9 +159,7 @@ export function AddressPage() {
 						<p className="panel-eyebrow">Account data</p>
 						<h2 id="address-overview-title">Overview</h2>
 					</div>
-					<span className="panel-meta">
-						{balance.isContract ? 'Contract' : 'Wallet'}
-					</span>
+					<span className="panel-meta">Wallet</span>
 				</div>
 				<div className="panel-body">
 					<dl className="detail-grid">
@@ -203,10 +201,6 @@ export function AddressPage() {
 									? formatDateTime(balance.lastTransactionDate)
 									: '—'}
 							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Account type</dt>
-							<dd>{balance.isContract ? 'Contract' : 'Wallet'}</dd>
 						</div>
 					</dl>
 				</div>

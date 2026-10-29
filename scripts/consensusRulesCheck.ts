@@ -1,3 +1,4 @@
+import { EMPTY_STATE_ROOT } from 'src/core/state/root'
 /**
  * Gerbang regresi "aturan konsensus P0-A".
  *
@@ -193,6 +194,7 @@ const makeRewardBlock = (): Block =>
 			version: '1.0.0',
 			difficulty: 20,
 			hashingAlgorithm: 'SHA256',
+			stateRoot: EMPTY_STATE_ROOT,
 		},
 		height: HEIGHT,
 		size: 1,

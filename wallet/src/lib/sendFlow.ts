@@ -56,7 +56,7 @@ export const hasSendErrors = (errors: SendErrors): boolean =>
  * Aturan yang diterapkan (sumber: `src/core/validation/module/isValid*` dan
  * Joi `txInterfaceValidator`):
  *
- *   - alamat    : `isValidAddress` (prefix NxC/NxS, panjang 43) —
+ *   - alamat    : `isValidAddress` (prefix NxC, panjang 43) -
  *                 validateAddresses + validateAddressLengths
  *   - pengirim ≠ penerima — validateTransactionSenderReceiver
  *   - jumlah    : > 0, parse string eksak via `toNexu` (aritmetika string,
@@ -82,7 +82,7 @@ export const validateSendForm = (
 	const receiver = form.receiver.trim()
 	if (!isValidAddress(receiver)) {
 		errors.receiver =
-			'Alamat tidak valid (harus diawali NxC/NxS, panjang 43 karakter).'
+			'Alamat tidak valid (harus diawali NxC, panjang 43 karakter).'
 	} else if (receiver === sender) {
 		errors.receiver = 'Pengirim dan penerima tidak boleh sama.'
 	}

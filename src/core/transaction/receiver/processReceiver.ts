@@ -1,11 +1,11 @@
 import { getAccount } from 'src/core/state/account/getAccount'
 import { putAccount } from 'src/core/state/account/putAccount'
 import { structBalance } from 'src/types/balance'
-import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 
 export const processReceiver = async (
 	recieverAddress: string,
 	amount: number,
+	blockTimestamp: number,
 ) => {
 	// `getAccount` mengembalikan akun-nol semu untuk alamat valid yang belum
 	// ada — jadi kredit pertama = penciptaan akun (seperti Ethereum), TANPA
@@ -23,8 +23,8 @@ export const processReceiver = async (
 		address: recieverAddress,
 		balance: oldData.balance + amount,
 		transactionCount: (oldData.transactionCount ?? 0) + 1,
-		isContract: false,
-		lastTransactionDate: generateTimestampz(),
+		// Timestamp BLOK, bukan `Date.now()` — state harus deterministik.
+		lastTransactionDate: blockTimestamp,
 		// BUG-E2: penerima TIDAK mengirim transaksi, jadi nonce keluarannya
 		// tidak boleh berubah. Nonce = jumlah transaksi keluaran terkonfirmasi;
 		// `oldData.nonce + 1` dulu membuat nonce berarti "masuk + keluar",

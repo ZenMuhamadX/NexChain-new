@@ -1,120 +1,48 @@
-import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
-import { loggingErr } from 'src/logging/errorLog'
 import { structBalance } from 'src/types/balance'
-import { rocksState } from 'src/core/state/db/state'
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { logToConsole } from 'src/logging/logging'
 import { HexString } from 'src/types/block'
-import { hexToString } from 'src/core/encoding/hex/hexToString'
+import { decodeAccount } from 'src/core/encoding/rlp/accountCodec'
+import { bufferGet } from 'src/core/state/journal/writeBuffer'
 
 /**
- * Fetches the balance of an address from the RocksDB state.
- * @param address - The address to fetch the balance for.
- * @returns A Promise resolving to the balance or undefined in case of errors.
+ * Baca akun dari store `state`.
+ *
+ * Tiga hasil yang SENGAJA dibedakan (dulu semuanya jadi "saldo 0"):
+ *   - alamat tidak valid → `undefined`;
+ *   - kunci tidak ada     → akun-nol (alamat valid yang belum pernah dibayar);
+ *   - error DB / leaf rusak → **throw** (fail-closed). Membaca state yang
+ *     tidak bisa di-decode sebagai 0 berarti transaksi berikutnya dibangun di
+ *     atas saldo palsu, dan blok tetap "sukses".
+ *
+ * Lewat `bufferGet`: selama commit, tulisan yang belum di-flush tetap
+ * terlihat, jadi tx kedua dari pengirim yang sama membaca saldo setelah debit
+ * tx pertama — bukan saldo pra-blok.
  */
 export const getAccount = async (
 	address: string,
 ): Promise<structBalance | undefined> => {
-	try {
-		// Validate the address input
-		if (!isValidInput(address)) {
-			return
-		}
-
-		// Fetch balance from the RocksDB state
-		const balanceHex = await fetchBalanceFromDB(address)
-		if (!balanceHex) {
-			return createDefaultBalance(address)
-		}
-
-		// Decode and parse balance data
-		return parseBalanceData(balanceHex, address)
-	} catch (error) {
-		handleUnexpectedError(error, 'getBalance')
-		return
-	}
-}
-
-/**
- * Validates the address input and logs appropriate errors.
- * @param address - The address to validate.
- * @returns True if the address is valid, false otherwise.
- */
-const isValidInput = (address: string): boolean => {
 	if (!address) {
 		logToConsole('Address not provided')
-		return false
+		return
 	}
 	if (!isValidAddress(address)) {
 		logToConsole('Invalid address')
-		return false
+		return
 	}
-	return true
+
+	const value = await bufferGet('state', address)
+	// Kunci yang tidak ada (termasuk yang belum di-flush tapi sudah ada di
+	// buffer) bernilai `null` — hanya itu yang berarti "akun belum ada".
+	if (!value) return createDefaultBalance(address)
+	return decodeAccount(value as HexString, address)
 }
 
-/**
- * Fetches the balance of an address from RocksDB.
- * @param address - The address to fetch the balance for.
- * @returns A Promise resolving to the balance as a Buffer or null if not found.
- */
-const fetchBalanceFromDB = async (
-	address: string,
-): Promise<HexString | null> => {
-	const data = await rocksState
-		.get(address, { fillCache: true })
-		.catch(() => null)
-	return data as HexString
-}
-
-/**
- * Creates a default balance object for an address.
- * @param address - The address to create the default balance for.
- * @returns A structBalance object with default values.
- */
+/** Akun yang belum pernah muncul on-chain: semua nol, bukan "error". */
 const createDefaultBalance = (address: string): structBalance => ({
 	address,
 	balance: 0,
 	transactionCount: 0,
-	isContract: false,
 	lastTransactionDate: null,
 	nonce: 0,
 })
-
-/**
- * Decodes and parses balance data from a Buffer.
- * @param balanceBuffer - The balance data as a Buffer.
- * @param address - The associated address.
- * @returns A structBalance object parsed from the data.
- */
-const parseBalanceData = (
-	hexAccount: HexString,
-	address: string,
-): structBalance => {
-	try {
-		return JSON.parse(hexToString(hexAccount))
-	} catch {
-		logToConsole(`Failed to decode balance data for address: ${address}`)
-		return createDefaultBalance(address)
-	}
-}
-
-/**
- * Handles unexpected errors during the balance retrieval process.
- * @param error - The error that occurred.
- * @param context - The context of the error (e.g., function name).
- */
-const handleUnexpectedError = (error: unknown, context: string): void => {
-	if (error instanceof Error) {
-		console.error(`Error in ${context}:`, error.message)
-	} else {
-		loggingErr({
-			level: 'error',
-			timestamp: generateTimestampz(),
-			context,
-			stack: new Error().stack!,
-			hint: `An unexpected error occurred in ${context}.`,
-			message: `An unexpected error occurred in ${context}.`,
-			priority: 'high',
-		})
-	}
-}

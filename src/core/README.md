@@ -11,7 +11,7 @@ jalan di sini**; semuanya dijalankan lewat `apps/node`. Dulu berada di `nexchain
 | `blockchain/`  | Orkestrasi rantai: `blockchain.ts`.                                                                                                                                                                                                                 |
 | `transaction/` | Siklus tx: `processTransaction`, `createCoinbaseTransaction`, `memPool`, `isTxExecuted`, `sender/`, `receiver/`, `utils/`. Hash & skema wire tinggal di `encoding/rlp/txCodec.ts`.                                                                  |
 | `consensus/`   | PoW: `difficulty.ts`, `Pow.ts`, `work.ts`, `verify/` (verifyIntegrity penuh/inkremental, `verifyMarker.ts`, verifyPow, verifyMerkleRoot, verifyStruct, module/), dan `reorg/` (fork choice, branch pool, penelusuran nenek moyang, eksekusi reorg). |
-| `state/`       | Persistensi: `db/` (akses leveldb) + `storage/` (block / state / mempool) + `journal/` (undo journal: WAL per blok, guard fail-closed, rollback & recovery).                                                                                        |
+| `state/`       | Persistensi: `db/` (akses leveldb) + `storage/` (block / state / mempool) + `journal/` (write-buffer + undo journal: WAL per blok, rollback & recovery) + `root.ts` (komitmen `stateRoot`).                                                         |
 | `encoding/`    | `hex/`, `rlp/` (codec wire transaksi), `lib/` (format, ukuran, timestamp), `sha256.ts`, `keccak256.ts`.                                                                                                                                             |
 | `token/`       | Nexucoin: nexu ↔ NxC, formatting.                                                                                                                                                                                                                   |
 | `validation/`  | Validator tx: `txValidator.v.ts`, `joi/`, `module/`.                                                                                                                                                                                                |
@@ -25,14 +25,29 @@ lintas modul. `validation` memeriksa tx sebelum `processTransaction` menulis ke
 
 ## Undo journal (crash-consistency & fondasi reorg)
 
-`commitBlock` adalah SATU-SATUNYA titik commit (RPC & P2P). Sebelum menulis
-state, ia menulis WAL `journal:<height>` berisi nilai LAMA tiap kunci yang akan
-disentuh (dienumerasi murni dari blok lewat `enumerateTouchSet`). Selama commit
-guard journal aktif: menulis kunci yang tak terenumerasi → `JournalGuardError`
-(fail-closed) dan blok dibatalkan. Saat boot, `recoverJournal()` membalik semua
-`journal:<h>` dengan `h > blockState.currentBlockHeight`, sehingga crash di
-tengah commit tidak pernah meninggalkan blok setengah. Record juga menjadi
+`commitBlock` adalah SATU-SATUNYA titik commit (RPC & P2P). Eksekusi blok
+berjalan di **write-buffer** (RAM, nol tulis), lalu isi buffer itu — kunci +
+nilai LAMA — ditulis sebagai WAL `journal:<height>` (`sync:true`). Jadi daftar
+undo selalu sama dengan tulisan sebenarnya; tidak ada enumerasi terpisah yang
+bisa meleset. Setelah flush, `committed:<height>` ditulis sebagai langkah
+terakhir. Saat boot, `recoverJournal()` membalik setiap `journal:<h>` yang
+belum ber-penanda (flush tidak tuntas) atau berada di atas tip, sehingga crash
+di tengah commit tidak pernah meninggalkan blok setengah. Record juga menjadi
 fondasi rollback reorg (M2). Lihat `src/core/state/journal/README.md`.
+
+## Komitmen state (v0.1)
+
+Setiap header memuat `stateRoot` — bagian preimage PoW — yang dihitung dari
+root induk plus leaf yang DISENTUH blok itu (`state/root.ts`: akumulator
+chained-diff, bukan trie, jadi tanpa proof per akun). Eksekusi adalah satu-
+satunya sumber kebenaran: `createBlockTemplate` mensimulasikan blok di
+write-buffer untuk mengisi root, dan `commitBlock` mengeksekusi ulang lalu
+MENOLAK blok yang root-nya berbeda. Saat boot `replayState()` (fail-closed)
+membangun ulang state dari genesis, mencocokkan root tiap blok DAN isi DB state,
+lalu berhenti bila ada yang tidak cocok; `--rebuild-state` menulis hasil replay
+kembali (akun liar dihapus). Batas: root hanya membuktikan rantai konsisten —
+mendeteksi DB yang diedit tangan butuh replay, dan template di atas induk non-tip
+disimulasikan di atas state tip (lihat `shortcut:` di `createBlockTemplate`).
 
 ## Reorg (M2)
 

@@ -77,6 +77,9 @@ const blockStructSchema = Joi.object({
 		version: Joi.string().required(),
 		difficulty: Joi.number().required(),
 		hashingAlgorithm: Joi.string().optional(),
+		// Komitmen state (v0.1). Wajib: blok tanpa field ini berarti dibuat
+		// sebelum fork, dan harus ditolak — bukan dianggap root kosong.
+		stateRoot: Joi.string().required(),
 	}).required(),
 	height: Joi.number().required(),
 	chainId: Joi.number().required(),

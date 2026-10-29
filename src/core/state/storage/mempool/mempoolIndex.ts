@@ -37,43 +37,29 @@ import type { TxInterface } from 'src/types/transaction'
  * proses-satu), sehingga rebuild tidak bisa berimpit dengan admission.
  */
 
-/** Key entri mempool — format yang dipakai sejak awal: `0x<txHash>`. */
-export const mempoolTxKey = (txHash: string): string => `0x${txHash}`
+/** Key entri mempool — `txHash` apa adanya (`TxC` + 64 hex). */
+export const mempoolTxKey = (txHash: string): string => txHash
 
 /**
  * Key indeks per-pengirim: `mpf:<from>:<txHash>`.
  *
  * Nilai: `{ cost }` = amount+fee transaksi. Alamat tidak mengandung `:`
- * (hanya `NxC`/`NxS` + hex huruf kecil), jadi batas range per-pengirim
+ * (hanya `NxC` + hex huruf kecil), jadi batas range per-pengirim
  * (`mpf:<from>:` s/d `mpf:<from>;`) tidak mungkin menyerempet alamat lain.
  */
 export const senderIndexKey = (from: string, txHash: string): string =>
 	`mpf:${from}:${txHash}`
 
 /**
- * Rentang key entri mempool — SATU sumber untuk pembaca (loadMempool) dan
- * rekonsiliasi (rebuild), supaya keduanya tidak mungkin berbeda pendapat:
- *
- * - `"0x"` .. `"0y"`   : format yang ditulis `saveMempool` (`0x${txHash}`);
- * - `"Tx-"` .. `"Tx."` : format lama, dipertahankan agar data yang belum
- *                        terbaca tetap ikut terhitung & terangkat.
+ * Rentang key entri mempool: `"TxC"` .. `"TxD"` — `txHash` selalu `TxC` + 64
+ * hex huruf kecil, dan `D` adalah huruf tepat setelah `C`.
  */
-export const TX_KEY_RANGES = [
-	{ gte: '0x', lt: '0y' },
-	{ gte: 'Tx-', lt: 'Tx.' },
-]
+export const TX_KEY_RANGE = { gte: 'TxC', lt: 'TxD' } as const
 
 /** Batas bawah range indeks per-pengirim: `mpf:<from>:`. */
 const senderIndexGte = (from: string): string => `mpf:${from}:`
 /** Batas kanan range indeks per-pengirim — `:` + 1 === `;` (0x3A → 0x3B). */
 const senderIndexLt = (from: string): string => `mpf:${from};`
-
-/**
- * Key entri mempool format LAMA (`Tx-0x<hash>`) — cadangan baca/hapus untuk
- * data yang belum terbaca (lihat `TX_KEY_RANGES`). Satu definisi dipakai
- * `removeMemPool`, sapuan, dan `replaceMempool`; dulu disalin di dua tempat.
- */
-export const legacyMempoolTxKey = (txHash: string): string => `Tx-0x${txHash}`
 
 /** Rentang SELURUH indeks (untuk rekonsiliasi & sapuan). */
 export const ALL_INDEX_GTE = 'mpf:'
@@ -117,31 +103,29 @@ type IndexOp =
 const rebuildBody = async (): Promise<void> => {
 	const txHashes = new Set<string>()
 	const wanted: Array<{ txHash: string; from: string; cost: number }> = []
-	for (const range of TX_KEY_RANGES) {
-		for await (const [, value] of rocksMempool.iterator({
-			gte: range.gte,
-			lt: range.lt,
-			values: true,
-			keys: false,
-		})) {
-			const tx = JSON.parse(value.toString()) as {
-				txHash?: unknown
-				from?: unknown
-				amount?: unknown
-				fee?: unknown
-			}
-			if (typeof tx.txHash !== 'string' || typeof tx.from !== 'string') {
-				continue
-			}
-			txHashes.add(tx.txHash)
-			wanted.push({
-				txHash: tx.txHash,
-				from: tx.from,
-				cost:
-					(typeof tx.amount === 'number' ? tx.amount : 0) +
-					(typeof tx.fee === 'number' ? tx.fee : 0),
-			})
+	for await (const [, value] of rocksMempool.iterator({
+		gte: TX_KEY_RANGE.gte,
+		lt: TX_KEY_RANGE.lt,
+		values: true,
+		keys: false,
+	})) {
+		const tx = JSON.parse(value.toString()) as {
+			txHash?: unknown
+			from?: unknown
+			amount?: unknown
+			fee?: unknown
 		}
+		if (typeof tx.txHash !== 'string' || typeof tx.from !== 'string') {
+			continue
+		}
+		txHashes.add(tx.txHash)
+		wanted.push({
+			txHash: tx.txHash,
+			from: tx.from,
+			cost:
+				(typeof tx.amount === 'number' ? tx.amount : 0) +
+				(typeof tx.fee === 'number' ? tx.fee : 0),
+		})
 	}
 
 	const ops: IndexOp[] = []
@@ -284,8 +268,7 @@ export const countPendingBySender = async (from: string): Promise<number> =>
 	(await senderIndexStats(from)).count
 
 /**
- * Baca SATU entri mempool lewat `txHash` (format baru, cadangan format lama);
- * `undefined` bila hilang/rusak.
+ * Baca SATU entri mempool lewat `txHash`; `undefined` bila hilang/rusak.
  *
  * MENGAPA baca transaksi penuh, bukan nilai indeks: nilai indeks (`{cost}`)
  * TIDAK menyimpan `nonce` maupun `fee`, sedangkan pencarian pengganti (RBF)
@@ -296,17 +279,17 @@ export const countPendingBySender = async (from: string): Promise<number> =>
 export const readMempoolEntry = async (
 	txHash: string,
 ): Promise<TxInterface | undefined> => {
-	for (const key of [mempoolTxKey(txHash), legacyMempoolTxKey(txHash)]) {
-		const stored: unknown = await rocksMempool.get(key).catch(() => null)
-		if (stored === null || stored === undefined) continue
-		try {
-			const parsed: unknown =
-				typeof stored === 'string' ? JSON.parse(stored) : stored
-			if (parsed !== null && typeof parsed === 'object')
-				return parsed as TxInterface
-		} catch {
-			// nilai rusak — coba kunci cadangan, lalu serahkan ke pemanggil
-		}
+	const stored: unknown = await rocksMempool
+		.get(mempoolTxKey(txHash))
+		.catch(() => null)
+	if (stored === null || stored === undefined) return undefined
+	try {
+		const parsed: unknown =
+			typeof stored === 'string' ? JSON.parse(stored) : stored
+		if (parsed !== null && typeof parsed === 'object')
+			return parsed as TxInterface
+	} catch {
+		// nilai rusak — serahkan ke pemanggil
 	}
 	return undefined
 }

@@ -16,12 +16,12 @@
  */
 import type { HexString } from 'src/types/block'
 
-/** Prefix alamat yang dikenal. Indeks array = tag byte di payload. */
-const ADDRESS_PREFIXES = ['NxC', 'NxS'] as const
+/** Prefix alamat yang dikenal — satu bentuk saja (`NxC` + 40 hex). */
+const ADDRESS_PREFIX = 'NxC'
 
 const ADDRESS_PREFIX_LENGTH = 3
 const ADDRESS_HEX_LENGTH = 40
-const ADDRESS_BYTES = 1 + ADDRESS_HEX_LENGTH / 2 // tag + 20 byte
+const ADDRESS_BYTES = ADDRESS_HEX_LENGTH / 2 // 20 byte, seperti Ethereum
 
 /** Hex huruf kecil. Alamat & data nyata selalu huruf kecil. */
 export const LOWERCASE_HEX = /^[0-9a-f]+$/
@@ -105,7 +105,7 @@ export const bytesToNumber = (
 // ---------------------------------------------------------------------------
 
 /**
- * Alamat `NxC`/`NxS` + 40 hex → 1 byte tag prefix + 20 byte.
+ * Alamat `NxC` + 40 hex → 20 byte (hex mentah, tanpa tag byte).
  *
  * Hanya huruf kecil yang diterima: alamat nyata selalu huruf kecil
  * (`generateAddressFromPublicKey` memakai keluaran js-sha3), dan menolak
@@ -119,8 +119,7 @@ export const addressToBytes = (
 	if (typeof address !== 'string') {
 		throw new Error(`${label}: alamat harus berupa string`)
 	}
-	const tag = ADDRESS_PREFIXES.findIndex((prefix) => address.startsWith(prefix))
-	if (tag < 0) {
+	if (!address.startsWith(ADDRESS_PREFIX)) {
 		throw new Error(`${label}: prefix alamat tidak dikenal: ${address}`)
 	}
 	const hex = address.slice(ADDRESS_PREFIX_LENGTH)
@@ -129,10 +128,7 @@ export const addressToBytes = (
 			`${label}: alamat harus ${ADDRESS_PREFIX_LENGTH + ADDRESS_HEX_LENGTH} karakter hex huruf kecil: ${address}`,
 		)
 	}
-	const out = new Uint8Array(ADDRESS_BYTES)
-	out[0] = tag
-	out.set(hexToBytes(hex), 1)
-	return out
+	return hexToBytes(hex)
 }
 
 export const bytesToAddress = (
@@ -144,11 +140,7 @@ export const bytesToAddress = (
 			`${label}: alamat biner harus ${ADDRESS_BYTES} byte, dapat ${bytes.length}`,
 		)
 	}
-	const prefix = ADDRESS_PREFIXES[bytes[0]]
-	if (prefix === undefined) {
-		throw new Error(`${label}: tag alamat tidak dikenal: ${bytes[0]}`)
-	}
-	return prefix + bytesToHex(bytes.subarray(1))
+	return ADDRESS_PREFIX + bytesToHex(bytes)
 }
 
 // ---------------------------------------------------------------------------
