@@ -23,6 +23,7 @@ import {
 	formatNxc,
 	formatNumber,
 	formatSize,
+	MAX_SUPPLY_NXC,
 	timeAgo,
 } from '../lib/format'
 
@@ -80,10 +81,6 @@ export function DashboardPage() {
 			<section className="explorer-hero" aria-labelledby="explorer-title">
 				<div className="hero-network" aria-hidden="true" />
 				<div className="hero-content">
-					<div className="hero-badge">
-						<span className="chain-dot" />
-						Live NexChain network
-					</div>
 					<h1 id="explorer-title">The NexChain Blockchain Explorer</h1>
 					<p>
 						Search the NexChain blockchain, follow recent blocks, and inspect
@@ -108,10 +105,6 @@ export function DashboardPage() {
 						<p className="panel-eyebrow">Network</p>
 						<h2 id="network-overview-title">NexChain Network Overview</h2>
 					</div>
-					<span className="live-label">
-						<span className="chain-dot" aria-hidden="true" />
-						Live
-					</span>
 				</div>
 				<dl className="network-summary">
 					<div>
@@ -124,16 +117,24 @@ export function DashboardPage() {
 						<span>{latest ? timeAgo(latest.timestamp) : 'latest'}</span>
 					</div>
 					<div>
-						<dt>Chain ID</dt>
-						<dd>{chain.chainId ?? '—'}</dd>
-						<span>Main network</span>
+						<dt>Total issued</dt>
+						<dd>
+							{state.totalIssued !== undefined
+								? formatNxc(state.totalIssued, 2)
+								: '—'}
+						</dd>
+						<span>of {formatNumber(MAX_SUPPLY_NXC)} NXC cap</span>
 					</div>
 					<div>
 						<dt>Avg. block time</dt>
 						<dd>
 							{avgBlockTime !== undefined ? formatDuration(avgBlockTime) : '—'}
 						</dd>
-						<span>Last {windowed.length || 10} blocks</span>
+						<span>
+							{windowed.length >= 2
+								? `Last ${windowed.length} blocks`
+								: 'Needs 2+ blocks'}
+						</span>
 					</div>
 					<div>
 						<dt>Difficulty</dt>

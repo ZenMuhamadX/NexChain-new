@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -32,39 +32,13 @@
 			rel="stylesheet"
 		/>
 		<style>
+			/* Tema dipatok gelap: tidak ada lagi tombol ganti tema, jadi tidak
+			   ada preferensi tersimpan yang perlu dibaca sebelum paint. */
 			html {
-				background: #fafbfd;
-				color-scheme: light;
-			}
-			html[data-theme='dark'] {
 				background: #0f1317;
 				color-scheme: dark;
 			}
 		</style>
-		<script>
-			// Terapkan tema tersimpan SEBELUM paint — tanpa ini user tema gelap
-			// melihat kilatan terang setiap kali muat ulang halaman.
-			;(function () {
-				try {
-					var saved = localStorage.getItem('nex:theme')
-					var theme =
-						saved === 'light' || saved === 'dark'
-							? saved
-							: window.matchMedia('(prefers-color-scheme: dark)').matches
-								? 'dark'
-								: 'light'
-					document.documentElement.dataset.theme = theme
-					document.querySelector('html > style').textContent =
-						'html{background:' +
-						(theme === 'dark' ? '#0f1317' : '#fafbfd') +
-						';color-scheme:' +
-						theme +
-						';}'
-				} catch (error) {
-					/* localStorage diblokir — pakai tema terang */
-				}
-			})()
-		</script>
 	</head>
 	<body>
 		<div id="root"></div>

@@ -178,6 +178,38 @@ export interface TransactionHistory {
 	history?: HistoryEntry[]
 }
 
+/* ---- status node (satu-satunya sumber indikator di header) ---- */
+
+/**
+ * Fase sinkronisasi P2P. `idle` = P2P tidak aktif (node tunggal/devnet),
+ * `forked` = sedang mengganti tip dengan cabang yang lebih berat.
+ */
+export type SyncPhase = 'idle' | 'syncing' | 'assumed' | 'synced' | 'forked'
+
+/** `nex_getSyncStatus` — JSON polos. */
+export interface SyncStatus {
+	phase: SyncPhase
+	/** Pintasan gerbang mining: `syncing` atau `forked`. */
+	syncing: boolean
+	/** Tinggi rantai lokal terakhir yang dilaporkan P2P (0 bila belum). */
+	localHeight: number
+	/** Tinggi peer terdepan yang diketahui (0 bila belum) — petunjuk, bukan target. */
+	targetHeight: number
+	updatedAt: number
+}
+
+/** `nex_getPeerInfo` — hanya bagian yang dipakai UI. */
+export interface PeerSnapshot {
+	peers: {
+		id: string
+		remoteAddress: string
+		inbound: boolean
+		handshaked: boolean
+	}[]
+	count: number
+	maxPeers: number
+}
+
 /* ---- payload JSON-RPC ---- */
 
 export interface JsonRpcErrorPayload {

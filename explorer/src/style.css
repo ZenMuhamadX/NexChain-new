@@ -1,5 +1,10 @@
 /* ============================================================
-   NexChain Explorer — token-based theme (light + dark)
+   NexChain Explorer — token-based theme
+
+   Tema: UI dipatok GELAP (`data-theme="dark"` di index.html) dan tombol
+   ganti tema sudah dihapus. Blok `:root` (terang) tetap dipertahankan
+   karena `scripts/contrast-check.mjs` memverifikasi kontras KEDUA set
+   token — jadi ia berfungsi sebagai baseline audit, bukan tema aktif.
 
    Desain: explorer minimalis-profesional ala Etherscan.
    - type scale : 7 langkah (0.75 / 0.8125 / 0.875 / 0.9375 / 1.0625 / 1.375 / 1.75rem)
@@ -415,34 +420,6 @@ h2 {
 	max-width: 1240px;
 	margin: 0 auto;
 	width: 100%;
-}
-
-/* ============================================================
-   theme toggle
-   ============================================================ */
-
-.icon-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 2rem;
-	height: 2rem;
-	flex: 0 0 auto;
-	background: var(--bg-raised);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-sm);
-	color: var(--text-soft);
-	cursor: pointer;
-	transition:
-		background 0.15s,
-		border-color 0.15s,
-		color 0.15s;
-}
-
-.icon-btn:hover {
-	background: var(--bg-hover);
-	border-color: var(--border-strong);
-	color: var(--accent);
 }
 
 /* ============================================================
@@ -1673,10 +1650,6 @@ tr.is-new > td {
 		max-width: none;
 	}
 
-	.theme-toggle {
-		order: 1;
-	}
-
 	.dash-cols {
 		grid-template-columns: 1fr;
 	}
@@ -1791,14 +1764,6 @@ tr.is-new > td {
 	background: var(--bg-raised);
 }
 
-.topbar {
-	background: var(--bg-subtle);
-	border-bottom: 1px solid var(--border);
-	font-size: var(--fs-caption);
-	color: var(--muted);
-}
-
-.topbar-inner,
 .navbar-inner,
 .footer-inner {
 	width: 100%;
@@ -1807,59 +1772,14 @@ tr.is-new > td {
 	padding-inline: var(--space-5);
 }
 
-.topbar-inner {
-	min-height: 2rem;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--space-4);
-}
-
-.network-meta,
-.topbar-actions,
-.node-status,
-.live-label,
-.hero-badge {
+/* ---- status node: SATU-SATUNYA indikator status di UI ---- */
+.node-status {
 	display: inline-flex;
 	align-items: center;
-}
-
-.network-meta {
-	gap: var(--space-2);
-	min-width: 0;
-}
-
-.network-symbol {
-	display: inline-grid;
-	place-items: center;
-	width: 1.25rem;
-	height: 1.25rem;
-	border-radius: 50%;
-	background: var(--accent);
-	color: var(--on-accent);
-	font-family: var(--mono);
-	font-size: 0.7rem;
-	font-weight: 700;
-}
-
-.network-name {
-	color: var(--text-soft);
-	font-weight: 600;
-}
-
-.topbar-divider {
-	width: 1px;
-	height: 0.9rem;
-	background: var(--border-strong);
-}
-
-.topbar-actions {
-	gap: var(--space-3);
-}
-
-.node-status {
 	gap: var(--space-2);
 	white-space: nowrap;
+	font-size: var(--fs-caption);
+	color: var(--text-soft);
 }
 
 .node-status .chain-dot {
@@ -1867,14 +1787,40 @@ tr.is-new > td {
 	height: 0.45rem;
 }
 
-.node-status-down {
+.node-status-label {
+	font-weight: 600;
+}
+
+.node-status-ok .node-status-label {
+	color: var(--ok);
+}
+
+.node-status-busy .chain-dot {
+	background: var(--warn);
+}
+
+.node-status-busy .node-status-label {
+	color: var(--warn);
+}
+
+.node-status-down .chain-dot {
+	background: var(--danger);
+}
+
+.node-status-down .node-status-label {
 	color: var(--danger);
 }
 
-.node-tip {
+.node-status-meta {
 	padding-inline-start: var(--space-2);
 	border-inline-start: 1px solid var(--border-strong);
 	color: var(--muted);
+}
+
+/* Tinggi blok berubah tiap blok — angka tabular supaya lebarnya tidak
+   bergetar dan mendorong sisa header. */
+.node-status-tip {
+	font-variant-numeric: tabular-nums;
 }
 
 .navbar {
@@ -1929,6 +1875,7 @@ tr.is-new > td {
 	color: var(--text-soft);
 	font-size: var(--fs-sm);
 	font-weight: 500;
+	white-space: nowrap;
 }
 
 .nav a::after {
@@ -2041,17 +1988,22 @@ tr.is-new > td {
 	font-size: var(--fs-sm);
 }
 
-.footer-inner nav {
+/* Footer: teks statis saja — tanpa link, tombol, atau menu. */
+.footer-meta {
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
-	gap: var(--space-4);
+	gap: var(--space-2);
 	flex-wrap: wrap;
+	margin: 0;
 	font-size: var(--fs-caption);
 }
 
-.footer-inner nav a {
-	color: var(--accent);
+.footer-sep {
+	/* `--border-strong` terlalu gelap untuk teks (nyaris tak terlihat di
+	   latar panel), jadi pemisah memakai `--muted` dengan opasitas turun. */
+	color: var(--muted);
+	opacity: 0.6;
 }
 
 /* Search: Etherscan-like field, not a rounded SaaS pill. */
@@ -2173,22 +2125,6 @@ tr.is-new > td {
 	padding-inline: var(--space-8);
 }
 
-.hero-badge {
-	gap: var(--space-2);
-	width: fit-content;
-	margin-block-end: var(--space-4);
-	padding-block: var(--space-1);
-	padding-inline: var(--space-3);
-	border: 1px solid rgba(255, 255, 255, 0.22);
-	border-radius: var(--radius-full);
-	color: var(--hero-muted);
-	font-size: var(--fs-caption);
-}
-
-.hero-badge .chain-dot {
-	background: var(--ok);
-}
-
 .explorer-hero h1 {
 	max-width: 42rem;
 	color: var(--hero-text);
@@ -2291,18 +2227,6 @@ tr.is-new > td {
 	font-weight: 400;
 }
 
-.live-label {
-	gap: var(--space-2);
-	color: var(--ok);
-	font-size: var(--fs-caption);
-	font-weight: 600;
-}
-
-.live-label .chain-dot {
-	width: 0.45rem;
-	height: 0.45rem;
-}
-
 .panel-body {
 	padding-block: var(--space-5);
 	padding-inline: var(--space-5);
@@ -2326,12 +2250,12 @@ tr.is-new > td {
 	border-inline-end: 1px solid var(--border);
 }
 
-.network-summary > div:first-child {
-	padding-inline-start: 0;
-}
-
+/* Semua sel memakai padding inline yang SAMA. Dulu sel pertama dibuat
+   `padding-inline-start: 0` (dan sel terakhir `padding-inline-end: 0`)
+   supaya "menempel" ke tepi panel — hasilnya kolom pertama rata 20px LEBIH
+   KIRI daripada judul panel dan semua kolom lain, jadi terlihat
+   menggantung di luar grid. */
 .network-summary > div:last-child {
-	padding-inline-end: 0;
 	border-inline-end: 0;
 }
 
@@ -2342,7 +2266,10 @@ tr.is-new > td {
 }
 
 .network-summary dd {
-	margin-block: var(--space-1) var(--space-1);
+	/* `margin` (bukan `margin-block`): UA memberi `dd` indent 40px di
+	   inline-start, jadi hanya menyetel margin-block membuat nilai
+	   (#0, 20, 0 NXC) menjorok ke kanan sementara labelnya rata kiri. */
+	margin: var(--space-1) 0;
 	color: var(--text);
 	font-size: var(--fs-h2);
 	font-weight: 600;
@@ -2571,12 +2498,6 @@ tr.is-new > td {
 	font-size: var(--fs-sm);
 }
 
-.icon-btn {
-	width: 2.25rem;
-	height: 2.25rem;
-	border-radius: var(--radius-xs);
-}
-
 .table {
 	font-size: var(--fs-sm);
 }
@@ -2635,12 +2556,25 @@ tr.is-new > td {
 }
 
 /* Responsive refinement */
+
+/* Header: ruang dipakai bersama oleh brand, nav, search, dan status.
+   Metadata status dilepas BERTAHAP — kalau tidak, nav "Pending
+   Transactions" patah jadi dua baris dan placeholder search terpotong. */
+@media (max-width: 1240px) {
+	.node-status-peers {
+		display: none;
+	}
+}
+
 @media (max-width: 1120px) {
-	.topbar-inner,
 	.navbar-inner,
 	.footer-inner,
 	.main {
 		padding-inline: var(--space-4);
+	}
+
+	.node-status-chain {
+		display: none;
 	}
 
 	.network-summary {
@@ -2655,24 +2589,38 @@ tr.is-new > td {
 		border-top: 1px solid var(--border);
 	}
 
-	.network-summary > div:nth-child(4) {
-		padding-inline-start: 0;
-	}
-
 	.dashboard-lower {
 		grid-template-columns: 1fr;
 	}
 }
 
-@media (max-width: 900px) {
-	.topbar-inner {
-		min-height: 2.25rem;
+@media (max-width: 1024px) {
+	/* Brand cukup "NexChain" + gap nav dirapatkan supaya input search di
+	   header tidak memotong placeholder-nya. */
+	.brand-wordmark span {
+		display: none;
 	}
 
+	.nav {
+		gap: var(--space-4);
+	}
+
+	.nav .header-search {
+		margin-inline-start: var(--space-2);
+	}
+}
+
+@media (max-width: 900px) {
 	.navbar-inner {
 		position: relative;
 		min-height: 4rem;
 		gap: var(--space-3);
+	}
+
+	/* Nav utama hilang (jadi dropdown), jadi tidak ada lagi flex spacer:
+	   status + tombol menu harus didorong sendiri ke kanan. */
+	.navbar-actions {
+		margin-inline-start: auto;
 	}
 
 	.mobile-nav-toggle {
@@ -2732,17 +2680,8 @@ tr.is-new > td {
 		padding-block: var(--space-4) var(--space-8);
 	}
 
-	.topbar-inner {
-		gap: var(--space-2);
-	}
-
-	.topbar-divider,
-	.node-tip {
+	.node-status-meta {
 		display: none;
-	}
-
-	.network-meta {
-		font-size: var(--fs-caption);
 	}
 
 	.navbar-inner,
@@ -2758,18 +2697,14 @@ tr.is-new > td {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
-	.network-summary > div,
-	.network-summary > div:nth-child(4) {
-		padding-inline: var(--space-3);
+	.network-summary > div {
+		/* Sama dengan `padding-inline` panel-head di breakpoint ini (space-4),
+		   supaya kolom pertama tidak meleset 4px dari judul panel. */
+		padding-inline: var(--space-4);
 		border-inline-end: 1px solid var(--border);
 	}
 
-	.network-summary > div:nth-child(odd) {
-		padding-inline-start: 0;
-	}
-
 	.network-summary > div:nth-child(even) {
-		padding-inline-end: 0;
 		border-inline-end: 0;
 	}
 
@@ -2836,7 +2771,7 @@ tr.is-new > td {
 		flex-direction: column;
 	}
 
-	.footer-inner nav {
+	.footer-meta {
 		justify-content: flex-start;
 	}
 }

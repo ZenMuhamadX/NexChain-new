@@ -4,7 +4,7 @@ import { TimeDisplayProvider } from '../../hooks/useTimeDisplay'
 import { useChain } from '../../hooks/useChainState'
 import { useScrollRestoration } from '../../hooks/useScrollRestoration'
 import { SearchBar } from '../SearchBar'
-import { ThemeToggle } from '../ThemeToggle'
+import { NodeStatus } from './NodeStatus'
 
 export function ExplorerLayout() {
 	const chain = useChain()
@@ -39,18 +39,6 @@ export function ExplorerLayout() {
 		return () => window.removeEventListener('keydown', closeOnEscape)
 	}, [mobileNavOpen])
 
-	const nodeOffline = Boolean(chain.error) && !chain.state
-	const nodeStatus = nodeOffline
-		? 'RPC offline'
-		: chain.state
-			? 'Connected'
-			: 'Connecting…'
-	const nodeStatusTitle = nodeOffline
-		? 'The configured NexChain RPC cannot be reached'
-		: chain.state
-			? `Node connected · chain ${chain.chainId ?? '—'}`
-			: 'Connecting to the NexChain RPC'
-
 	return (
 		<TimeDisplayProvider>
 			<div className="app">
@@ -59,36 +47,6 @@ export function ExplorerLayout() {
 				</a>
 
 				<header className="header">
-					<div className="topbar">
-						<div className="topbar-inner">
-							<div className="network-meta">
-								<span className="network-symbol" aria-hidden="true">
-									N
-								</span>
-								<span className="network-name">NexChain Mainnet</span>
-								<span className="topbar-divider" aria-hidden="true" />
-								<span>Chain ID {chain.chainId ?? '—'}</span>
-							</div>
-							<div className="topbar-actions">
-								<div
-									className={`node-status${nodeOffline ? ' node-status-down' : ''}`}
-									title={nodeStatusTitle}
-									role="status"
-								>
-									<span className="chain-dot" aria-hidden="true" />
-									<span>{nodeStatus}</span>
-									{chain.state ? (
-										<span className="node-tip">
-											Tip #
-											{chain.state.currentBlockHeight.toLocaleString('en-US')}
-										</span>
-									) : null}
-								</div>
-								<ThemeToggle />
-							</div>
-						</div>
-					</div>
-
 					<div className="navbar">
 						<div className="navbar-inner">
 							<NavLink
@@ -158,6 +116,7 @@ export function ExplorerLayout() {
 							</nav>
 
 							<div className="navbar-actions">
+								<NodeStatus />
 								<button
 									type="button"
 									className="mobile-nav-toggle"
@@ -187,11 +146,13 @@ export function ExplorerLayout() {
 							<strong>NexChain Explorer</strong>
 							<span>Read-only access to the NexChain blockchain.</span>
 						</div>
-						<nav aria-label="Footer navigation">
-							<NavLink to="/blocks">Blocks</NavLink>
-							<NavLink to="/mempool">Pending Transactions</NavLink>
+						<p className="footer-meta">
+							<span>NexChain Mainnet</span>
+							<span className="footer-sep" aria-hidden="true">
+								·
+							</span>
 							<span>Chain ID {chain.chainId ?? '—'}</span>
-						</nav>
+						</p>
 					</div>
 				</footer>
 			</div>

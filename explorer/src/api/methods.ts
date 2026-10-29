@@ -4,6 +4,8 @@ import type {
 	BlockResponse,
 	BlockState,
 	HistoryEntry,
+	PeerSnapshot,
+	SyncStatus,
 	TransactionHistory,
 	TxInterface,
 	blockSummary,
@@ -75,6 +77,13 @@ export const rpc = {
 		client.request<blockSummary[]>('nex_getBlocksRange', { from, count }),
 
 	getMempool: () => client.request<TxInterface[]>('nex_getMempool'),
+
+	// Status node — dipakai SATU indikator di header (lihat NodeStatus).
+	// Keduanya opsional di UI: node lama/tanpa P2P tetap menjawab, tapi kalau
+	// method tidak ada pemanggilnya sudah menangani `undefined`.
+	getSyncStatus: () => client.request<SyncStatus>('nex_getSyncStatus'),
+
+	getPeerInfo: () => client.request<PeerSnapshot>('nex_getPeerInfo'),
 
 	getTransactionsByAddress: async (
 		address: string,
