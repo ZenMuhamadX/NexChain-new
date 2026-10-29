@@ -27,6 +27,8 @@ export function AddressPage() {
 	const { address = '' } = useParams()
 	const valid = ADDRESS_PATTERN.test(address)
 	const [page, setPage] = useState(1)
+	/** Overview default RINGKAS (2 pasang); Nonce & History entries saat expand. */
+	const [expanded, setExpanded] = useState(false)
 
 	useDocumentTitle(valid ? `Address ${address.slice(0, 10)}…` : 'Address')
 
@@ -140,18 +142,22 @@ export function AddressPage() {
 				items={[{ label: `Address ${truncateMiddle(address, 12, 10)}` }]}
 			/>
 
-			<section className="detail-header" aria-labelledby="address-title">
-				<div className="detail-heading">
-					<p className="detail-eyebrow">Blockchain</p>
-					<h1 id="address-title">Address</h1>
-					<p className="mono">{truncateMiddle(balance.address, 18, 14)}</p>
-				</div>
-				<div className="detail-hash">
-					<span>Wallet address</span>
-					<div className="address-value-row">
-						<code>{balance.address}</code>
-						<CopyButton value={balance.address} label="Copy address" />
-					</div>
+			{/* Header 2 baris yang SEJAJAR: baris 1 = eyebrow + label "Wallet
+			    address", baris 2 = judul + alamat. Sengaja tanpa wrapper
+			    `.detail-heading`/`.detail-hash` supaya keempat sel bisa
+			    diletakkan langsung di grid (lihat `.detail-header-rows`).
+			    Alamat hanya ditampilkan SEKALI di sini; dulu ada duplikat
+			    terpotong di bawah judul. */}
+			<section
+				className="detail-header detail-header-rows"
+				aria-labelledby="address-title"
+			>
+				<p className="detail-eyebrow">Blockchain</p>
+				<h1 id="address-title">Address</h1>
+				<span className="detail-hash-label">Wallet address</span>
+				<div className="hash-copy-row">
+					<code title={balance.address}>{balance.address}</code>
+					<CopyButton value={balance.address} label="Copy address" />
 				</div>
 			</section>
 
@@ -161,49 +167,41 @@ export function AddressPage() {
 						<p className="panel-eyebrow">Account data</p>
 						<h2 id="address-overview-title">Overview</h2>
 					</div>
-					<span className="panel-meta">Account</span>
+					<div className="panel-head-actions">
+						<span className="panel-meta">Account</span>
+						<button
+							type="button"
+							className="panel-toggle"
+							aria-expanded={expanded}
+							aria-controls="address-overview"
+							onClick={() => setExpanded((value) => !value)}
+						>
+							{expanded ? 'Show less' : 'Show all details'}
+						</button>
+					</div>
 				</div>
 				<div className="panel-body">
-					<dl className="detail-grid">
+					{/* Baris Address sengaja BUKAN label-kiri/nilai-kanan: label dan
+					    alamatnya berdampingan (grid `auto 1fr`) supaya tidak ada
+					    jarak 400px di antaranya. Alamat ditampilkan penuh selama
+					    muat, dan dipotong ellipsis kalau kolomnya sempit — bukan
+					    melebar ke kiri menekan kolom label.
+					    Field dijaga GENAP (6 = 3 pasang) supaya tidak ada sel kanan
+					    kosong; "Balance (exact)" digabung ke tooltip Balance. */}
+					<dl
+						className="detail-grid detail-grid-tidy address-overview-grid"
+						id="address-overview"
+					>
 						<div className="detail-row detail-row-full">
 							<dt>Address</dt>
 							<dd>
-								<code>{balance.address}</code>
-								<CopyButton value={balance.address} label="Copy address" />
+								<code title={balance.address}>{balance.address}</code>
 							</dd>
 						</div>
 						<div className="detail-row">
 							<dt>Balance</dt>
-							<dd>{formatNxc(balance.balance, 6)}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Balance (exact)</dt>
-							<dd className="mono">{formatNxcExact(balance.balance)} NXC</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Nonce</dt>
-							<dd title="Increments on OUTGOING transactions only">
-								{formatNumber(balance.nonce)}
-							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Tx count (chain)</dt>
-							<dd title="Increments on send (+1) and on receive (+1). A self-send adds 2, even though it is a single history entry.">
-								{formatNumber(balance.transactionCount)}
-							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>History entries</dt>
-							<dd title="Rows recorded in the address index — may be fewer than the chain tx count (self-sends count once).">
-								{formatNumber(txCount)}
-							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Last activity</dt>
-							<dd>
-								{balance.lastTransactionDate
-									? timeAgo(balance.lastTransactionDate)
-									: 'No transactions'}
+							<dd title={`${formatNxcExact(balance.balance)} NXC (exact)`}>
+								{formatNxc(balance.balance, 6)}
 							</dd>
 						</div>
 						<div className="detail-row">
@@ -214,6 +212,36 @@ export function AddressPage() {
 									: '—'}
 							</dd>
 						</div>
+						<div className="detail-row">
+							<dt>Tx count (chain)</dt>
+							<dd title="Increments on send (+1) and on receive (+1). A self-send adds 2, even though it is a single history entry.">
+								{formatNumber(balance.transactionCount)}
+							</dd>
+						</div>
+						<div className="detail-row">
+							<dt>Last activity</dt>
+							<dd>
+								{balance.lastTransactionDate
+									? timeAgo(balance.lastTransactionDate)
+									: 'No transactions'}
+							</dd>
+						</div>
+						{expanded ? (
+							<>
+								<div className="detail-row">
+									<dt>Nonce</dt>
+									<dd title="Increments on OUTGOING transactions only">
+										{formatNumber(balance.nonce)}
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>History entries</dt>
+									<dd title="Rows recorded in the address index — may be fewer than the chain tx count (self-sends count once).">
+										{formatNumber(txCount)}
+									</dd>
+								</div>
+							</>
+						) : null}
 					</dl>
 				</div>
 			</section>

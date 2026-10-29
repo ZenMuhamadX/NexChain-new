@@ -98,7 +98,7 @@ export function ExplorerLayout() {
 										return classes.filter(Boolean).join(' ') || undefined
 									}}
 								>
-									Blockchain
+									Block
 								</NavLink>
 								<NavLink
 									to="/mempool"
@@ -106,7 +106,7 @@ export function ExplorerLayout() {
 										isActive ? 'active' : undefined
 									}
 								>
-									Pending Transactions
+									Mempool
 								</NavLink>
 								{!isHome ? (
 									<div className="header-search">
@@ -144,7 +144,7 @@ export function ExplorerLayout() {
 					<div className="footer-inner">
 						<div>
 							<strong>NexChain Explorer</strong>
-							<span>Read-only access to the NexChain blockchain.</span>
+							<span>Explore NexChain blockchain.</span>
 						</div>
 						<p className="footer-meta">
 							<span>NexChain Mainnet</span>

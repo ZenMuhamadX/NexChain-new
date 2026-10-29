@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { rpc } from '../api/methods'
 import { tryHexText } from '../api/decoder'
 import { isNotFound } from '../api/rpcClient'
 import type { HistoryEntry } from '../api/types'
 import { Breadcrumbs } from '../components/Breadcrumbs'
+import { CopyButton } from '../components/common/CopyButton'
 import { HashValue } from '../components/common/HashValue'
 import { RawJson } from '../components/common/RawJson'
 import { PageSkeleton } from '../components/common/Skeleton'
@@ -15,7 +17,6 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { hasSignature, isCoinbaseRecord } from '../lib/tx'
 import {
 	formatDateTime,
-	formatNxc,
 	formatNxcExact,
 	formatNumber,
 	timeAgo,
@@ -25,6 +26,8 @@ import {
 export function TxDetailPage() {
 	const { hash = '' } = useParams()
 	const chain = useChain()
+	/** Overview default RINGKAS: 2 pasang (Type/Status, Amount/Timestamp). */
+	const [expanded, setExpanded] = useState(false)
 	const {
 		data: tx,
 		error,
@@ -146,9 +149,18 @@ export function TxDetailPage() {
 							: ''}
 					</p>
 				</div>
-				<div className="detail-hash">
+				{/* Hash ditampilkan PENUH (67 karakter: `TxC` + 64 hex) + tombol
+				    copy. `.detail-hash-wide` melepas `max-width: 28rem` bawaan
+				    `.detail-hash` yang dulu memaksa hash dipotong. */}
+				<div className="detail-hash detail-hash-wide">
 					<span>{coinbase ? 'Reward id' : 'Transaction hash'}</span>
-					<HashValue value={txHash} head={16} tail={14} />
+					<div className="hash-copy-row">
+						<code title={txHash}>{txHash}</code>
+						<CopyButton
+							value={txHash}
+							label={coinbase ? 'Copy reward id' : 'Copy transaction hash'}
+						/>
+					</div>
 				</div>
 			</section>
 
@@ -158,43 +170,51 @@ export function TxDetailPage() {
 						<p className="panel-eyebrow">Transaction data</p>
 						<h2 id="tx-overview-title">Overview</h2>
 					</div>
-					<span className="panel-meta">
-						{meta ? `Block #${formatNumber(meta.blockHeight)}` : 'Pending'}
-					</span>
+					<div className="panel-head-actions">
+						<span className="panel-meta">
+							{meta ? `Block #${formatNumber(meta.blockHeight)}` : 'Pending'}
+						</span>
+						<button
+							type="button"
+							className="panel-toggle"
+							aria-expanded={expanded}
+							aria-controls="tx-overview"
+							onClick={() => setExpanded((value) => !value)}
+						>
+							{expanded ? 'Show less' : 'Show all details'}
+						</button>
+					</div>
 				</div>
 				<div className="panel-body">
-					<dl className="detail-grid">
-						<div className="detail-row detail-row-full">
-							<dt>{coinbase ? 'Reward id' : 'Transaction hash'}</dt>
-							<dd>
-								<HashValue value={txHash} head={20} tail={18} />
-							</dd>
-						</div>
+					{/* 8 field = 4 pasang (genap), semua baris berpasangan:
+					    - "Transaction hash" dihapus (sudah penuh + copy di header).
+					    - "Confirmations" dihapus (sudah menempel di baris Status).
+					    - "Amount (exact)" dihapus; baris Amount memakai presisi penuh.
+					    - "Block" + "Source block" digabung (objeknya sama).
+					    Signature v/r/s (64 karakter) tidak muat di kolom separuh, jadi
+					    jadi blok sendiri selebar kartu; From -> To juga blok sendiri
+					    dengan panah. Keduanya hanya tampil saat expand. */}
+					<dl className="detail-grid detail-grid-tidy" id="tx-overview">
 						<div className="detail-row">
 							<dt>Type</dt>
 							<dd>
-								{coinbase
-									? 'Block reward (coinbase)'
-									: 'Signed transfer'}
+								{coinbase ? 'Block reward (coinbase)' : 'Signed transfer'}
 							</dd>
 						</div>
 						<div className="detail-row">
 							<dt>Status</dt>
 							<dd>
 								<span className={`badge badge-${status}`}>{status}</span>
+								<span className="muted">
+									{confirmations !== undefined
+										? `${formatNumber(confirmations)} confirmations`
+										: 'not yet mined'}
+								</span>
 							</dd>
 						</div>
 						<div className="detail-row">
-							<dt>Block</dt>
-							<dd>
-								{meta ? (
-									<Link to={`/block/${meta.blockHeight}`}>
-										#{formatNumber(meta.blockHeight)}
-									</Link>
-								) : (
-									'Pending'
-								)}
-							</dd>
+							<dt>{coinbase ? 'Reward amount' : 'Amount'}</dt>
+							<dd className="mono">{formatNxcExact(tx.amount)} NXC</dd>
 						</div>
 						<div className="detail-row">
 							<dt>Timestamp</dt>
@@ -204,108 +224,135 @@ export function TxDetailPage() {
 									: 'Not yet included in a block'}
 							</dd>
 						</div>
-						<div className="detail-row">
-							<dt>Confirmations</dt>
-							<dd>
-								{confirmations !== undefined
-									? formatNumber(confirmations)
-									: '—'}
-							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>{coinbase ? 'Reward amount' : 'Amount'}</dt>
-							<dd>{formatNxc(tx.amount, 6)}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Amount (exact)</dt>
-							<dd className="mono">{formatNxcExact(tx.amount)} NXC</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Transaction fee</dt>
-							<dd>
-								{coinbase ? (
-									<span className="muted" title="Block rewards pay no fee">
-										— (protocol credit)
-									</span>
-								) : (
-									<Unit>{formatNumber(tx.fee)}</Unit>
-								)}
-							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Nonce</dt>
-							<dd>
-								{coinbase ? (
-									<span className="muted" title="Block rewards have no nonce">
-										—
-									</span>
-								) : (
-									formatNumber(tx.nonce)
-								)}
-							</dd>
-						</div>
-						{meta ? (
-							<div className="detail-row detail-row-full">
-								<dt>Source block</dt>
-								<dd>
-									<Link to={`/block/${meta.blockHeight}`}>
-										#{formatNumber(meta.blockHeight)}
-									</Link>
-									<HashValue
-										value={meta.blockHash}
-										link={`/block/${meta.blockHash}`}
-										head={14}
-										tail={12}
-									/>
-									<span className="muted">
-										mined {timeAgo(meta.blockTimestamp)}
-									</span>
-								</dd>
-							</div>
+						{expanded ? (
+							<>
+								<div className="detail-row">
+									<dt>Block</dt>
+									<dd>
+										{meta ? (
+											<>
+												<Link to={`/block/${meta.blockHeight}`}>
+													#{formatNumber(meta.blockHeight)}
+												</Link>
+												<HashValue
+													value={meta.blockHash}
+													link={`/block/${meta.blockHash}`}
+													head={14}
+													tail={12}
+												/>
+											</>
+										) : (
+											'Pending'
+										)}
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Transaction fee</dt>
+									<dd>
+										{coinbase ? (
+											<span
+												className="muted"
+												title="Block rewards pay no fee"
+											>
+												— (protocol credit)
+											</span>
+										) : (
+											<Unit>{formatNumber(tx.fee)}</Unit>
+										)}
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Nonce</dt>
+									<dd>
+										{coinbase ? (
+											<span
+												className="muted"
+												title="Block rewards have no nonce"
+											>
+												—
+											</span>
+										) : (
+											formatNumber(tx.nonce)
+										)}
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Merkle root</dt>
+									<dd title="Root of the source block's merkle tree — this transaction is one of its leaves.">
+										{meta ? (
+											<HashValue
+												value={meta.merkleRoot}
+												head={14}
+												tail={12}
+											/>
+										) : (
+											'—'
+										)}
+									</dd>
+								</div>
+							</>
 						) : null}
 					</dl>
-				</div>
-			</section>
-
-			<section className="panel" aria-labelledby="tx-transfer-title">
-				<div className="panel-head">
-					<div>
-						<p className="panel-eyebrow">Value transfer</p>
-						<h2 id="tx-transfer-title">From / To</h2>
-					</div>
-					<span className="panel-meta">{formatNxc(tx.amount, 6)}</span>
-				</div>
-				<div className="panel-body">
-					<div className="transfer-flow">
-						<div className="transfer-party">
-							<span>{coinbase ? 'Source' : 'From'}</span>
-							{coinbase ? (
-								<span className="mono muted">
-									Coinbase (block reward)
-								</span>
+					{expanded ? (
+						<div className="tx-signature">
+							{signed ? (
+								<>
+									<p className="panel-eyebrow">Signature</p>
+									<dl className="tx-signature-grid">
+										<div>
+											<dt>v</dt>
+											<dd className="mono">{tx.sign.v}</dd>
+										</div>
+										<div>
+											<dt>r</dt>
+											<dd className="mono" title={tx.sign.r}>
+												{tx.sign.r}
+											</dd>
+										</div>
+										<div>
+											<dt>s</dt>
+											<dd className="mono" title={tx.sign.s}>
+												{tx.sign.s}
+											</dd>
+										</div>
+									</dl>
+								</>
 							) : (
-								<Link className="mono" to={`/address/${tx.from ?? ''}`}>
-									{tx.from ?? '—'}
-								</Link>
+								<p className="muted pad-sm">
+									No signature: this record is a protocol credit, not a
+									signed transaction.
+								</p>
 							)}
 						</div>
-						<div className="transfer-arrow" aria-hidden="true">
-							→
-						</div>
-						<div className="transfer-party">
-							<span>To</span>
-							<Link className="mono" to={`/address/${tx.receiver}`}>
-								{tx.receiver}
-							</Link>
+					) : null}
+					{/* From -> To SELALU tampil (ringkas maupun expand): ini inti
+					    dari sebuah transaksi, bukan detail tambahan. */}
+					<div className="tx-transfer">
+						<p className="panel-eyebrow">Transfer</p>
+						<div className="transfer-flow">
+							<div className="transfer-party">
+								<span>{coinbase ? 'Source' : 'From'}</span>
+								{coinbase ? (
+									<div className="mono muted">
+										Coinbase (block reward)
+									</div>
+								) : (
+									<Link className="mono" to={`/address/${tx.from ?? ''}`}>
+										{tx.from ?? '—'}
+									</Link>
+								)}
+							</div>
+							<div className="transfer-arrow" aria-hidden="true">
+								→
+							</div>
+							<div className="transfer-party">
+								<span>To</span>
+								<Link className="mono" to={`/address/${tx.receiver}`}>
+									{tx.receiver}
+								</Link>
+							</div>
 						</div>
 					</div>
-					{coinbase ? (
-						<p className="muted pad-sm">
-							The coinbase credit is paid by the protocol to the miner of this
-							block. It carries no signature, nonce, or fee — so it is not a
-							transaction and never appears in a block&apos;s transaction list.
-						</p>
-					) : null}
 				</div>
 			</section>
 
@@ -320,36 +367,8 @@ export function TxDetailPage() {
 				</section>
 			) : null}
 
-			{signed ? (
-				<details className="disclose">
-					<summary>Signature</summary>
-					<div className="disclose-body">
-						<dl className="detail-grid">
-							<div className="detail-row">
-								<dt>v</dt>
-								<dd className="mono">{tx.sign.v}</dd>
-							</div>
-							<div className="detail-row detail-row-full">
-								<dt>r</dt>
-								<dd>
-									<HashValue value={tx.sign.r} head={24} tail={20} />
-								</dd>
-							</div>
-							<div className="detail-row detail-row-full">
-								<dt>s</dt>
-								<dd>
-									<HashValue value={tx.sign.s} head={24} tail={20} />
-								</dd>
-							</div>
-						</dl>
-					</div>
-				</details>
-			) : (
-				<p className="muted pad-sm">
-					No signature: this record is a protocol credit, not a signed
-					transaction.
-				</p>
-			)}
+			{/* Signature (v/r/s) sudah pindah ke grid Overview (mode expand), jadi
+			    blok `<details>` terpisah di sini tidak diperlukan lagi. */}
 
 			<RawJson data={tx} summary="Raw transaction JSON" />
 		</div>

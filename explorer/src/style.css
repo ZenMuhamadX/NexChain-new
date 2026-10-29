@@ -72,23 +72,38 @@
 		'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas,
 		'Liberation Mono', Menlo, monospace;
 
-	--fs-label: 0.75rem; /* 12px — label uppercase */
-	--fs-caption: 0.8125rem; /* 13px — meta, table head */
-	--fs-sm: 0.875rem; /* 14px — tombol, teks sekunder */
-	--fs-body: 0.9375rem; /* 15px — base */
-	--fs-h2: 1.0625rem; /* 17px — judul section, brand */
-	--fs-h1: 1.375rem; /* 22px — judul halaman, nilai stat */
-	--fs-display: 1.75rem; /* 28px — hero block, alamat */
+	--fs-label: 0.75rem;
+	/* 12px — label uppercase */
+	--fs-caption: 0.8125rem;
+	/* 13px — meta, table head */
+	--fs-sm: 0.875rem;
+	/* 14px — tombol, teks sekunder */
+	--fs-body: 0.9375rem;
+	/* 15px — base */
+	--fs-h2: 1.0625rem;
+	/* 17px — judul section, brand */
+	--fs-h1: 1.375rem;
+	/* 22px — judul halaman, nilai stat */
+	--fs-display: 1.75rem;
+	/* 28px — hero block, alamat */
 
 	/* ---------- jarak ---------- */
-	--space-1: 0.25rem; /* 4 */
-	--space-2: 0.5rem; /* 8 */
-	--space-3: 0.75rem; /* 12 */
-	--space-4: 1rem; /* 16 */
-	--space-5: 1.25rem; /* 20 */
-	--space-6: 1.5rem; /* 24 */
-	--space-8: 2rem; /* 32 */
-	--space-12: 3rem; /* 48 */
+	--space-1: 0.25rem;
+	/* 4 */
+	--space-2: 0.5rem;
+	/* 8 */
+	--space-3: 0.75rem;
+	/* 12 */
+	--space-4: 1rem;
+	/* 16 */
+	--space-5: 1.25rem;
+	/* 20 */
+	--space-6: 1.5rem;
+	/* 24 */
+	--space-8: 2rem;
+	/* 32 */
+	--space-12: 3rem;
+	/* 48 */
 
 	/* ---------- radius ---------- */
 	--radius-xs: 0.125rem;
@@ -417,7 +432,6 @@ h2 {
 	justify-content: space-between;
 	gap: var(--space-3);
 	flex-wrap: wrap;
-	max-width: 1240px;
 	margin: 0 auto;
 	width: 100%;
 }
@@ -957,12 +971,13 @@ h2 {
 	from {
 		background: var(--accent-soft);
 	}
+
 	to {
 		background: transparent;
 	}
 }
 
-tr.is-new > td {
+tr.is-new>td {
 	animation: flash-new 1.4s ease-out 1;
 }
 
@@ -1036,7 +1051,7 @@ tr.is-new > td {
 	color: var(--text);
 }
 
-.state-block > h1.state-title {
+.state-block>h1.state-title {
 	font-size: var(--fs-h1);
 }
 
@@ -1068,12 +1083,10 @@ tr.is-new > td {
 
 /* skeleton — layout tetap ada saat data datang (CLS ≈ 0) */
 .skeleton {
-	background: linear-gradient(
-		90deg,
-		var(--bg-subtle) 25%,
-		var(--bg-hover) 37%,
-		var(--bg-subtle) 63%
-	);
+	background: linear-gradient(90deg,
+			var(--bg-subtle) 25%,
+			var(--bg-hover) 37%,
+			var(--bg-subtle) 63%);
 	background-size: 400% 100%;
 	animation: shimmer 1.4s ease infinite;
 	border-radius: var(--radius-xs);
@@ -1099,6 +1112,7 @@ tr.is-new > td {
 	from {
 		background-position: 100% 0;
 	}
+
 	to {
 		background-position: -100% 0;
 	}
@@ -1330,12 +1344,14 @@ tr.is-new > td {
 }
 
 @keyframes pulse-latest {
+
 	0%,
 	100% {
 		box-shadow:
 			0 0 0 2px var(--accent),
 			0 0 0 5px var(--accent-soft);
 	}
+
 	50% {
 		box-shadow:
 			0 0 0 2px var(--accent),
@@ -1575,7 +1591,7 @@ tr.is-new > td {
 	overflow: hidden;
 }
 
-.disclose > summary {
+.disclose>summary {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
@@ -1589,21 +1605,21 @@ tr.is-new > td {
 	transition: background 0.15s;
 }
 
-.disclose > summary::-webkit-details-marker {
+.disclose>summary::-webkit-details-marker {
 	display: none;
 }
 
-.disclose > summary::after {
+.disclose>summary::after {
 	content: '▸';
 	margin-inline-start: auto;
 	color: var(--muted);
 }
 
-.disclose[open] > summary::after {
+.disclose[open]>summary::after {
 	content: '▾';
 }
 
-.disclose > summary:hover {
+.disclose>summary:hover {
 	background: var(--bg-hover);
 	color: var(--accent);
 }
@@ -1733,6 +1749,7 @@ tr.is-new > td {
    ============================================================ */
 
 @media (prefers-reduced-motion: reduce) {
+
 	*,
 	*::before,
 	*::after {
@@ -1977,7 +1994,7 @@ tr.is-new > td {
 	padding-block: var(--space-5);
 }
 
-.footer-inner > div {
+.footer-inner>div {
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-1);
@@ -2097,26 +2114,20 @@ tr.is-new > td {
 	z-index: -1;
 	opacity: 0.28;
 	background-image:
-		linear-gradient(
-			30deg,
+		linear-gradient(30deg,
 			transparent 48%,
 			rgba(255, 255, 255, 0.12) 49%,
-			transparent 51%
-		),
-		linear-gradient(
-			150deg,
+			transparent 51%),
+		linear-gradient(150deg,
 			transparent 48%,
 			rgba(255, 255, 255, 0.1) 49%,
-			transparent 51%
-		);
+			transparent 51%);
 	background-size: 4rem 4rem;
-	mask-image: linear-gradient(
-		90deg,
-		transparent,
-		black 25%,
-		black 75%,
-		transparent
-	);
+	mask-image: linear-gradient(90deg,
+			transparent,
+			black 25%,
+			black 75%,
+			transparent);
 }
 
 .hero-content {
@@ -2184,7 +2195,7 @@ tr.is-new > td {
 	border-bottom: 1px solid var(--border);
 }
 
-.panel-head > div:first-child {
+.panel-head>div:first-child {
 	min-width: 0;
 }
 
@@ -2221,6 +2232,40 @@ tr.is-new > td {
 	white-space: nowrap;
 }
 
+/* Grup kontrol di kanan `.panel-head` (mis. jumlah konfirmasi + tombol
+   expand). `nowrap` supaya keduanya tetap satu baris dengan judul panel. */
+.panel-head-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-4);
+	white-space: nowrap;
+}
+
+/* Tombol teks di panel-head — tampil seperti `.panel-link`, tapi elemen
+   <button> jadi gaya bawaannya direset dulu. */
+.panel-toggle {
+	padding: 0;
+	background: none;
+	border: 0;
+	color: var(--accent);
+	cursor: pointer;
+	font-family: inherit;
+	font-size: var(--fs-sm);
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+.panel-toggle:hover {
+	color: var(--accent-strong);
+	text-decoration: underline;
+}
+
+.panel-toggle:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: var(--radius-xs);
+}
+
 .heading-count {
 	color: var(--muted);
 	font-size: var(--fs-body);
@@ -2243,7 +2288,7 @@ tr.is-new > td {
 	margin: 0;
 }
 
-.network-summary > div {
+.network-summary>div {
 	min-width: 0;
 	padding-block: var(--space-4);
 	padding-inline: var(--space-5);
@@ -2255,7 +2300,7 @@ tr.is-new > td {
    supaya "menempel" ke tepi panel — hasilnya kolom pertama rata 20px LEBIH
    KIRI daripada judul panel dan semua kolom lain, jadi terlihat
    menggantung di luar grid. */
-.network-summary > div:last-child {
+.network-summary>div:last-child {
 	border-inline-end: 0;
 }
 
@@ -2281,7 +2326,7 @@ tr.is-new > td {
 	color: var(--accent);
 }
 
-.network-summary > div > span {
+.network-summary>div>span {
 	display: block;
 	color: var(--muted);
 	font-size: var(--fs-caption);
@@ -2325,7 +2370,7 @@ tr.is-new > td {
 	font-size: var(--fs-display);
 }
 
-.detail-heading > p:last-child {
+.detail-heading>p:last-child {
 	margin-block: var(--space-2) 0;
 	color: var(--muted);
 	font-size: var(--fs-sm);
@@ -2342,23 +2387,30 @@ tr.is-new > td {
 	font-size: var(--fs-caption);
 }
 
-.detail-hash > span {
+.detail-hash>span {
 	font-weight: 600;
 }
 
+/* Hash transaksi = 67 karakter (`TxC` + 64 hex) ≈ 540px, tidak muat di
+   `max-width: 28rem`. Di halaman tx batas itu dilepas supaya hash tampil
+   penuh bersama tombol copy, bukan dipotong. */
+.detail-hash-wide {
+	max-width: none;
+}
+
 .detail-hash .hash-value,
-.address-value-row {
+.hash-copy-row {
 	max-width: 100%;
 }
 
-.address-value-row {
+.hash-copy-row {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
 	min-width: 0;
 }
 
-.address-value-row code {
+.hash-copy-row code {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -2421,6 +2473,238 @@ tr.is-new > td {
 	font-size: var(--fs-caption);
 }
 
+/* ============================================================
+   Grid "Overview" halaman block — semua baris berpasangan
+   ============================================================
+
+   Tidak ada `detail-row-full` di sini: setiap baris punya pola label|nilai
+   yang sama, jadi hanya ada dua garis lurus (label kiri & label kanan) dan
+   semua nilai mulai di x yang sama. Dulu baris full memakai 0.7fr dari lebar
+   penuh kartu, sehingga kolom labelnya membengkak (413px vs 197px) dan hash
+   "melayang" 217px lebih ke kanan daripada nilai baris lain.
+
+   Tinggi baris dipatok `min-height` karena baris ber-badge (Status) 5,8px
+   lebih tinggi daripada baris teks biasa — tanpa ini garis horizontalnya
+   tidak rata. */
+.detail-grid-tidy .detail-row {
+	align-items: center;
+	min-height: 3.25rem;
+}
+
+/* Nilai tidak boleh turun ke baris kedua: satu baris, sisa ruang dipotong
+   ellipsis. `display: block` (bukan flex) supaya `text-overflow` bekerja
+   untuk teks polos maupun tautan inline di dalamnya. */
+.detail-grid-tidy .detail-row dd {
+	display: block;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* `.hash-value` aslinya inline-flex (untuk mensejajarkan tombol copy); di
+   grid ini tombolnya tidak ada, jadi dibuat inline agar seluruh nilai tetap
+   satu baris teks yang bisa dipotong ellipsis oleh `dd`. */
+.detail-grid-tidy .hash-value,
+.detail-grid-tidy .hash-value > a,
+.detail-grid-tidy .hash-value > span {
+	display: inline;
+	overflow: visible;
+	white-space: nowrap;
+	text-overflow: clip;
+}
+
+/* `dd` sudah bukan flex, jadi jarak antar-anak (mis. alamat coinbase +
+   nominalnya) harus diberikan eksplisit. */
+.detail-grid-tidy .detail-row dd > * + * {
+	margin-inline-start: var(--space-2);
+}
+
+/* ============================================================
+   Grid "Overview" halaman address
+   ============================================================
+
+   Sama seperti halaman block (`.detail-grid-tidy`), tapi baris Address
+   adalah `detail-row-full` PERTAMA — jadi kolom kiri jatuh di nomor GENAP,
+   kebalikan dari halaman block. Garis bawaan `nth-child(odd)` dimatikan dulu
+   supaya tidak tergambar di sel kanan. */
+.address-overview-grid .detail-row,
+.address-overview-grid .detail-row:nth-child(odd):not(.detail-row-full) {
+	border-inline-end: 0;
+}
+
+@media (min-width: 481px) {
+	.address-overview-grid .detail-row:nth-child(even):not(.detail-row-full) {
+		border-inline-end: 1px solid var(--border);
+	}
+}
+
+/* Baris Address: label dan nilai BERDAMPINGAN, bukan label-kiri/nilai-kanan.
+   Kolom label `auto` supaya hanya selebar teks "Address", jadi alamatnya
+   menempel di sebelahnya (jarak 12px), bukan melompat ~430px ke kanan. */
+.address-overview-grid .detail-row-full {
+	grid-template-columns: auto minmax(0, 1fr);
+	column-gap: var(--space-3);
+	/* Chip `<code>` sudah punya padding+border sendiri (30,5px); tanpa ini
+	   baris Address jadi 55px sementara baris lain 52px. */
+	padding-block: 0;
+}
+
+/* Tombol copy tidak boleh ikut menyusut saat alamatnya panjang. */
+.hash-copy-row .copy-btn {
+	flex: none;
+}
+
+/* ============================================================
+   Header halaman address — dua baris yang sejajar
+   ============================================================
+
+   Dulu header memuat alamat DUA kali: satu terpotong di bawah judul, satu
+   lagi penuh di blok kanan. Sekarang hanya satu (blok kanan). Supaya kiri
+   dan kanan tetap rapi, keempat bagian diletakkan langsung di grid:
+   baris 1 = eyebrow + label, baris 2 = judul + alamat. */
+.detail-header-rows {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-areas:
+		'eyebrow hash-label'
+		'title hash-value';
+	align-items: center;
+	column-gap: var(--space-5);
+	row-gap: var(--space-1);
+}
+
+.detail-header-rows > .detail-eyebrow {
+	grid-area: eyebrow;
+	margin-block: 0;
+}
+
+.detail-header-rows > h1 {
+	grid-area: title;
+	font-size: var(--fs-display);
+}
+
+.detail-header-rows > .detail-hash-label {
+	grid-area: hash-label;
+	justify-self: end;
+	color: var(--muted);
+	font-size: var(--fs-caption);
+	font-weight: 600;
+}
+
+.detail-header-rows > .hash-copy-row {
+	grid-area: hash-value;
+	justify-self: end;
+}
+
+/* Di layar sempit dua kolom tidak muat: tumpuk jadi satu kolom, rata kiri. */
+@media (max-width: 900px) {
+	.detail-header-rows {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas:
+			'eyebrow'
+			'title'
+			'hash-label'
+			'hash-value';
+		row-gap: var(--space-1);
+	}
+
+	.detail-header-rows > .detail-hash-label {
+		margin-block-start: var(--space-3);
+		justify-self: start;
+	}
+
+	.detail-header-rows > .hash-copy-row {
+		justify-self: start;
+	}
+}
+
+/* ============================================================
+   Kartu "Chain Head" (dashboard) — baris seragam satu baris
+   ============================================================
+
+   Semua baris dipatok SATU baris teks dengan tinggi identik. Dulu nilai
+   panjang (timestamp, alamat miner) turun ke bawah karena `.detail-row dd`
+   punya `flex-wrap: wrap` + `overflow-wrap: anywhere` dan tinggi barisnya
+   auto, jadi kartu terlihat pincang.
+
+   Di-scope ke `.chain-head-grid` (bukan `.detail-row` global) karena tabel
+   detail di halaman block/tx/address justru perlu boleh multi-baris.
+
+   Urutan baris kartu ini: (1) Hash full-width, (2) Height, (3) Timestamp,
+   (4) Transactions, (5) Miner — jadi kolom KIRI ada di nomor GENAP, bukan
+   ganjil seperti kartu lain. Semua selektor di bawah menuliskan varian
+   `nth-child` secara eksplisit supaya menang atas aturan dasar maupun aturan
+   responsif `.detail-row`. */
+.chain-head-grid .detail-row,
+.chain-head-grid .detail-row:nth-child(odd):not(.detail-row-full) {
+	grid-template-columns: 5rem minmax(0, 1fr);
+	column-gap: var(--space-2);
+	align-items: center;
+	height: 3.25rem;
+	padding-block: 0;
+	border-inline-end: 0;
+}
+
+.chain-head-grid .detail-row dt {
+	overflow: hidden;
+	font-size: 0.75rem;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.chain-head-grid .detail-row dd {
+	display: block;
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--fs-caption);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* Nilai berupa tautan/hash: satu baris, sisa ruang dipotong ellipsis. Potongan
+   tengah dari `truncateMiddle` tetap dipakai supaya awal & akhir hash terbaca;
+   ellipsis di sini hanya jaring pengaman kalau kolom lebih sempit lagi. */
+.chain-head-grid .hash-value {
+	display: block;
+	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--fs-caption);
+}
+
+.chain-head-grid .hash-value>a,
+.chain-head-grid .hash-value>span,
+.chain-head-grid .detail-row dd>a {
+	display: block;
+	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* Garis pemisah antar kolom hanya saat kartu benar-benar dua kolom. */
+@media (min-width: 481px) {
+	.chain-head-grid .detail-row:nth-child(even):not(.detail-row-full) {
+		border-inline-end: 1px solid var(--border);
+	}
+}
+
+/* Di layar sempit label + nilai tidak lagi muat berdampingan (hash 25
+   karakter saja butuh ~195px). Semua baris ditumpuk label-di-atas-nilai
+   dengan `min-height` sama, jadi tinggi baris tetap seragam. */
+@media (max-width: 480px) {
+
+	.chain-head-grid .detail-row,
+	.chain-head-grid .detail-row:nth-child(odd):not(.detail-row-full) {
+		grid-template-columns: minmax(0, 1fr);
+		row-gap: var(--space-1);
+		height: auto;
+		min-height: 3.25rem;
+		padding-block: var(--space-2);
+	}
+}
+
 .chain-nav-panel {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2446,6 +2730,43 @@ tr.is-new > td {
 	background: var(--accent);
 }
 
+/* Blok tambahan di dalam card Overview transaksi (Signature & From -> To).
+   Dipisah dari grid 2 kolom karena nilai v/r/s 64 karakter (~440px) tidak
+   muat di kolom separuh (~365px) — di sini nilainya tampil penuh.
+   Signature hanya saat expand; Transfer SELALU tampil. */
+.tx-signature,
+.tx-transfer {
+	margin-block-start: var(--space-5);
+}
+
+.tx-signature-grid {
+	display: grid;
+	gap: var(--space-2);
+	margin: var(--space-2) 0 0;
+}
+
+.tx-signature-grid>div {
+	display: grid;
+	grid-template-columns: 1.25rem minmax(0, 1fr);
+	gap: var(--space-3);
+	align-items: baseline;
+}
+
+.tx-signature-grid dt {
+	color: var(--muted);
+	font-size: var(--fs-caption);
+}
+
+.tx-signature-grid dd {
+	margin: 0;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--text);
+	font-size: var(--fs-caption);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
 .transfer-flow {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -2465,7 +2786,7 @@ tr.is-new > td {
 	border-radius: var(--radius-sm);
 }
 
-.transfer-party > span {
+.transfer-party>span {
 	color: var(--muted);
 	font-size: var(--fs-label);
 	font-weight: 600;
@@ -2536,7 +2857,7 @@ tr.is-new > td {
 	border-radius: var(--radius-sm);
 }
 
-.disclose > summary {
+.disclose>summary {
 	padding-block: var(--space-4);
 	padding-inline: var(--space-5);
 }
@@ -2566,7 +2887,19 @@ tr.is-new > td {
 	}
 }
 
+@media (max-width: 1240px) {
+
+	/* Kartu "Chain Head" butuh ruang untuk label + nilai satu baris. Di bawah
+	   1241px dua kartu berdampingan menyisakan ~90px untuk kolom kanan, tidak
+	   cukup untuk timestamp `2024-09-28 19:00` — jadi tumpuk lebih awal
+	   (sebelumnya baru ditumpuk di 1120px, warisan aturan di bawah). */
+	.dashboard-lower {
+		grid-template-columns: 1fr;
+	}
+}
+
 @media (max-width: 1120px) {
+
 	.navbar-inner,
 	.footer-inner,
 	.main {
@@ -2581,11 +2914,11 @@ tr.is-new > td {
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
 
-	.network-summary > div:nth-child(3) {
+	.network-summary>div:nth-child(3) {
 		border-inline-end: 0;
 	}
 
-	.network-summary > div:nth-child(n + 4) {
+	.network-summary>div:nth-child(n + 4) {
 		border-top: 1px solid var(--border);
 	}
 
@@ -2595,6 +2928,7 @@ tr.is-new > td {
 }
 
 @media (max-width: 1024px) {
+
 	/* Brand cukup "NexChain" + gap nav dirapatkan supaya input search di
 	   header tidak memotong placeholder-nya. */
 	.brand-wordmark span {
@@ -2697,18 +3031,18 @@ tr.is-new > td {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
-	.network-summary > div {
+	.network-summary>div {
 		/* Sama dengan `padding-inline` panel-head di breakpoint ini (space-4),
 		   supaya kolom pertama tidak meleset 4px dari judul panel. */
 		padding-inline: var(--space-4);
 		border-inline-end: 1px solid var(--border);
 	}
 
-	.network-summary > div:nth-child(even) {
+	.network-summary>div:nth-child(even) {
 		border-inline-end: 0;
 	}
 
-	.network-summary > div:nth-child(n + 3) {
+	.network-summary>div:nth-child(n + 3) {
 		border-top: 1px solid var(--border);
 	}
 

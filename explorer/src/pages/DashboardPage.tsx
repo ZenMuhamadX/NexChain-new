@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import { rpc } from '../api/methods'
 import { BlockTable } from '../components/BlockTable'
 import { SearchBar } from '../components/SearchBar'
-import { TxTable } from '../components/TxTable'
 import { HashValue } from '../components/common/HashValue'
 import {
 	CardSkeleton,
@@ -19,16 +18,17 @@ import { useChain } from '../hooks/useChainState'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import {
 	formatDateTime,
+	formatDateTimeCompact,
 	formatDuration,
 	formatNxc,
+	formatNxcExact,
 	formatNumber,
 	formatSize,
 	MAX_SUPPLY_NXC,
 	timeAgo,
 } from '../lib/format'
 
-const MEMPOOL_PREVIEW = 6
-const RECENT_BLOCKS = 40
+const RECENT_BLOCKS = 15
 const TABLE_BLOCKS = 10
 /** `nex_getMempool` dipotong 100 entri global — angka ini bukan total backlog. */
 const MEMPOOL_RPC_LIMIT = 100
@@ -76,12 +76,38 @@ export function DashboardPage() {
 	const pending = mempool.data ?? []
 	const pendingCapped = pending.length >= MEMPOOL_RPC_LIMIT
 
+	// Ringkasan mempool. Hanya field yang BENAR-BENAR ada di kontrak wire
+	// `nex_getMempool` (TxInterface: amount, fee). Transaksi pending tidak
+	// membawa timestamp — itu sebabnya kolom "Age" di tabel mempool selalu
+	// "—" — jadi metrik "umur tx tertua" tidak mungkin dihitung di sini.
+	const pendingTotal = pending.reduce((sum, tx) => sum + tx.amount, 0)
+	const pendingLargest = pending.reduce(
+		(max, tx) => Math.max(max, tx.amount),
+		0,
+	)
+	const pendingFeeMax = pending.reduce((max, tx) => Math.max(max, tx.fee), 0)
+	const pendingFeeTotal = pending.reduce((sum, tx) => sum + tx.fee, 0)
+	const hasPending = pending.length > 0
+	/** Saat cap RPC kena, angka ini hanya mencakup 100 tx pertama. */
+	const atLeast = pendingCapped ? '≥ ' : ''
+	const mempoolUnavailable =
+		Boolean(mempool.error) && mempool.data === undefined
+	const mempoolStatus = mempoolUnavailable
+		? 'Mempool unavailable'
+		: mempool.data === undefined
+			? 'Loading…'
+			: !hasPending
+				? 'Mempool is empty'
+				: pendingCapped
+					? `At RPC cap (${MEMPOOL_RPC_LIMIT}) — backlog may be larger`
+					: 'Waiting to be mined'
+
 	return (
 		<div className="page page-dashboard">
 			<section className="explorer-hero" aria-labelledby="explorer-title">
 				<div className="hero-network" aria-hidden="true" />
 				<div className="hero-content">
-					<h1 id="explorer-title">The NexChain Blockchain Explorer</h1>
+					<h1 id="explorer-title">NexChain Explorer</h1>
 					<p>
 						Search the NexChain blockchain, follow recent blocks, and inspect
 						transactions and addresses in one place.
@@ -165,7 +191,7 @@ export function DashboardPage() {
 				</dl>
 			</section>
 
-			<section
+			{/* <section
 				className="panel table-panel"
 				aria-labelledby="latest-blocks-title"
 			>
@@ -195,7 +221,7 @@ export function DashboardPage() {
 						<BlockTable blocks={windowed} highlightNew />
 					)}
 				</div>
-			</section>
+			</section> */}
 
 			<div className="dashboard-lower">
 				<section className="panel" aria-labelledby="latest-block-title">
@@ -212,7 +238,7 @@ export function DashboardPage() {
 					</div>
 					<div className="panel-body">
 						{latest ? (
-							<dl className="detail-grid detail-grid-compact">
+							<dl className="detail-grid detail-grid-compact chain-head-grid">
 								<div className="detail-row detail-row-full">
 									<dt>Hash</dt>
 									<dd>
@@ -233,22 +259,25 @@ export function DashboardPage() {
 									</dd>
 								</div>
 								<div className="detail-row">
+									<dt>Timestamp</dt>
+									<dd title={formatDateTime(latest.timestamp)}>
+										{formatDateTimeCompact(latest.timestamp)}
+									</dd>
+								</div>
+								<div className="detail-row">
 									<dt>Transactions</dt>
 									<dd>{formatNumber(latest.txCount)}</dd>
 								</div>
 								<div className="detail-row">
-									<dt>Timestamp</dt>
-									<dd title={formatDateTime(latest.timestamp)}>
-										{formatDateTime(latest.timestamp)}
-									</dd>
-								</div>
-								<div className="detail-row">
-									<dt>Size</dt>
-									<dd>{formatSize(latest.size)}</dd>
-								</div>
-								<div className="detail-row detail-row-full">
 									<dt>Miner</dt>
-									<dd className="mono">{latest.minerId}</dd>
+									<dd>
+										<HashValue
+											value={latest.minerId}
+											link={`/address/${latest.minerId}`}
+											head={7}
+											tail={5}
+										/>
+									</dd>
 								</div>
 							</dl>
 						) : recent.error ? (
@@ -282,25 +311,69 @@ export function DashboardPage() {
 							View mempool <span aria-hidden="true">→</span>
 						</Link>
 					</div>
-					<div className="panel-body table-panel-body">
-						{mempool.error && !mempool.data ? (
-							<ErrorState error={mempool.error} onRetry={mempool.refresh} />
-						) : pending.length > 0 ? (
-							<TxTable
-								transactions={pending.slice(0, MEMPOOL_PREVIEW)}
-								compact
-							/>
-						) : (
-							<EmptyState
-								title="Mempool is empty"
-								hint="No transactions are waiting to be mined."
-								action={
-									<Link className="btn" to="/mempool">
-										Open mempool
-									</Link>
-								}
-							/>
-						)}
+					{/* Kartu ringkasan — sengaja memakai grid & kelas yang sama
+					    dengan kartu Chain Head (1 baris full + 2 pasang baris),
+					    jadi tingginya SELALU sama tanpa angka ajaib dan tidak
+					    bergeser saat polling mempool berubah. Tabel preview
+					    dibuang: tingginya ikut jumlah tx (0 tx = 204px,
+					    6 tx = ±381px) sementara Chain Head tetap 268px. */}
+					<div className="panel-body">
+						<dl className="detail-grid detail-grid-compact chain-head-grid">
+							<div className="detail-row detail-row-full">
+								<dt>Status</dt>
+								<dd>{mempoolStatus}</dd>
+							</div>
+							<div className="detail-row">
+								<dt>Total value</dt>
+								<dd
+									title={
+										hasPending
+											? `${pendingCapped ? 'at least ' : ''}${formatNxcExact(pendingTotal)} NXC`
+											: undefined
+									}
+								>
+									{hasPending ? `${atLeast}${formatNxc(pendingTotal, 4)}` : '—'}
+								</dd>
+							</div>
+							<div className="detail-row">
+								<dt>Largest tx</dt>
+								<dd
+									title={
+										hasPending
+											? `${formatNxcExact(pendingLargest)} NXC`
+											: undefined
+									}
+								>
+									{hasPending ? formatNxc(pendingLargest, 4) : '—'}
+								</dd>
+							</div>
+							<div className="detail-row">
+								<dt>Highest fee</dt>
+								<dd
+									title={
+										hasPending
+											? `${formatNxcExact(pendingFeeMax)} NXC`
+											: undefined
+									}
+								>
+									{hasPending ? formatNxc(pendingFeeMax, 6) : '—'}
+								</dd>
+							</div>
+							<div className="detail-row">
+								<dt>Total fees</dt>
+								<dd
+									title={
+										hasPending
+											? `${pendingCapped ? 'at least ' : ''}${formatNxcExact(pendingFeeTotal)} NXC`
+											: undefined
+									}
+								>
+									{hasPending
+										? `${atLeast}${formatNxc(pendingFeeTotal, 6)}`
+										: '—'}
+								</dd>
+							</div>
+						</dl>
 					</div>
 				</section>
 			</div>

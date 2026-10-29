@@ -113,6 +113,30 @@ export const formatDateTime = (timestampMs: number): string => {
 	})
 }
 
+/**
+ * Timestamp (ms) → tanggal-waktu lokal ringkas 24 jam: `2024-09-28 19:00`.
+ *
+ * Dipakai di kartu ringkas (Chain Head) yang setiap barisnya dipatok satu
+ * baris. `toLocaleString` mengeluarkan "Sep 28, 2024, 7:00:00 PM" — 24
+ * karakter yang pecah jadi 2–4 baris di kolom sempit. Bentuk ISO ini hanya
+ * 16 karakter dan karakternya sempit (angka), jadi muat di kolom kanan
+ * kartu bahkan pada lebar layar tersempit saat kartu masih dua kolom
+ * (1121px). Detik dibuang karena menambah ~19px; nilai lengkap tetap ada di
+ * tooltip (`formatDateTime`) dan di halaman detail blok.
+ *
+ * Sengaja tidak memakai nama bulan/locale: UI explorer berbahasa Inggris,
+ * sedangkan `toLocaleString` ikut locale mesin dan hasilnya campur bahasa.
+ */
+export const formatDateTimeCompact = (timestampMs: number): string => {
+	if (!Number.isFinite(timestampMs)) return '—'
+	const date = new Date(timestampMs)
+	const pad = (n: number): string => String(n).padStart(2, '0')
+	const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+		date.getDate(),
+	)}`
+	return `${day} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 /** Angka dengan pemisah ribuan. */
 export const formatNumber = (n: number): string =>
 	Number.isFinite(n) ? new Intl.NumberFormat('en-US').format(n) : '—'

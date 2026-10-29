@@ -29,6 +29,8 @@ export function BlockDetailPage() {
 	const { id = '' } = useParams()
 	const chain = useChain()
 	const [shownTxs, setShownTxs] = useState(TX_PAGE)
+	/** Overview default RINGKAS: 3 pasang baris inti. Sisanya saat di-expand. */
+	const [expanded, setExpanded] = useState(false)
 
 	const byHeight = /^\d+$/.test(id)
 	const byHash = HASH.test(id)
@@ -217,21 +219,45 @@ export function BlockDetailPage() {
 						<p className="panel-eyebrow">Block data</p>
 						<h2 id="block-overview-title">Overview</h2>
 					</div>
-					<span className="panel-meta">
-						{confirmations !== undefined
-							? `${formatNumber(confirmations)} confirmations`
-							: 'Waiting for chain tip'}
-					</span>
+					<div className="panel-head-actions">
+						<span className="panel-meta">
+							{confirmations !== undefined
+								? `${formatNumber(confirmations)} confirmations`
+								: 'Waiting for chain tip'}
+						</span>
+						<button
+							type="button"
+							className="panel-toggle"
+							aria-expanded={expanded}
+							aria-controls="block-overview"
+							onClick={() => setExpanded((value) => !value)}
+						>
+							{expanded ? 'Show less' : 'Show all details'}
+						</button>
+					</div>
 				</div>
 				<div className="panel-body">
-					<dl className="detail-grid">
-						<div className="detail-row detail-row-full">
+					{/* Semua baris BERPASANGAN (tidak ada `detail-row-full`) supaya
+					    kolomnya simetris: label kiri/kanan selalu di x yang sama dan
+					    nilai selalu mulai di x yang sama. Jumlah field dijaga GENAP
+					    (22) supaya tidak ada sel kanan kosong — `metadata.txCount`
+					    sengaja tidak ditampilkan karena selalu sama dengan jumlah
+					    transaksi (diverifikasi pada blok 30–37). */}
+					<dl
+						className="detail-grid detail-grid-tidy"
+						id="block-overview"
+					>
+						<div className="detail-row">
+							<dt>Height</dt>
+							<dd>#{formatNumber(currentHeight)}</dd>
+						</div>
+						<div className="detail-row">
 							<dt>Hash</dt>
 							<dd>
-								<HashValue value={block.header.hash} head={20} tail={18} />
+								<HashValue value={block.header.hash} head={14} tail={12} />
 							</dd>
 						</div>
-						<div className="detail-row detail-row-full">
+						<div className="detail-row">
 							<dt>Parent hash</dt>
 							<dd>
 								<HashValue
@@ -241,21 +267,9 @@ export function BlockDetailPage() {
 											? `/block/${currentHeight - 1}`
 											: `/block/${block.header.previousBlockHash}`
 									}
-									head={20}
-									tail={18}
+									head={14}
+									tail={12}
 								/>
-							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Height</dt>
-							<dd>#{formatNumber(currentHeight)}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Status</dt>
-							<dd>
-								<span className={`badge badge-${block.status}`}>
-									{block.status}
-								</span>
 							</dd>
 						</div>
 						<div className="detail-row">
@@ -263,102 +277,140 @@ export function BlockDetailPage() {
 							<dd>{formatDateTime(block.header.timestamp)}</dd>
 						</div>
 						<div className="detail-row">
-							<dt>Average block time</dt>
-							<dd>
-								{averageBlockTime !== undefined
-									? formatDuration(averageBlockTime)
-									: '—'}
-							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Transactions</dt>
-							<dd title="User transactions only — the coinbase reward is not a transaction">
-								{formatNumber(block.transactions.length)}
-							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Size</dt>
-							<dd title="Σ wire bytes of the user transactions. The coinbase reward and the JSON envelope are not counted, so genesis is 0.">
-								{formatSize(block.size)}
-							</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Difficulty</dt>
-							<dd>{formatNumber(block.header.difficulty)}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Hashing algorithm</dt>
-							<dd>{block.header.hashingAlgorithm}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Block reward</dt>
-							<dd>{formatNxc(block.blockReward, 6)}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Total reward</dt>
-							<dd>{formatNxc(block.totalReward, 6)}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Transaction fees</dt>
-							<dd>{formatNxc(block.totalTransactionFees, 6)}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Chain ID</dt>
-							<dd>{block.chainId ?? chain.chainId ?? '—'}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Version</dt>
-							<dd>{block.header.version}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Nonce</dt>
-							<dd className="mono">{formatNumber(block.header.nonce)}</dd>
-						</div>
-						<div className="detail-row">
-							<dt>Miner</dt>
-							<dd>
-								<Link
-									className="link mono"
-									to={`/address/${block.minerId}`}
-									title={`${block.minerId} — reward receiver`}
-								>
-									{block.minerId}
-								</Link>
-							</dd>
-						</div>
-						<div className="detail-row detail-row-full">
 							<dt>Merkle root</dt>
 							<dd title="Leaf = txHash. A block with a single transaction has merkleRoot === that TxC… hash; an empty block uses sha256('').">
-								<HashValue value={block.merkleRoot} head={20} tail={18} />
+								<HashValue value={block.merkleRoot} head={14} tail={12} />
 							</dd>
 						</div>
-						{block.header.stateRoot ? (
-							<div className="detail-row detail-row-full">
-								<dt>State root</dt>
-								<dd title="Commitment to the account state after this block (chained-diff accumulator, not a trie).">
+						<div className="detail-row">
+							<dt>State root</dt>
+							<dd title="Commitment to the account state after this block (chained-diff accumulator, not a trie).">
+								{block.header.stateRoot ? (
 									<HashValue
 										value={block.header.stateRoot}
-										head={20}
-										tail={18}
+										head={14}
+										tail={12}
 									/>
-								</dd>
-							</div>
-						) : null}
-						<div className="detail-row detail-row-full">
-							<dt>Coinbase receiver</dt>
-							<dd>
-								<Link
-									className="link mono"
-									to={`/address/${block.coinbaseTransaction.receiver}`}
-								>
-									{block.coinbaseTransaction.receiver}
-								</Link>
-								<span className="muted">
-									{formatNxc(block.coinbaseTransaction.amount, 6)}
-									{coinbaseText ? ` · "${coinbaseText}"` : ''}
-								</span>
+								) : (
+									'—'
+								)}
 							</dd>
 						</div>
+						{expanded ? (
+							<>
+								<div className="detail-row">
+									<dt>Status</dt>
+									<dd>
+										<span className={`badge badge-${block.status}`}>
+											{block.status}
+										</span>
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Transactions</dt>
+									<dd title="User transactions only — the coinbase reward is not a transaction">
+										{formatNumber(block.transactions.length)}
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Average block time</dt>
+									<dd>
+										{averageBlockTime !== undefined
+											? formatDuration(averageBlockTime)
+											: '—'}
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Size</dt>
+									<dd title="Σ wire bytes of the user transactions. The coinbase reward and the JSON envelope are not counted, so genesis is 0.">
+										{formatSize(block.size)}
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Difficulty</dt>
+									<dd>{formatNumber(block.header.difficulty)}</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Hashing algorithm</dt>
+									<dd>{block.header.hashingAlgorithm}</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Block reward</dt>
+									<dd>{formatNxc(block.blockReward, 6)}</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Total reward</dt>
+									<dd>{formatNxc(block.totalReward, 6)}</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Transaction fees</dt>
+									<dd>{formatNxc(block.totalTransactionFees, 6)}</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Chain ID</dt>
+									<dd>{block.chainId ?? chain.chainId ?? '—'}</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Version</dt>
+									<dd>{block.header.version}</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Nonce</dt>
+									<dd className="mono">{formatNumber(block.header.nonce)}</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Miner</dt>
+									<dd>
+										<HashValue
+											value={block.minerId}
+											link={`/address/${block.minerId}`}
+											head={12}
+											tail={10}
+										/>
+									</dd>
+								</div>
+								<div className="detail-row">
+									<dt>Coinbase receiver</dt>
+									<dd
+										title={`${block.coinbaseTransaction.receiver} — ${formatNxc(block.coinbaseTransaction.amount, 6)}${coinbaseText ? ` · "${coinbaseText}"` : ''}`}
+									>
+										<HashValue
+											value={block.coinbaseTransaction.receiver}
+											link={`/address/${block.coinbaseTransaction.receiver}`}
+											head={12}
+											tail={10}
+										/>
+										<span className="muted">
+											{formatNxc(block.coinbaseTransaction.amount, 6)}
+										</span>
+									</dd>
+								</div>
+								{block.metadata ? (
+									<>
+										<div className="detail-row">
+											<dt>Created at</dt>
+											<dd>{formatDateTime(block.metadata.created_at)}</dd>
+										</div>
+										<div className="detail-row">
+											<dt>Extra data</dt>
+											<dd
+												title={
+													metaText
+														? `"${metaText}"`
+														: block.metadata.extraData
+												}
+											>
+												{metaText ? (
+													`"${metaText}"`
+												) : (
+													<code>{block.metadata.extraData}</code>
+												)}
+											</dd>
+										</div>
+									</>
+								) : null}
+							</>
+						) : null}
 					</dl>
 				</div>
 			</section>
@@ -402,34 +454,6 @@ export function BlockDetailPage() {
 					)}
 				</div>
 			</section>
-
-			{block.metadata ? (
-				<details className="disclose">
-					<summary>Block metadata</summary>
-					<div className="disclose-body">
-						<dl className="detail-grid">
-							<div className="detail-row">
-								<dt>Transaction count</dt>
-								<dd>{formatNumber(block.metadata.txCount)}</dd>
-							</div>
-							<div className="detail-row">
-								<dt>Created at</dt>
-								<dd>{formatDateTime(block.metadata.created_at)}</dd>
-							</div>
-							<div className="detail-row">
-								<dt>Extra data</dt>
-								<dd>
-									{metaText ? (
-										`"${metaText}"`
-									) : (
-										<code>{block.metadata.extraData}</code>
-									)}
-								</dd>
-							</div>
-						</dl>
-					</div>
-				</details>
-			) : null}
 
 			<RawJson data={data} summary="Raw block JSON" />
 		</div>

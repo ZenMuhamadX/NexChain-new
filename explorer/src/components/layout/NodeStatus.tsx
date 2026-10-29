@@ -69,14 +69,14 @@ export function NodeStatus() {
 	const title = offline
 		? 'The configured NexChain RPC cannot be reached.'
 		: [
-				`Node ${label.toLowerCase()}`,
-				chainId !== undefined ? `chain ${chainId}` : undefined,
-				tip !== undefined ? `tip #${formatNumber(tip)}` : undefined,
-				sync ? `phase ${sync.phase}` : undefined,
-				peerText,
-			]
-				.filter(Boolean)
-				.join(' · ')
+			`Node ${label.toLowerCase()}`,
+			chainId !== undefined ? `chain ${chainId}` : undefined,
+			tip !== undefined ? `tip #${formatNumber(tip)}` : undefined,
+			sync ? `phase ${sync.phase}` : undefined,
+			peerText,
+		]
+			.filter(Boolean)
+			.join(' · ')
 
 	return (
 		<div className={`node-status node-status-${tone}`} title={title}>
@@ -84,22 +84,27 @@ export function NodeStatus() {
 			<span className="node-status-label" role="status">
 				{label}
 			</span>
-			{!offline && chainId !== undefined ? (
+			{/* {!offline && chainId !== undefined ? (
 				<span className="node-status-meta node-status-chain">
 					Chain {chainId}
 				</span>
-			) : null}
-			{!offline && tip !== undefined && !catchUp ? (
-				<span className="node-status-meta node-status-tip">
-					Tip <span className="mono">#{formatNumber(tip)}</span>
-				</span>
-			) : null}
-			{!offline && catchUp ? (
-				<span className="node-status-meta node-status-tip mono">{catchUp}</span>
-			) : null}
-			{!offline && peerText ? (
+			) : null
+			} */}
+			{
+				!offline && tip !== undefined && !catchUp ? (
+					<span className="node-status-meta node-status-tip">
+						Tip <span className="mono">#{formatNumber(tip)}</span>
+					</span>
+				) : null
+			}
+			{
+				!offline && catchUp ? (
+					<span className="node-status-meta node-status-tip mono">{catchUp}</span>
+				) : null
+			}
+			{/* {!offline && peerText ? (
 				<span className="node-status-meta node-status-peers">{peerText}</span>
-			) : null}
-		</div>
+			) : null} */}
+		</div >
 	)
 }
