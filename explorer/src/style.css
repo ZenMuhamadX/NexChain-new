@@ -1,10 +1,12 @@
 /* ============================================================
    NexChain Explorer — token-based theme
 
-   Tema: UI dipatok GELAP (`data-theme="dark"` di index.html) dan tombol
-   ganti tema sudah dihapus. Blok `:root` (terang) tetap dipertahankan
-   karena `scripts/contrast-check.mjs` memverifikasi kontras KEDUA set
-   token — jadi ia berfungsi sebagai baseline audit, bukan tema aktif.
+   Tema: default GELAP, tapi bisa diganti lewat tombol di header
+   (`components/ThemeToggle.tsx`). Preferensi disimpan di localStorage
+   (`nex:theme`) dan diterapkan sebelum paint oleh skrip inline di
+   `index.html`, jadi tidak ada kilatan warna saat halaman dimuat.
+   `:root` = token TERANG, `[data-theme='dark']` = token GELAP;
+   `scripts/contrast-check.mjs` memverifikasi kontras KEDUA set.
 
    Desain: explorer minimalis-profesional ala Etherscan.
    - type scale : 7 langkah (0.75 / 0.8125 / 0.875 / 0.9375 / 1.0625 / 1.375 / 1.75rem)
@@ -1922,6 +1924,31 @@ tr.is-new>td {
 	align-items: center;
 	gap: var(--space-3);
 	flex: 0 0 auto;
+}
+
+/* Tombol ikon di header (toggle tema). Ukuran & warnanya sengaja sama dengan
+   `.mobile-nav-toggle` supaya keduanya sebaris rapi di `.navbar-actions`. */
+.icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	background: var(--bg-raised);
+	border: 1px solid var(--border-strong);
+	border-radius: var(--radius-sm);
+	color: var(--text-soft);
+	cursor: pointer;
+}
+
+.icon-btn:hover {
+	background: var(--bg-hover);
+	color: var(--accent);
+}
+
+.icon-btn:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 .mobile-nav-toggle {

@@ -31,12 +31,33 @@
 			href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
 			rel="stylesheet"
 		/>
+		<script>
+			/* Terapkan tema SEBELUM paint supaya tidak ada kilatan terang saat
+			   pengguna memilih tema gelap (dan sebaliknya). Sumbernya
+			   localStorage; default produk = gelap. `ThemeToggle` membaca
+			   `data-theme` ini saat mount, jadi tidak ada dua sumber kebenaran. */
+			;(() => {
+				let theme = 'dark'
+				try {
+					const saved = localStorage.getItem('nex:theme')
+					if (saved === 'light' || saved === 'dark') theme = saved
+				} catch {
+					/* localStorage diblokir — pakai default produk */
+				}
+				document.documentElement.dataset.theme = theme
+			})()
+		</script>
 		<style>
-			/* Tema dipatok gelap: tidak ada lagi tombol ganti tema, jadi tidak
-			   ada preferensi tersimpan yang perlu dibaca sebelum paint. */
+			/* Cadangan sebelum CSS bundle termuat (dan bila JS mati): warnai
+			   latar sesuai `data-theme` agar tidak ada kilatan warna. */
 			html {
 				background: #0f1317;
 				color-scheme: dark;
+			}
+
+			html[data-theme='light'] {
+				background: #f6f8fa;
+				color-scheme: light;
 			}
 		</style>
 	</head>

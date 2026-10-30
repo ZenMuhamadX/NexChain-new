@@ -4,6 +4,7 @@ import { TimeDisplayProvider } from '../../hooks/useTimeDisplay'
 import { useChain } from '../../hooks/useChainState'
 import { useScrollRestoration } from '../../hooks/useScrollRestoration'
 import { SearchBar } from '../SearchBar'
+import { ThemeToggle } from '../ThemeToggle'
 import { NodeStatus } from './NodeStatus'
 
 export function ExplorerLayout() {
@@ -117,6 +118,7 @@ export function ExplorerLayout() {
 
 							<div className="navbar-actions">
 								<NodeStatus />
+								<ThemeToggle />
 								<button
 									type="button"
 									className="mobile-nav-toggle"
