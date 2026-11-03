@@ -28,6 +28,12 @@ export const AmountDisplay = ({
 	const compact = formatNxcCompact(nexu)
 	const exact = formatNxcExact(nexu)
 	const raw = formatNexu(nexu)
+	/**
+	 * Angka yang sudah tampil persis (0 NXC, 5 NXC) tidak punya rincian untuk
+	 * ditampilkan. Tanpa gerbang ini setiap baris daftar memasang satu dialog
+	 * tersembunyi — dan dialog di dalam dialog memutus focus trap.
+	 */
+	const canDetail = showDetail && compact !== exact
 
 	return (
 		<span className={`amount-display amount-display--${size} ${className}`.trim()}>
@@ -35,7 +41,7 @@ export const AmountDisplay = ({
 				{compact}
 				{showUnit ? <span className="amount-display__unit">NXC</span> : null}
 			</span>
-			{showDetail ? (
+			{canDetail ? (
 				<button
 					type="button"
 					className="amount-display__detail"
@@ -47,25 +53,27 @@ export const AmountDisplay = ({
 					<Icon name="arrowUpRight" size={11} aria-hidden="true" />
 				</button>
 			) : null}
-			<Modal
-				open={open}
-				onClose={() => setOpen(false)}
-				title="Detail jumlah"
-				size="sm"
-				actions={
-					<button type="button" className="button button--primary" onClick={() => setOpen(false)}>
-						Tutup
-					</button>
-				}
-			>
-				<div className="amount-detail">
-					<span className="amount-detail__label">NXC presisi penuh</span>
-					<strong className="mono">{exact} NXC</strong>
-					<span className="amount-detail__label">Nilai internal</span>
-					<strong className="mono">{raw} nexu</strong>
-					<p>1 NXC = {NEXU_PER_NXC.toLocaleString('id-ID')} nexu</p>
-				</div>
-			</Modal>
+			{canDetail ? (
+				<Modal
+					open={open}
+					onClose={() => setOpen(false)}
+					title="Detail jumlah"
+					size="sm"
+					actions={
+						<button type="button" className="button button--primary" onClick={() => setOpen(false)}>
+							Tutup
+						</button>
+					}
+				>
+					<div className="amount-detail">
+						<span className="amount-detail__label">NXC presisi penuh</span>
+						<strong className="mono">{exact} NXC</strong>
+						<span className="amount-detail__label">Nilai internal</span>
+						<strong className="mono">{raw} nexu</strong>
+						<p>1 NXC = {NEXU_PER_NXC.toLocaleString('id-ID')} nexu</p>
+					</div>
+				</Modal>
+			) : null}
 		</span>
 	)
 }

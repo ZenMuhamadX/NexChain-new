@@ -76,6 +76,16 @@ const defaultRpcUrl = (): string => {
 }
 
 export const initRpcUrl = (): void => {
+	// Kredensial pernah disimpan di localStorage (terbaca skrip lain di origin
+	// yang sama, dan bertahan setelah aplikasi ditutup). Buang sisa lamanya:
+	// sejak sekarang password hanya hidup selama satu sesi (sessionStorage).
+	try {
+		localStorage.removeItem(USER_KEY)
+		localStorage.removeItem(PASS_KEY)
+	} catch {
+		// localStorage diblokir → tidak ada yang perlu dibersihkan
+	}
+
 	try {
 		const saved = localStorage.getItem(STORAGE_KEY)
 		if (saved) {
@@ -107,8 +117,13 @@ export interface RpcCredentials {
 }
 
 /**
- * Kredensial Basic Auth tersimpan untuk method tulis
+ * Kredensial Basic Auth untuk method tulis
  * (`nex_sendRawTransaction` — lihat `lib/rpc.ts`).
+ *
+ * Disimpan di `sessionStorage`, BUKAN `localStorage`: password node tidak
+ * boleh bertahan di perangkat setelah aplikasi ditutup, dan tidak boleh
+ * terbaca oleh skrip lain di origin yang sama kapan pun. Konsekuensinya user
+ * mengetik ulang password tiap sesi bila node memakai auth — itu disengaja.
  *
  * `"kosong"` berarti tidak ada kredensial → request dikirim TANPA header
  * `Authorization`, persis perilaku lama (node dev lokal tanpa auth).
@@ -116,11 +131,11 @@ export interface RpcCredentials {
 export const getRpcCredentials = (): RpcCredentials => {
 	try {
 		return {
-			user: localStorage.getItem(USER_KEY) ?? '',
-			password: localStorage.getItem(PASS_KEY) ?? '',
+			user: sessionStorage.getItem(USER_KEY) ?? '',
+			password: sessionStorage.getItem(PASS_KEY) ?? '',
 		}
 	} catch {
-		// localStorage diblokir (private mode) → perlakukan sebagai tanpa auth
+		// sessionStorage diblokir (private mode) → perlakukan sebagai tanpa auth
 		return { user: '', password: '' }
 	}
 }
@@ -130,19 +145,20 @@ export const getRpcCredentials = (): RpcCredentials => {
  *
  * Nilai disimpan apa adanya (di-trim) walaupun baru satu yang terisi, supaya
  * user tidak kehilangan input saat mengisi kolom satu per satu; header Basic
- * baru dibentuk bila KEDUANYA terisi (sama dengan aturan server).
+ * baru dibentuk bila KEDUANYA terisi (sama dengan aturan server). Hanya
+ * `sessionStorage` — lihat `getRpcCredentials`.
  */
 export const persistRpcCredentials = (user: string, password: string): void => {
 	const trimmedUser = user.trim()
 	const trimmedPassword = password.trim()
 	try {
 		if (!trimmedUser && !trimmedPassword) {
-			localStorage.removeItem(USER_KEY)
-			localStorage.removeItem(PASS_KEY)
+			sessionStorage.removeItem(USER_KEY)
+			sessionStorage.removeItem(PASS_KEY)
 			return
 		}
-		localStorage.setItem(USER_KEY, trimmedUser)
-		localStorage.setItem(PASS_KEY, trimmedPassword)
+		sessionStorage.setItem(USER_KEY, trimmedUser)
+		sessionStorage.setItem(PASS_KEY, trimmedPassword)
 	} catch {
 		// gagal persist bukan gagal koneksi; berlaku untuk sesi ini saja
 	}

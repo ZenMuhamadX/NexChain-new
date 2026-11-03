@@ -17,6 +17,10 @@ export type IconName =
 	| 'eyeOff'
 	| 'trash'
 	| 'download'
+	| 'arrowLeft'
+	| 'arrowRight'
+	| 'activity'
+	| 'qr'
 
 const PATHS: Record<IconName, React.JSX.Element> = {
 	home: (
@@ -102,6 +106,38 @@ const PATHS: Record<IconName, React.JSX.Element> = {
 			<path d="M12 4v10.5" />
 			<path d="M7.8 10.6 12 14.8l4.2-4.2" />
 			<path d="M4.5 19h15" />
+		</>
+	),
+	arrowLeft: (
+		<>
+			<path d="M19 12H5" />
+			<path d="M10.5 6.5 5 12l5.5 5.5" />
+		</>
+	),
+	arrowRight: (
+		<>
+			<path d="M5 12h14" />
+			<path d="M13.5 6.5 19 12l-5.5 5.5" />
+		</>
+	),
+	/** Daftar aktivitas: tiga baris dengan penanda waktu di kiri. */
+	activity: (
+		<>
+			<path d="M8 6h12" />
+			<path d="M8 12h12" />
+			<path d="M8 18h12" />
+			<circle cx="4" cy="6" r="1.2" />
+			<circle cx="4" cy="12" r="1.2" />
+			<circle cx="4" cy="18" r="1.2" />
+		</>
+	),
+	qr: (
+		<>
+			<rect x="3.5" y="3.5" width="6" height="6" rx="1" />
+			<rect x="14.5" y="3.5" width="6" height="6" rx="1" />
+			<rect x="3.5" y="14.5" width="6" height="6" rx="1" />
+			<path d="M14.5 14.5h2.5v2.5h-2.5z" />
+			<path d="M20.5 14.5v6h-6" />
 		</>
 	),
 }

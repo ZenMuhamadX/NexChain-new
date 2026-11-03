@@ -8,8 +8,9 @@
  *      sehingga crash `Buffer.from` ala bip39 di browser pasti terdeteksi.
  *   2. Vault Phase C penuh: create → lock → unlock (salah passphrase gagal).
  *   3. Alur kirim murni dengan fee OTOMATIS: validate → build (fixed point
- *      fee === ukuran wire) → sign → encodeTx, termasuk pratinjau fee,
- *      lantai biaya minimum, dan skenario jumlah < biaya.
+ *      fee === ukuran wire) → sign → encodeTx, termasuk bangun-ulang
+ *      deterministik (wire yang dipratinjau === wire yang dikirim), lantai
+ *      biaya minimum, dan skenario jumlah < biaya.
  *   3b. Percepat (RBF): pengganti memakai nonce SAMA dengan fee EKSPLISIT × 2,
  *      lajunya wajib LEBIH tinggi menurut perkalian silang yang sama dengan
  *      `replacesFeeRate` node — plus kontrol negatif bahwa tx ber-fee otomatis
@@ -35,12 +36,12 @@ import { createWalletVault } from 'src/client/wallet/walletVault'
 import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
 import { validateMnemonic } from 'src/crypto/validateMnemonic'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
+import { uint8ToHex } from 'src/core/encoding/hex/uint8ToHex'
 import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 import { signTransaction } from 'src/crypto/signTransaction'
 import { buildBumpedTransaction } from '../src/lib/sendFlow'
 import {
 	buildSignedTransaction,
-	previewAutoFee,
 	validateSendForm,
 	MIN_WIRE_FEE_NEXU,
 } from '../src/lib/sendFlow'
@@ -62,6 +63,13 @@ const ok = (condition: boolean, label: string): void => {
 
 /** nexu → string NXC eksak 8 desimal (1 NXC = 10^8 nexu). */
 const nxcOf = (nexu: number): string => (nexu / 1e8).toFixed(8)
+
+/**
+ * Penanda tangan sinkron untuk gate: jalur komposisi yang diuji SAMA dengan
+ * UI, hanya tanpa Web Worker (Worker tidak ada di Bun).
+ */
+const signSync = (tx: TxInterface, key: string): TxInterface =>
+	signTransaction(tx, key)
 
 const main = async (): Promise<void> => {
 	// --- 1. paksa Buffer npm (bukti jalur browser) ---
@@ -167,11 +175,12 @@ const main = async (): Promise<void> => {
 			tinyForm.amount === undefined && tinyForm.fee === undefined,
 			'sendFlow: jumlah 1 nexu DITERIMA (fee boleh melebihi amount)',
 		)
-		const tinyBuilt = buildSignedTransaction(
+		const tinyBuilt = await buildSignedTransaction(
 			{ ...form, amountNxc: nxcOf(1) },
 			info.address,
 			derived.privateKey,
 			0,
+			signSync,
 		)
 		ok(
 			tinyBuilt.ok &&
@@ -182,11 +191,12 @@ const main = async (): Promise<void> => {
 		)
 
 		// Bangun dengan fee OTOMATIS: fee === ukuran wire tx (fixed point).
-		const built = buildSignedTransaction(
+		const built = await buildSignedTransaction(
 			form,
 			info.address,
 			derived.privateKey,
 			0,
+			signSync,
 		)
 		ok(
 			built.ok && built.tx !== undefined && built.fee !== undefined,
@@ -221,24 +231,39 @@ const main = async (): Promise<void> => {
 			)
 		}
 
-		// Pratinjau fee = angka PERSIS yang akan ditandatangani (deterministik).
-		const preview = previewAutoFee(form, info.address, derived.privateKey, 0)
-		ok(
-			preview.ok && preview.fee !== undefined,
-			'preview: previewAutoFee menghasilkan fee tanpa broadcast',
+		/**
+		 * Kontrak UI dua langkah: dialog review menampilkan `built` dan tombol
+		 * kirim mengirim OBJEK YANG SAMA. Karena itu membangun ulang dengan
+		 * input identik harus menghasilkan wire dan fee identik — kalau tidak,
+		 * angka di layar bisa berbeda dari yang ditandatangani.
+		 */
+		const rebuilt = await buildSignedTransaction(
+			form,
+			info.address,
+			derived.privateKey,
+			0,
+			signSync,
 		)
 		ok(
-			preview.fee === built.fee,
-			`preview: fee (${preview.fee}) === fee build (${built.fee})`,
+			rebuilt.ok && rebuilt.tx !== undefined && rebuilt.fee === built.fee,
+			`preview: bangun ulang deterministik — fee (${rebuilt.fee}) === build (${built.fee})`,
+		)
+		ok(
+			rebuilt.tx !== undefined &&
+				built.tx !== undefined &&
+				uint8ToHex(encodeTxPayload(rebuilt.tx)) ===
+					uint8ToHex(encodeTxPayload(built.tx)),
+			'preview: wire yang dipratinjau === wire yang akan dikirim',
 		)
 
 		// Data pesan ikut di wire → fee naik, TETAP fixed point.
 		const withMsg: SendForm = { ...form, message: 'halo dunia' }
-		const builtMsg = buildSignedTransaction(
+		const builtMsg = await buildSignedTransaction(
 			withMsg,
 			info.address,
 			derived.privateKey,
 			0,
+			signSync,
 		)
 		ok(
 			builtMsg.ok &&
@@ -253,11 +278,12 @@ const main = async (): Promise<void> => {
 
 		// A4b: jumlah (96 nexu) < fee wire+pesan tetap TERBANGUN — batas
 		// `fee <= amount` dihapus di klien dan di node.
-		const tiny = buildSignedTransaction(
+		const tiny = await buildSignedTransaction(
 			{ ...form, amountNxc: nxcOf(MIN_WIRE_FEE_NEXU), message: 'halo dunia' },
 			info.address,
 			derived.privateKey,
 			0,
+			signSync,
 		)
 		ok(
 			tiny.ok &&
@@ -266,11 +292,12 @@ const main = async (): Promise<void> => {
 				tiny.fee > tiny.tx.amount,
 			`build: jumlah (96 nexu) < fee (${tiny.fee}) tetap terbangun (A4b)`,
 		)
-		const tinyPreview = previewAutoFee(
+		const tinyPreview = await buildSignedTransaction(
 			{ ...form, amountNxc: nxcOf(MIN_WIRE_FEE_NEXU), message: 'halo dunia' },
 			info.address,
 			derived.privateKey,
 			0,
+			signSync,
 		)
 		ok(
 			tinyPreview.ok && tinyPreview.fee !== undefined,
@@ -278,11 +305,6 @@ const main = async (): Promise<void> => {
 		)
 
 		// --- 3b. percepat (RBF) — fee EKSPLISIT × 2, nonce SAMA ---
-		// Signer sinkron disuntik: jalur komposisi yang diuji sama persis
-		// dengan yang dipakai UI, hanya tanpa Web Worker.
-		const signSync = (tx: TxInterface, key: string): TxInterface =>
-			signTransaction(tx, key)
-
 		if (built.tx && built.fee !== undefined) {
 			const oldTx = built.tx
 			const oldSize = encodeTxPayload(oldTx).length
@@ -321,11 +343,12 @@ const main = async (): Promise<void> => {
 				// Kontrol negatif: rebuild ber-fee OTOMATIS pada nonce yang sama
 				// menghasilkan laju yang sama → node menolaknya. Inilah alasan
 				// tombol Percepat butuh fee eksplisit.
-				const autoAgain = buildSignedTransaction(
+				const autoAgain = await buildSignedTransaction(
 					form,
 					info.address,
 					derived.privateKey,
 					built.tx.nonce,
+					signSync,
 				)
 				if (autoAgain.tx && autoAgain.fee !== undefined) {
 					const autoSize = encodeTxPayload(autoAgain.tx).length

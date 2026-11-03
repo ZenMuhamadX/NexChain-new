@@ -8,6 +8,8 @@ import {
 } from '../lib/rpcUrl'
 import { getExplorerUrl, persistExplorerUrl } from '../lib/explorerUrl'
 import { errorMessage } from '../lib/format'
+import { getTheme, setTheme } from '../lib/theme'
+import type { Theme } from '../lib/theme'
 import { usePlatform } from '../hooks/usePlatform'
 import type { InstallHint, PersistenceState } from '../lib/platform'
 import { Icon } from '../ui/Icon'
@@ -18,6 +20,7 @@ import { Notice } from '../ui/Notice'
 interface SettingsProps {
 	onLock: () => void
 	onWipe: () => void | Promise<void>
+	onBack: () => void
 	mnemonic?: string
 }
 
@@ -40,9 +43,11 @@ const persistenceText: Record<PersistenceState, string> = {
 export const Settings = ({
 	onLock,
 	onWipe,
+	onBack,
 	mnemonic,
 }: SettingsProps): React.JSX.Element => {
 	const [rpcUrl, setRpcUrl] = useState(getRpcUrl())
+	const [theme, setThemeState] = useState<Theme>(getTheme)
 	const [rpcUser, setRpcUser] = useState(getRpcCredentials().user)
 	const [rpcPassword, setRpcPassword] = useState(getRpcCredentials().password)
 	const [explorerUrl, setExplorerUrl] = useState(getExplorerUrl())
@@ -63,7 +68,7 @@ export const Settings = ({
 		try {
 			persistRpcUrl(rpcUrl)
 			persistRpcCredentials(rpcUser, rpcPassword)
-			setRpcMessage('URL RPC & kredensial tersimpan untuk browser ini.')
+			setRpcMessage('URL RPC tersimpan; kredensial berlaku untuk sesi ini.')
 			setRpcError('')
 		} catch (error) {
 			setRpcError(errorMessage(error))
@@ -118,15 +123,58 @@ export const Settings = ({
 		}
 	}
 
+	const chooseTheme = (next: Theme): void => {
+		setTheme(next)
+		setThemeState(next)
+	}
+
 	return (
 		<div className="page-stack">
 			<div className="page-heading">
 				<div>
 					<p className="eyebrow">PREFERENSI & KEAMANAN</p>
 					<h1>Pengaturan</h1>
-					<p>Kelola koneksi node dan lindungi wallet lokal ini.</p>
+					<p>Kelola tampilan, koneksi node, dan lindungi wallet lokal ini.</p>
 				</div>
+				<button
+					type="button"
+					className="button button--secondary"
+					onClick={onBack}
+				>
+					<Icon name="arrowLeft" size={15} aria-hidden="true" /> Kembali
+				</button>
 			</div>
+
+			<section className="card settings-card">
+				<div className="settings-section">
+					<div className="settings-section__heading">
+						<span className="settings-icon">
+							<Icon name="eye" size={17} aria-hidden="true" />
+						</span>
+						<div>
+							<h2>Tampilan</h2>
+							<p>Ikuti tema perangkat atau pilih sendiri.</p>
+						</div>
+					</div>
+					<div className="segmented" role="group" aria-label="Tema tampilan">
+						{(['terang', 'gelap', 'sistem'] as const).map((value) => (
+							<button
+								key={value}
+								type="button"
+								className={`segmented__item ${theme === value ? 'segmented__item--active' : ''}`}
+								onClick={() => chooseTheme(value)}
+								aria-pressed={theme === value}
+							>
+								{value === 'terang'
+									? 'Terang'
+									: value === 'gelap'
+										? 'Gelap'
+										: 'Sistem'}
+							</button>
+						))}
+					</div>
+				</div>
+			</section>
 
 			<section className="card settings-card">
 				<div className="settings-section">
@@ -187,7 +235,8 @@ export const Settings = ({
 						<p className="input-hint">
 							Dipakai untuk method tulis (kirim transaksi) bila node menyetel
 							RPC_USER/RPC_PASSWORD. Kosongkan untuk node lokal tanpa auth —
-							disimpan di browser ini.
+							hanya disimpan selama sesi ini, jadi ketik ulang setelah wallet
+							ditutup.
 						</p>
 					</div>
 
@@ -425,6 +474,7 @@ export const Settings = ({
 				open={revealPromptOpen}
 				onClose={() => setRevealPromptOpen(false)}
 				title="Tampilkan frasa pemulihan?"
+				eyebrow="KONFIRMASI TINDAKAN"
 				confirmText="TAMPILKAN"
 				confirmLabel="Tampilkan frasa"
 				onConfirm={() => {
@@ -446,6 +496,7 @@ export const Settings = ({
 					setWipeAcknowledged(false)
 				}}
 				title="Hapus wallet ini?"
+				eyebrow="KONFIRMASI TINDAKAN"
 				variant="danger"
 				confirmText="HAPUS"
 				confirmLabel="Hapus permanen"

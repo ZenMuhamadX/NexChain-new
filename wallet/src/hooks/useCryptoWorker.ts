@@ -63,26 +63,34 @@ export type UnsignedTx = TxInterface
 
 let workerSingleton: Worker | null = null
 let singletonReady = false
+/**
+ * Satu promise init untuk SEMUA pemanggil.
+ *
+ * Sebelumnya pemanggil kedua menunggu lewat `setInterval` sampai
+ * `singletonReady` — kalau worker sempat `onerror`, bendera itu tidak pernah
+ * menyala, sehingga unlock menggantung SELAMANYA (tanpa timeout, tanpa error).
+ * Dengan promise bersama, kegagalan init ditolak ke setiap penunggu, dan
+ * `readyPromise` dikosongkan supaya percobaan berikutnya membangun worker baru.
+ */
+let readyPromise: Promise<void> | null = null
 const singletonPending = new Map<
 	string,
 	{ resolve: (value: any) => void; reject: (error: Error) => void }
 >()
 
+/** Buang worker yang gagal supaya panggilan berikutnya mulai dari nol. */
+const discardSingletonWorker = (): void => {
+	workerSingleton?.terminate()
+	workerSingleton = null
+	singletonReady = false
+	readyPromise = null
+}
+
 const initSingletonWorker = (): Promise<void> => {
-	if (workerSingleton && singletonReady) return Promise.resolve()
+	if (singletonReady) return Promise.resolve()
+	if (readyPromise) return readyPromise
 
-	return new Promise((resolve, reject) => {
-		if (workerSingleton) {
-			// Already initializing, wait for ready
-			const checkReady = setInterval(() => {
-				if (singletonReady) {
-					clearInterval(checkReady)
-					resolve()
-				}
-			}, 50)
-			return
-		}
-
+	readyPromise = new Promise<void>((resolve, reject) => {
 		try {
 			workerSingleton = new Worker(
 				new URL('../workers/crypto.worker.ts', import.meta.url),
@@ -132,12 +140,16 @@ const initSingletonWorker = (): Promise<void> => {
 
 			workerSingleton.onerror = (err) => {
 				console.error('[CryptoWorker Singleton] Error:', err)
+				discardSingletonWorker()
 				reject(new Error(`Worker error: ${err.message}`))
 			}
 		} catch (err) {
+			discardSingletonWorker()
 			reject(err)
 		}
 	})
+
+	return readyPromise
 }
 
 /**

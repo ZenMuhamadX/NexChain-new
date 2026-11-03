@@ -1,42 +1,45 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getVault } from './lib/vault'
 import type { UnlockedWallet, WalletVault } from 'src/client/wallet/walletVault'
 import {
 	fetchAccount,
 	fetchChainId,
-	fetchNextNonce,
 	fetchPending,
+	fetchSyncStatus,
 } from './lib/rpc'
-import type { Screen, Tab } from './types'
+import type { Screen, View, WalletAction } from './types'
 import { Icon } from './ui/Icon'
-import type { IconName } from './ui/Icon'
 import { Notice } from './ui/Notice'
 import { useAutoLock } from './hooks/useAutoLock'
+import { useVisibleInterval } from './hooks/useVisibleInterval'
 import { Welcome } from './screens/Welcome'
 import { SetupWallet } from './screens/SetupWallet'
 import { Unlock } from './screens/Unlock'
-import { Dashboard } from './screens/Dashboard'
+import { Home } from './screens/Home'
 import { Send } from './screens/Send'
 import { Receive } from './screens/Receive'
-import { History } from './screens/History'
 import { Settings } from './screens/Settings'
 import { errorMessage } from './lib/format'
+import { installTheme } from './lib/theme'
 
-const TAB_ICONS: Record<Tab, IconName> = {
-	ringkasan: 'home',
-	kirim: 'arrowUpRight',
-	terima: 'arrowDownLeft',
-	riwayat: 'clock',
-	pengaturan: 'sliders',
-}
+// Dipasang sebelum render pertama supaya tidak ada kedipan tema terang.
+installTheme()
 
-const TAB_LABELS: Record<Tab, string> = {
-	ringkasan: 'Ringkasan',
-	kirim: 'Kirim',
-	terima: 'Terima',
-	riwayat: 'Riwayat',
-	pengaturan: 'Pengaturan',
-}
+/**
+ * Jeda poll saldo. 30 detik, bukan 15: tiap tick mengirim tiga request RPC,
+ * dan di PWA HP itu membangunkan radio terus-menerus untuk angka yang jarang
+ * berubah. Muat ulang manual tetap tersedia lewat tombol Segarkan.
+ */
+const POLL_MS = 30_000
+
+/**
+ * Chain ID PERTAMA yang pernah dilihat wallet ini.
+ *
+ * Node bisa diganti lewat Settings, dan alamat yang sama di chain lain adalah
+ * akun yang sama sekali berbeda. Tanpa pengingat, pindah node tampak seperti
+ * saldo yang "hilang" (atau lebih buruk: saldo orang lain) tanpa gejala.
+ */
+const CHAIN_KEY = 'nex_chain_id'
 
 export const App = (): React.JSX.Element => {
 	const [vault, setVault] = useState<WalletVault | undefined>()
@@ -44,34 +47,90 @@ export const App = (): React.JSX.Element => {
 	const [screen, setScreen] = useState<Screen>('welcome')
 	const [booting, setBooting] = useState(true)
 	const [bootError, setBootError] = useState('')
-	const [tab, setTab] = useState<Tab>('ringkasan')
+	const [view, setView] = useState<View>('beranda')
+	/** Sheet aksi yang terbuka di atas layar aktif. */
+	const [action, setAction] = useState<WalletAction>(null)
+	/** Naik setiap transaksi terkirim — memicu daftar aktivitas memuat ulang. */
+	const [activityVersion, setActivityVersion] = useState(0)
 
 	const [balance, setBalance] = useState(0)
 	const [pending, setPending] = useState(0)
-	const [nonce, setNonce] = useState(0)
 	const [chainId, setChainId] = useState<number | undefined>()
-	const [loading, setLoading] = useState(false)
+	/**
+	 * `refreshing` = permintaan yang DIPICU USER sedang berjalan (mematikan dan
+	 * memberi label tombol Segarkan). Poll latar sengaja tidak menyentuhnya:
+	 * tombol yang berkedip "Memuat…" tiap 30 detik membuat layar terasa
+	 * me-reload padahal angkanya cuma diperbarui.
+	 *
+	 * `loaded` = PERNAH ada satu jawaban sukses untuk wallet ini. Selama masih
+	 * false/offline, saldo ditampilkan "—": menampilkan `0` saat RPC mati
+	 * adalah pernyataan palsu tentang dana pengguna.
+	 */
+	const [refreshing, setRefreshing] = useState(false)
+	const [loaded, setLoaded] = useState(false)
 	const [netError, setNetError] = useState('')
-	const refresh = useCallback(async (address: string): Promise<void> => {
-		setLoading(true)
-		setNetError('')
+	const [syncing, setSyncing] = useState(false)
+	/** Peringatan chain berbeda — string kosong = tidak ada. */
+	const [chainWarning, setChainWarning] = useState('')
+	/**
+	 * Chain ID tidak pernah berubah selama sesi, jadi ia diambil SEKALI lalu
+	 * di-cache di ref — bukan bagian dari poll.
+	 */
+	const chainIdRef = useRef<number | undefined>(undefined)
+
+	const refresh = useCallback(
+		async (address: string, options?: { silent?: boolean }): Promise<void> => {
+			const silent = options?.silent === true
+			if (!silent) setRefreshing(true)
+			setNetError('')
+			try {
+				const [account, pendingInfo, sync] = await Promise.all([
+					fetchAccount(address),
+					fetchPending(address),
+					fetchSyncStatus().catch(() => undefined),
+				])
+				setBalance(account?.balance ?? 0)
+				setPending(pendingInfo?.pendingAmount ?? 0)
+				setSyncing(sync?.syncing === true)
+				setLoaded(true)
+
+				if (chainIdRef.current === undefined) {
+					const id = await fetchChainId()
+					if (typeof id === 'number') {
+						chainIdRef.current = id
+						setChainId(id)
+						try {
+							const seen = localStorage.getItem(CHAIN_KEY)
+							if (seen === null) localStorage.setItem(CHAIN_KEY, String(id))
+							else if (seen !== String(id))
+								setChainWarning(
+									`Node ini melayani chain ${id}, sedangkan wallet ini terakhir memakai chain ${seen}. Saldo dan riwayat berasal dari jaringan yang berbeda.`,
+								)
+						} catch {
+							// localStorage diblokir → guard chain tidak tersedia; itu bukan
+							// kegagalan koneksi, jadi jangan tampilkan "offline".
+						}
+					}
+				}
+			} catch (error) {
+				setNetError(errorMessage(error))
+			} finally {
+				if (!silent) setRefreshing(false)
+			}
+		},
+		[],
+	)
+
+	/** Konfirmasi pindah jaringan: simpan chain baru dan hilangkan peringatan. */
+	const adoptChain = (): void => {
+		if (chainId === undefined) return
 		try {
-			const [account, pendingInfo, nextNonce, id] = await Promise.all([
-				fetchAccount(address),
-				fetchPending(address),
-				fetchNextNonce(address),
-				fetchChainId(),
-			])
-			setBalance(account?.balance ?? 0)
-			setPending(pendingInfo?.pendingAmount ?? 0)
-			setNonce(nextNonce)
-			if (typeof id === 'number') setChainId(id)
-		} catch (error) {
-			setNetError(errorMessage(error))
-		} finally {
-			setLoading(false)
+			localStorage.setItem(CHAIN_KEY, String(chainId))
+		} catch {
+			// diblokir → peringatan hilang untuk sesi ini saja
 		}
-	}, [])
+		setChainWarning('')
+	}
 
 	useEffect(() => {
 		let alive = true
@@ -94,47 +153,25 @@ export const App = (): React.JSX.Element => {
 	}, [])
 
 	/**
-	 * Polling saldo — BERHENTI saat aplikasi tidak terlihat.
+	 * Poll saldo tiap 30 detik, BERHENTI saat aplikasi tidak terlihat — lihat
+	 * `useVisibleInterval` untuk alasannya (baterai di HP).
 	 *
-	 * Di HP, tab yang di-background tetap (kadang) menjalankan timer, dan setiap
-	 * tick berarti empat request RPC. Itu membangunkan radio dan menguras baterai
-	 * untuk data yang tidak dilihat siapa pun. Saat kembali terlihat, satu
-	 * refresh langsung dijalankan supaya angka yang tampil tidak basi.
+	 * `silent: loaded` = poll pertama (belum pernah sukses) tetap memakai
+	 * indikator tombol, poll berikutnya tidak. Nilai `loaded` dibaca dari
+	 * render terakhir karena hook menyimpan closure di ref.
 	 */
-	useEffect(() => {
-		if (!wallet) return
-		const address = wallet.address
-		let timer: number | undefined
-
-		const stop = (): void => {
-			if (timer === undefined) return
-			window.clearInterval(timer)
-			timer = undefined
-		}
-
-		const start = (): void => {
-			if (timer !== undefined) return
-			void refresh(address)
-			timer = window.setInterval(() => void refresh(address), 15_000)
-		}
-
-		const onVisibilityChange = (): void => {
-			if (document.visibilityState === 'visible') start()
-			else stop()
-		}
-
-		if (document.visibilityState === 'visible') start()
-		document.addEventListener('visibilitychange', onVisibilityChange)
-
-		return () => {
-			document.removeEventListener('visibilitychange', onVisibilityChange)
-			stop()
-		}
-	}, [wallet, refresh])
+	useVisibleInterval(
+		() => {
+			if (wallet) void refresh(wallet.address, { silent: loaded })
+		},
+		POLL_MS,
+		Boolean(wallet),
+	)
 
 	const enterWallet = (instance: WalletVault): void => {
 		setWallet(instance.getUnlocked())
-		setTab('ringkasan')
+		setView('beranda')
+		setAction(null)
 	}
 
 	const handleSetup = async (
@@ -157,7 +194,10 @@ export const App = (): React.JSX.Element => {
 		setWallet(undefined)
 		setBalance(0)
 		setPending(0)
-		setNonce(0)
+		setLoaded(false)
+		setSyncing(false)
+		setAction(null)
+		setView('beranda')
 		setScreen('unlock')
 	}
 
@@ -167,8 +207,21 @@ export const App = (): React.JSX.Element => {
 		setWallet(undefined)
 		setBalance(0)
 		setPending(0)
-		setNonce(0)
+		setLoaded(false)
+		setSyncing(false)
+		setChainWarning('')
+		// Wallet baru bisa memakai jaringan lain — cache chain harus dibuang.
+		chainIdRef.current = undefined
+		setChainId(undefined)
+		setAction(null)
+		setView('beranda')
 		setScreen('welcome')
+	}
+
+	/** Transaksi terkirim: segarkan saldo dan cuplikan aktivitas di Ringkasan. */
+	const handleSent = (): void => {
+		setActivityVersion((value) => value + 1)
+		if (wallet) void refresh(wallet.address)
 	}
 
 	/**
@@ -226,12 +279,12 @@ export const App = (): React.JSX.Element => {
 
 	const networkState = netError
 		? 'offline'
-		: loading
-			? 'connecting'
-			: 'connected'
+		: loaded
+			? 'connected'
+			: 'connecting'
 	const networkLabel = netError
 		? 'RPC offline'
-		: loading
+		: !loaded
 			? 'Menghubungkan…'
 			: chainId !== undefined
 				? `Chain ${chainId}`
@@ -250,20 +303,6 @@ export const App = (): React.JSX.Element => {
 							<small>Wallet</small>
 						</span>
 					</div>
-					<nav className="primary-nav" aria-label="Wallet navigation">
-						{(Object.keys(TAB_LABELS) as Tab[]).map((value) => (
-							<button
-								key={value}
-								type="button"
-								className={`nav-link ${tab === value ? 'nav-link--active' : ''}`}
-								onClick={() => setTab(value)}
-								aria-current={tab === value ? 'page' : undefined}
-							>
-								<Icon name={TAB_ICONS[value]} size={15} aria-hidden="true" />
-								<span>{TAB_LABELS[value]}</span>
-							</button>
-						))}
-					</nav>
 					<div className="header-actions">
 						<span
 							className={`network-pill network-pill--${networkState}`}
@@ -274,11 +313,26 @@ export const App = (): React.JSX.Element => {
 						</span>
 						<button
 							type="button"
-							className="button button--ghost button--sm"
+							className="icon-button"
 							onClick={handleLock}
+							aria-label="Kunci wallet"
+							title="Kunci wallet"
 						>
-							<Icon name="lock" size={14} aria-hidden="true" />
-							<span>Kunci</span>
+							<Icon name="lock" size={16} aria-hidden="true" />
+						</button>
+						<button
+							type="button"
+							className={`icon-button ${view === 'pengaturan' ? 'icon-button--active' : ''}`}
+							onClick={() =>
+								setView(view === 'pengaturan' ? 'beranda' : 'pengaturan')
+							}
+							aria-label={
+								view === 'pengaturan' ? 'Tutup pengaturan' : 'Buka pengaturan'
+							}
+							aria-pressed={view === 'pengaturan'}
+							title="Pengaturan"
+						>
+							<Icon name="sliders" size={16} aria-hidden="true" />
 						</button>
 					</div>
 				</div>
@@ -289,54 +343,69 @@ export const App = (): React.JSX.Element => {
 					<Notice
 						variant="error"
 						action={{
-							label: 'Retry',
+							label: 'Coba lagi',
 							onClick: () => void refresh(wallet.address),
 						}}
 					>
-						RPC belum dapat dihubungi. Periksa URL node di Settings.
+						{`RPC belum dapat dihubungi (${netError}). Saldo tidak diketahui sampai terhubung — periksa URL node di Settings.`}
 					</Notice>
 				) : null}
 
-				{tab === 'ringkasan' ? (
-					<Dashboard
+				{chainWarning ? (
+					<Notice
+						variant="warn"
+						action={{ label: 'Gunakan chain ini', onClick: adoptChain }}
+						onDismiss={() => setChainWarning('')}
+					>
+						{chainWarning}
+					</Notice>
+				) : null}
+
+				{syncing && !netError ? (
+					<Notice variant="info">
+						Node sedang menyinkronkan rantai. Saldo dan riwayat bisa tertinggal
+						sampai sinkronisasi selesai.
+					</Notice>
+				) : null}
+
+				{view === 'beranda' ? (
+					<Home
 						address={wallet.address}
+						privateKey={wallet.privateKey}
 						balance={balance}
 						pending={pending}
-						nonce={nonce}
-						chainId={chainId}
-						loading={loading}
-						networkState={networkState}
+						loaded={loaded}
+						refreshing={refreshing}
 						refresh={() => void refresh(wallet.address)}
-						setTab={setTab}
+						activityVersion={activityVersion}
+						onSend={() => setAction('kirim')}
+						onReceive={() => setAction('terima')}
+						onChanged={handleSent}
 					/>
-				) : null}
-				{tab === 'kirim' ? (
-					<Send
-						sender={wallet.address}
-						privateKey={wallet.privateKey}
-						balance={balance}
-						pending={pending}
-						setTab={setTab}
-						onSent={() => void refresh(wallet.address)}
-					/>
-				) : null}
-				{tab === 'terima' ? <Receive address={wallet.address} /> : null}
-				{tab === 'riwayat' ? (
-					<History
-						address={wallet.address}
-						privateKey={wallet.privateKey}
-						onSent={() => void refresh(wallet.address)}
-						setTab={setTab}
-					/>
-				) : null}
-				{tab === 'pengaturan' ? (
+				) : (
 					<Settings
 						mnemonic={wallet.mnemonic}
 						onLock={handleLock}
 						onWipe={handleWipe}
+						onBack={() => setView('beranda')}
 					/>
-				) : null}
+				)}
 			</main>
+
+			<Send
+				open={action === 'kirim'}
+				sender={wallet.address}
+				balance={balance}
+				pending={pending}
+				privateKey={wallet.privateKey}
+				onClose={() => setAction(null)}
+				onSent={handleSent}
+			/>
+			<Receive
+				open={action === 'terima'}
+				address={wallet.address}
+				onClose={() => setAction(null)}
+			/>
 		</div>
 	)
 }

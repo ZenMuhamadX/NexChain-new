@@ -38,8 +38,30 @@ export const fetchNextNonce = (address: string): Promise<number> =>
 export const fetchChainId = async (): Promise<number | undefined> =>
 	(await rpcRequest('nex_getChainId', '')) as number | undefined
 
-export const fetchMempool = async (): Promise<TxInterface[]> => {
-	const raw = await rpcRequest('nex_getMempool', '')
+/**
+ * Status sinkronisasi node (`nex_getSyncStatus`). `syncing: true` berarti node
+ * masih mengejar rantai peer, jadi angka saldo bisa tertinggal dari jaringan.
+ */
+export const fetchSyncStatus = async (): Promise<
+	{ syncing?: boolean } | undefined
+> => (await rpcRequest('nex_getSyncStatus', '')) as { syncing?: boolean } | undefined
+
+/**
+ * Tx pending milik SATU alamat (`nex_getPendingByAddress` — indeks
+ * `mpf:<from>:`, ≤16 entri di node).
+ *
+ * Sengaja TIDAK memakai `nex_getMempool`: method itu memotong pool ke 100
+ * entri GLOBAL, jadi saat mempool ramai tx pending pengguna bisa hilang dari
+ * Riwayat walau dananya masih terkunci. Mengunduh seluruh pool juga berat di
+ * HP untuk data yang sebagian besar tidak relevan.
+ *
+ * Batas yang diterima: tx MASUK yang masih pending belum tampil (indeks node
+ * hanya per-pengirim); ia muncul setelah masuk blok.
+ */
+export const fetchPendingByAddress = async (
+	address: string,
+): Promise<TxInterface[]> => {
+	const raw = await rpcRequest('nex_getPendingByAddress', address)
 	return Array.isArray(raw) ? (raw as TxInterface[]) : []
 }
 
@@ -59,28 +81,70 @@ export interface HistoryEntry extends TxInterface {
 
 export interface HistoryRow {
 	tx: HistoryEntry
-	/** true = masih di mempool (belum ada di `address:` index). */
+	/** true = masih di mempool (belum ada di `addr:` index). */
 	pending: boolean
 }
 
+/** Ukuran halaman riwayat — sama dengan `HISTORY_PAGE_SIZE` di node. */
+/** Ukuran satu halaman daftar aktivitas Beranda. */
+export const ACTIVITY_PAGE_SIZE = 10
+
+/** Respons `nex_getTransactionsByAddress` bentuk berpaginasi. */
+interface HistoryPageResponse {
+	/** TOTAL entri alamat ini, bukan panjang `history`. */
+	count?: number
+	history?: HistoryEntry[]
+	page?: number
+	pageSize?: number
+	totalPages?: number
+}
+
+export interface ActivityPage {
+	rows: HistoryRow[]
+	total: number
+	page: number
+	pageSize: number
+	totalPages: number
+}
+
 /**
- * Riwayat gabungan: transaksi terkonfirmasi + mempool.
+ * Satu halaman riwayat: tx terkonfirmasi halaman itu + tx pending milik
+ * alamat ini (hanya di halaman pertama).
  *
- * `nex_getTransactionsByAddress` hanya membaca index `address:{addr}` yang
- * ditulis `saveTxByAddress` saat PROSES MINING — transaksi yang masih di
- * mempool TIDAK muncul di sana (saveTxHistory menulis kunci per-hash saja).
- * Tanpa penggabungan ini tab Riwayat wallet selalu kosong tepat setelah user
- * mengirim. Mempool difilter ke address yang relevan dan didedup per txHash
- * (konfirmasi menang bila sudah ada di keduanya).
+ * MENGAPA berpaginasi: tanpa `pageSize`, `nex_getTransactionsByAddress`
+ * mengembalikan SELURUH riwayat alamat — satu respons berisi ribuan transaksi
+ * yang harus di-decode node satu per satu, tiap kali layar dibuka. Dengan
+ * `{ address, page, pageSize }` node hanya men-decode 25 baris; `count` (total)
+ * tetap dikirim supaya nomor halaman bisa ditampilkan.
+ *
+ * MENGAPA pending hanya di halaman 1: ia duduk DI ATAS daftar, bukan bagian
+ * dari jendela berpaginasi. Kalau ikut di setiap halaman, "halaman 1 dari 47"
+ * tidak lagi cocok dengan jumlah baris yang terlihat.
+ *
+ * Sengaja TIDAK ada pengurutan ulang di klien. Urutan server (tinggi blok
+ * menurun) sudah "terbaru dulu"; mengurutkan ulang di sini akan membuat baris
+ * di batas halaman muncul dua kali atau hilang. Pending selalu paling baru,
+ * jadi ia memang layak di paling atas.
  */
-export const fetchHistory = async (address: string): Promise<HistoryRow[]> => {
-	const raw = (await rpcRequest('nex_getTransactionsByAddress', address)) as
-		{ count?: number; history?: HistoryEntry[] } | undefined
+export const fetchActivityPage = async (
+	address: string,
+	page = 1,
+	pageSize = ACTIVITY_PAGE_SIZE,
+): Promise<ActivityPage> => {
+	const [raw, mempool] = await Promise.all([
+		rpcRequest('nex_getTransactionsByAddress', {
+			address,
+			page,
+			pageSize,
+		}) as Promise<HistoryPageResponse | undefined>,
+		page === 1
+			? fetchPendingByAddress(address).catch((): TxInterface[] => [])
+			: Promise.resolve([] as TxInterface[]),
+	])
 
 	const confirmed: HistoryEntry[] = []
 	for (const item of raw?.history ?? []) {
-		const entry = item
-		if (entry) confirmed.push(entry)
+		if (item) confirmed.push(item)
 	}
 
 	const seen = new Set<string>()
@@ -88,23 +152,26 @@ export const fetchHistory = async (address: string): Promise<HistoryRow[]> => {
 		if (typeof entry.txHash === 'string') seen.add(entry.txHash)
 	}
 
-	const mempool = await fetchMempool()
-	const pending = mempool
-		.filter((tx) => tx.from === address || tx.receiver === address)
-		.filter((tx) => typeof tx.txHash !== 'string' || !seen.has(tx.txHash))
+	const pending = mempool.filter(
+		(tx) => typeof tx.txHash !== 'string' || !seen.has(tx.txHash),
+	)
 
-	const rows: HistoryRow[] = [
-		...confirmed.map((tx) => ({ tx, pending: false })),
-		...pending.map((tx) => ({ tx, pending: true })),
-	]
-	// Urutkan menurut waktu BLOK. Transaksi masih tertunda belum punya blok,
-	// jadi ia diletakkan paling atas (paling baru).
-	const timeOf = (row: HistoryRow): number =>
-		row.pending
-			? Number.MAX_SAFE_INTEGER
-			: (row.tx.metadata?.blockTimestamp ?? 0)
-	rows.sort((a, b) => timeOf(b) - timeOf(a))
-	return rows
+	const total = typeof raw?.count === 'number' ? raw.count : confirmed.length
+	const size = typeof raw?.pageSize === 'number' ? raw.pageSize : pageSize
+
+	return {
+		rows: [
+			...pending.map((tx) => ({ tx, pending: true })),
+			...confirmed.map((tx) => ({ tx, pending: false })),
+		],
+		total,
+		page: typeof raw?.page === 'number' ? raw.page : page,
+		pageSize: size,
+		totalPages:
+			typeof raw?.totalPages === 'number'
+				? raw.totalPages
+				: Math.ceil(total / size),
+	}
 }
 
 export interface SendRawResult {

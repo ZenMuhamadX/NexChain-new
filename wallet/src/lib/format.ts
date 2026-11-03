@@ -68,6 +68,10 @@ export const formatTime = (ms: number): string =>
 
 export const shortHash = (hash: string): string => truncate(hash, 12, 6)
 
+/** Bilangan bulat dengan pemisah ribuan gaya Indonesia (1.180). */
+export const formatCount = (value: number): string =>
+	Number.isFinite(value) ? Math.trunc(value).toLocaleString('id-ID') : '—'
+
 /** Salin teks ke clipboard; false bila ditolak/tidak tersedia. */
 export const copyText = async (text: string): Promise<boolean> => {
 	try {

@@ -1,6 +1,5 @@
 import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransaction'
 import { clientSideTxValidate } from 'src/client/lib/clientValidateTx'
-import { signTransaction } from 'src/crypto/signTransaction'
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { toNexu } from 'src/core/token/toNexu'
 import { isNexu } from 'src/core/token/isNexu'
@@ -9,7 +8,7 @@ import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 import { validateTransactionFees } from 'src/core/validation/module/isValidTxFee'
 import type { comTxInterface } from 'src/types/compositeTransaction'
 import type { TxInterface } from 'src/types/transaction'
-import { fetchNextNonce, sendRawTransaction } from './rpc'
+import { sendRawTransaction } from './rpc'
 import { cryptoWorker } from '@/hooks/useCryptoWorker'
 
 /**
@@ -206,66 +205,22 @@ const validatedAmountNexu = (
  * ukuran hanya dipengaruhi nilai field — iterasi pasti konvergen, dan tx
  * yang dikembalikan memenuhi `fee === ukuran wire` yang diverifikasi node.
  *
- * Versi sinkron (legacy) — gunakan `buildSignedTransactionAsync` untuk
- * non-blocking.
+ * `sign` disuntik supaya satu jalur dipakai UI (Worker) DAN gate offline
+ * (`scripts/sendFlowSmoke.ts`, `signTransaction` sinkron). Sebelumnya ada dua
+ * salinan fungsi ini yang berbeda hanya pada pemanggilan sign — salinan kedua
+ * selalu berisiko tertinggal saat aturan fee berubah.
+ *
+ * Hasilnya juga yang HARUS dikirim: `sendSignedTransaction(built.tx)`.
+ * Membangun ulang saat tombol kirim ditekan membuat nonce bisa berubah
+ * (jumlah tx pending bertambah) dan fee yang ditandatangani berbeda dari yang
+ * ditampilkan di dialog review.
  */
-export const buildSignedTransaction = (
+export const buildSignedTransaction = async (
 	form: SendForm,
 	sender: string,
 	privateKey: string,
 	nonce: number,
-): BuildResult => {
-	const amount = validatedAmountNexu(form, sender)
-	if ('error' in amount) {
-		return { ok: false, error: amount.error }
-	}
-
-	let fee = AUTO_FEE_SEED_NEXU
-	for (let i = 0; i < AUTO_FEE_MAX_ITERATIONS; i++) {
-		const unsigned = createUnsignedTransaction(
-			composeComTx(form, sender, fee, amount.nexu),
-			nonce,
-		)
-		if (!unsigned.status || !unsigned.tx) {
-			return {
-				ok: false,
-				error: unsigned.error ?? 'Gagal menyusun transaksi.',
-			}
-		}
-
-		let tx: TxInterface
-		try {
-			tx = signTransaction(unsigned.tx, privateKey)
-		} catch (error) {
-			return {
-				ok: false,
-				error: error instanceof Error ? error.message : 'Gagal menandatangani.',
-			}
-		}
-
-		const size = encodeTxPayload(tx).length
-		if (fee === size) {
-			return settleFixedFee(tx, fee)
-		}
-		fee = size
-	}
-
-	return {
-		ok: false,
-		error: 'Gagal menghitung biaya otomatis (tidak konvergen) — coba lagi.',
-	}
-}
-
-/**
- * Async version yang offload signing ke Web Worker (non-blocking main thread).
- * Alur fee otomatis sama persis dengan versi sinkron — hanya `signTransaction`
- * yang diganti jalur worker. Gunakan ini di production untuk UI yang responsif.
- */
-export const buildSignedTransactionAsync = async (
-	form: SendForm,
-	sender: string,
-	privateKey: string,
-	nonce: number,
+	sign: TxSigner = cryptoWorker.signTransaction,
 ): Promise<BuildResult> => {
 	const amount = validatedAmountNexu(form, sender)
 	if ('error' in amount) {
@@ -287,15 +242,11 @@ export const buildSignedTransactionAsync = async (
 
 		let tx: TxInterface
 		try {
-			// Sign di Web Worker (non-blocking)
-			tx = await cryptoWorker.signTransaction(unsigned.tx, privateKey)
+			tx = await sign(unsigned.tx, privateKey)
 		} catch (error) {
 			return {
 				ok: false,
-				error:
-					error instanceof Error
-						? error.message
-						: 'Gagal menandatangani (worker).',
+				error: error instanceof Error ? error.message : 'Gagal menandatangani.',
 			}
 		}
 
@@ -312,26 +263,6 @@ export const buildSignedTransactionAsync = async (
 	}
 }
 
-/**
- * Pratinjau fee PERSIS tanpa broadcast — dipanggil UI saat membuka dialog
- * review supaya user melihat biaya yang akan ia tandatangani. Deterministik
- * (tanda tangan ECDSA-nya sendiri deterministik), jadi fee yang dikembalikan
- * sama dengan yang nanti dipakai `buildSignedTransaction*` dengan form,
- * nonce, dan kunci yang sama.
- */
-export const previewAutoFee = (
-	form: SendForm,
-	sender: string,
-	privateKey: string,
-	nonce: number,
-): { ok: boolean; fee?: number; error?: string } => {
-	const built = buildSignedTransaction(form, sender, privateKey, nonce)
-	if (built.ok && built.fee !== undefined) {
-		return { ok: true, fee: built.fee }
-	}
-	return { ok: false, error: built.error ?? 'Gagal menghitung biaya jaringan.' }
-}
-
 export interface SendOutcome {
 	ok: boolean
 	txHash?: string
@@ -341,8 +272,13 @@ export interface SendOutcome {
 /**
  * Ekor bersama semua jalur kirim: validasi klien (Rule server + saldo live) →
  * `nex_sendRawTransaction` → pemetaan hasil. Node tetap validator terakhir.
+ *
+ * Dipakai UI dengan tx HASIL PRATINJAU (`buildSignedTransaction`), sehingga
+ * fee yang ditandatangani = fee yang ditampilkan, dan `percepat` (RBF).
  */
-const broadcast = async (tx: TxInterface): Promise<SendOutcome> => {
+export const sendSignedTransaction = async (
+	tx: TxInterface,
+): Promise<SendOutcome> => {
 	if (!(await clientSideTxValidate(tx))) {
 		return {
 			ok: false,
@@ -454,7 +390,7 @@ export const bumpPendingFee = async (
 				error: built.error ?? 'Gagal menyusun transaksi pengganti.',
 			}
 		}
-		return await broadcast(built.tx)
+		return await sendSignedTransaction(built.tx)
 	} catch (error) {
 		return {
 			ok: false,
@@ -465,40 +401,18 @@ export const bumpPendingFee = async (
 }
 
 /**
- * Alur kirim penuh:
+ * Alur kirim di UI sekarang DUA langkah, dan itu disengaja:
  *
- *   nonce (Bug B: `nex_getNextNonce` = akun + pending mempool)
- *     → susun+tanda tangan dengan fee otomatis (murni)
- *     → `clientSideTxValidate` (Joi + signature + saldo live + aturan server)
- *     → `nex_sendRawTransaction`
+ *   1. `buildSignedTransaction` (nonce → susun → tanda tangan → fee fixed
+ *      point) menghasilkan tx yang ditampilkan di dialog review;
+ *   2. `sendSignedTransaction(tx)` memvalidasi (Joi + signature + saldo live)
+ *      lalu `nex_sendRawTransaction`.
+ *
+ * Tidak ada lagi satu fungsi "kirim penuh" yang membangun ulang tx setelah
+ * user menyetujui fee di layar — nonce bisa berubah di antara keduanya dan
+ * fee yang ditandatangani jadi berbeda dari yang ditampilkan.
  *
  * Node tetap validator terakhir; kegagalan apa pun dipetakan ke pesan yang
  * bisa ditampilkan apa adanya.
  */
-export const sendForm = async (
-	form: SendForm,
-	sender: string,
-	privateKey: string,
-): Promise<SendOutcome> => {
-	try {
-		const nonce = await fetchNextNonce(sender)
-		// Gunakan async version dengan Web Worker untuk signing non-blocking
-		const built = await buildSignedTransactionAsync(
-			form,
-			sender,
-			privateKey,
-			nonce,
-		)
-		if (!built.ok || !built.tx) {
-			return { ok: false, error: built.error ?? 'Gagal menyusun transaksi.' }
-		}
 
-		return await broadcast(built.tx)
-	} catch (error) {
-		return {
-			ok: false,
-			error:
-				error instanceof Error ? error.message : 'Gagal mengirim transaksi.',
-		}
-	}
-}
