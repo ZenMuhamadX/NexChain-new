@@ -6,7 +6,12 @@ import {
 	hasSendErrors,
 } from '../lib/sendFlow'
 import type { SendErrors, SendForm } from '../lib/sendFlow'
-import { errorMessage, formatNxc, formatNxcExact } from '../lib/format'
+import {
+	errorMessage,
+	formatNxc,
+	formatNxcExact,
+	truncate,
+} from '../lib/format'
 import { explorerTxUrl } from '../lib/explorerUrl'
 import { fetchNextNonce } from '../lib/rpc'
 import type { TxInterface } from 'src/types/transaction'
@@ -86,7 +91,8 @@ export const Send = ({
 	const [sent, setSent] = useState<{
 		amount: number
 		receiver: string
-		hash?: string
+		fee: number
+		remaining: number
 	} | null>(null)
 	const [result, setResult] = useState<SendResult | null>(null)
 	/** true saat tempel clipboard ditolak (izin/file://) — untuk pesan inline. */
@@ -215,6 +221,7 @@ export const Send = ({
 		setBusy(true)
 		try {
 			let tx = preview.tx
+			let fee = preview.fee
 			if (Date.now() - preview.at > PREVIEW_TTL_MS) {
 				const nonce = await fetchNextNonce(sender)
 				const rebuilt = await buildSignedTransaction(
@@ -235,18 +242,20 @@ export const Send = ({
 					return
 				}
 				tx = rebuilt.tx
-				setPreview({ tx, fee: rebuilt.fee, at: Date.now() })
+				fee = rebuilt.fee
+				setPreview({ tx, fee, at: Date.now() })
 			}
 			const outcome = await sendSignedTransaction(tx)
 			if (outcome.ok) {
 				setSent({
 					amount: tx.amount,
 					receiver: tx.receiver,
-					hash: outcome.txHash,
+					fee,
+					remaining: available - tx.amount - fee,
 				})
 				setResult({
 					ok: true,
-					text: 'Transaksi diterima jaringan. Saldo akan diperbarui setelah transaksi masuk blok.',
+					text: 'Transaksi diterima jaringan.',
 					txHash: outcome.txHash,
 				})
 				setForm({ receiver: '', amountNxc: '' })
@@ -329,6 +338,17 @@ export const Send = ({
 		<div className="sheet-footer">
 			<button
 				type="button"
+				className="button button--ghost button--lg"
+				onClick={() => {
+					setStep('form')
+					setSent(null)
+					setResult(null)
+				}}
+			>
+				Kirim lagi
+			</button>
+			<button
+				type="button"
 				className="button button--primary button--lg"
 				onClick={close}
 			>
@@ -338,10 +358,12 @@ export const Send = ({
 	)
 
 	return (
+		// Layar selesai bukan formulir: kartu setinggi isinya membuat pesan
+		// singkat tidak melayang di atas ruang kosong satu layar penuh.
 		<Modal
 			open={open}
 			onClose={close}
-			size="full"
+			size={step === 'done' ? 'md' : 'full'}
 			title={
 				step === 'review'
 					? 'Tinjau transaksi'
@@ -533,30 +555,76 @@ export const Send = ({
 				<div className="sheet-form">
 					<div className="send-done">
 						<span className="send-done__icon">
-							<Icon name="check" size={24} aria-hidden="true" />
+							<Icon name="check" size={26} aria-hidden="true" />
 						</span>
 						{sent ? (
 							<>
 								<p className="send-done__amount">
 									−{formatNxcExact(sent.amount)} NXC
 								</p>
-								<p className="send-done__to mono">ke {sent.receiver}</p>
+								<span className="status-pill status-pill--waiting">
+									<span className="status-pill__dot" aria-hidden="true" />
+									Menunggu masuk blok
+								</span>
 							</>
 						) : null}
-						<p className="muted">{result?.text}</p>
 					</div>
-					{result?.txHash ? (
-						<div className="result-hash">
-							<code>{result.txHash}</code>
-							<CopyButton
-								text={result.txHash}
-								ariaLabel="Salin hash transaksi"
-								variant="plain"
-							/>
+
+					{sent ? (
+						<div className="review-list">
+							<div>
+								<span>Ke</span>
+								<span className="send-done__receiver">
+									<strong className="mono">
+										{truncate(sent.receiver, 12, 8)}
+									</strong>
+									<CopyButton
+										text={sent.receiver}
+										ariaLabel="Salin alamat penerima"
+										variant="plain"
+										size={13}
+									/>
+								</span>
+							</div>
+							<div>
+								<span>Total dibayar</span>
+								<strong className="mono">
+									{formatNxcExact(sent.amount + sent.fee)} NXC
+								</strong>
+							</div>
+							<div>
+								<span>Biaya jaringan</span>
+								<strong className="mono">{formatNxcExact(sent.fee)} NXC</strong>
+							</div>
+							<div>
+								<span>Sisa saldo</span>
+								<strong className="mono">
+									{formatNxcExact(sent.remaining)} NXC
+								</strong>
+							</div>
 						</div>
 					) : null}
-					<div className="send-done__actions">
-						{trackUrl ? (
+
+					{result?.txHash ? (
+						<div className="tx-hash-box">
+							<div className="tx-hash-box__head">
+								<span className="label">Hash transaksi</span>
+								<CopyButton
+									text={result.txHash}
+									ariaLabel="Salin hash transaksi"
+									variant="plain"
+								/>
+							</div>
+							<code className="mono">{result.txHash}</code>
+						</div>
+					) : null}
+
+					{result?.text ? (
+						<p className="send-done__note">{result.text}</p>
+					) : null}
+
+					{trackUrl ? (
+						<p className="send-done__track">
 							<a
 								className="text-button"
 								href={trackUrl}
@@ -566,19 +634,8 @@ export const Send = ({
 								Lacak di Explorer{' '}
 								<Icon name="arrowUpRight" size={13} aria-hidden="true" />
 							</a>
-						) : null}
-						<button
-							type="button"
-							className="text-button"
-							onClick={() => {
-								setStep('form')
-								setSent(null)
-								setResult(null)
-							}}
-						>
-							Kirim lagi
-						</button>
-					</div>
+						</p>
+					) : null}
 				</div>
 			) : null}
 		</Modal>

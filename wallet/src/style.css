@@ -1465,23 +1465,6 @@ textarea.input {
 	font-size: 0.78rem;
 }
 
-.result-hash {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 0.35rem;
-	margin-top: 0.35rem;
-}
-
-.result-hash code {
-	max-width: 100%;
-	overflow: hidden;
-	color: inherit;
-	font-size: 0.7rem;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
 /* Receive */
 .receive-layout {
 	display: grid;
@@ -2339,17 +2322,17 @@ textarea.input {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 0.35rem;
-	padding: 1.4rem 0 0.6rem;
+	gap: 0.55rem;
+	padding: 0.5rem 0 0.25rem;
 	text-align: center;
 }
 
 .send-done__icon {
 	display: grid;
 	place-items: center;
-	width: 56px;
-	height: 56px;
-	margin-bottom: 0.4rem;
+	width: 64px;
+	height: 64px;
+	margin-bottom: 0.15rem;
 	border-radius: 50%;
 	background: var(--success-soft);
 	color: var(--success);
@@ -2367,21 +2350,78 @@ textarea.input {
 .send-done__amount {
 	color: var(--text-strong);
 	font-family: var(--mono);
-	font-size: 1.35rem;
+	font-size: 1.9rem;
 	font-weight: 750;
+	letter-spacing: -0.02em;
+	line-height: 1.2;
 }
 
-.send-done__to {
-	font-size: 0.78rem;
-	overflow-wrap: anywhere;
-}
-
-.send-done__actions {
-	display: flex;
-	flex-direction: column;
+/* Alamat penerima: dipotong supaya tidak jadi satu baris 43 karakter kecil. */
+.send-done__receiver {
+	display: inline-flex;
 	align-items: center;
-	gap: 0.6rem;
-	margin-top: 1rem;
+	gap: 0.1rem;
+}
+
+.send-done__note {
+	color: var(--text-muted);
+	font-size: 0.78rem;
+	line-height: 1.5;
+}
+
+.send-done__track {
+	text-align: center;
+}
+
+/* Status transaksi yang belum masuk blok: titik + teks, bukan warna saja. */
+.status-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.25rem 0.65rem;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	background: var(--surface-muted);
+	color: var(--text-muted);
+	font-size: 0.72rem;
+	font-weight: 700;
+}
+
+.status-pill--waiting {
+	border-color: var(--warning-border);
+	background: var(--warning-soft);
+	color: var(--warning);
+}
+
+.status-pill__dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+/* Hash transaksi: kotak berlabel, angka boleh turun dua baris. */
+.tx-hash-box {
+	padding: 0.6rem 0.7rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	background: var(--surface-subtle);
+}
+
+.tx-hash-box__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	margin-bottom: 0.2rem;
+}
+
+.tx-hash-box code {
+	display: block;
+	color: var(--text);
+	font-size: 0.72rem;
+	line-height: 1.5;
+	overflow-wrap: anywhere;
 }
 
 .tx-hash {
