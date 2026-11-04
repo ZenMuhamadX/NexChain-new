@@ -1171,15 +1171,8 @@ textarea.input {
 
 .mnemonic-grid {
 	display: grid;
-	grid-template-columns: repeat(6, minmax(0, 1fr));
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 0.45rem;
-}
-
-/* 6 kolom tidak terbaca di ponsel sempit: 12 kata turun jadi 3 x 4. */
-@media (max-width: 480px) {
-	.mnemonic-grid {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
 }
 
 .mnemonic-grid__cell {

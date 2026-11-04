@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import {
 	isKnownWord,
+	mergeMnemonic,
 	normalizeWord,
 	suggestWords,
 	splitMnemonic,
@@ -65,18 +66,19 @@ export const MnemonicGrid = ({
 		target?.select()
 	}
 
-	/** Satu kotak menerima tempelan frasa utuh → isi dari kotak itu ke kanan. */
+	/**
+	 * Satu kotak menerima ketikan atau tempelan. Tempelan frasa utuh (12/24
+	 * kata) mengisi seluruh grid, berapa pun kotak yang sedang aktif.
+	 */
 	const write = (index: number, raw: string): void => {
 		const pasted = splitMnemonic(raw)
-		const next = [...cells]
-		if (pasted.length > 1) {
-			pasted.forEach((word, offset) => {
-				next[index + offset] = word
-			})
-		} else {
-			next[index] = normalizeWord(raw)
-		}
-		commit(next)
+		commit(
+			mergeMnemonic(
+				cells,
+				index,
+				pasted.length > 1 ? pasted : [normalizeWord(raw)],
+			),
+		)
 	}
 
 	const pick = (index: number, word: string): void => {

@@ -49,6 +49,27 @@ export const splitMnemonic = (text: string): string[] =>
 		.split(/\s+/)
 		.filter((word) => word !== '')
 
+/**
+ * Tulis `words` ke grid mulai kotak `index`.
+ *
+ * Frasa utuh (12 atau 24 kata) MENGGANTIKAN seluruh isi: menempel di kotak
+ * terakhir tidak boleh menumbuhkan grid jadi 13+ kotak. Potongan pendek
+ * ditulis berurutan dan dipotong di ujung grid.
+ */
+export const mergeMnemonic = (
+	cells: readonly string[],
+	index: number,
+	words: readonly string[],
+): string[] => {
+	if (words.length === 12 || words.length === 24) return [...words]
+	const next = [...cells]
+	words.forEach((word, offset) => {
+		const at = index + offset
+		if (at < next.length) next[at] = word
+	})
+	return next
+}
+
 /** Isi satu kotak: hanya huruf kecil, tanpa spasi/angka. */
 export const normalizeWord = (text: string): string =>
 	text.toLowerCase().replace(/[^a-z]/g, '')

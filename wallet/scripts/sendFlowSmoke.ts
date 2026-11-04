@@ -42,6 +42,7 @@ import { signTransaction } from 'src/crypto/signTransaction'
 import { buildBumpedTransaction } from '../src/lib/sendFlow'
 import {
 	isKnownWord,
+	mergeMnemonic,
 	normalizeWord,
 	suggestWords,
 	splitMnemonic,
@@ -459,6 +460,25 @@ const main = async (): Promise<void> => {
 		ok(
 			pasted.length === 3 && pasted[2] === 'about',
 			'mnemonic: tempelan dirapikan menjadi kata',
+		)
+		// Bug: menempel di kotak terakhir dulu menumbuhkan grid jadi 13+ kotak.
+		const twelve = Array.from({ length: 12 }, () => 'abandon')
+		ok(
+			mergeMnemonic(twelve, 11, twelve).length === 12,
+			'mnemonic: tempel 12 kata di kotak 12 tetap 12 kotak',
+		)
+		ok(
+			mergeMnemonic(twelve, 11, twelve)[0] === 'abandon' &&
+				mergeMnemonic(twelve, 11, twelve)[11] === 'abandon',
+			'mnemonic: tempelan frasa utuh mengisi dari kotak 1',
+		)
+		ok(
+			mergeMnemonic(twelve, 0, Array(24).fill('abandon')).length === 24,
+			'mnemonic: frasa 24 kata memakai 24 kotak',
+		)
+		ok(
+			mergeMnemonic(twelve, 10, ['satu', 'dua', 'tiga']).length === 12,
+			'mnemonic: tempelan pendek dipotong di ujung grid',
 		)
 
 		// Guard: nol default-import bip39 di seluruh root module yang di-alias UI.
