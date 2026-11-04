@@ -16,6 +16,7 @@ import { Welcome } from './screens/Welcome'
 import { SetupWallet } from './screens/SetupWallet'
 import { Unlock } from './screens/Unlock'
 import { Home } from './screens/Home'
+import { History } from './screens/History'
 import { Send } from './screens/Send'
 import { Receive } from './screens/Receive'
 import { Settings } from './screens/Settings'
@@ -225,6 +226,17 @@ export const App = (): React.JSX.Element => {
 	}
 
 	/**
+	 * Kembali dari Pengaturan: node/explorer bisa saja baru diganti, jadi saldo
+	 * dan riwayat dimuat ulang — kalau tidak, daftar lama tetap tampil sampai
+	 * poll berikutnya (dan riwayat tidak ikut poll).
+	 */
+	const handleBackHome = (): void => {
+		setView('beranda')
+		setActivityVersion((value) => value + 1)
+		if (wallet) void refresh(wallet.address)
+	}
+
+	/**
 	 * Kunci otomatis setelah 5 menit di background. Hanya aktif saat ada wallet
 	 * terbuka — kalau tidak, layar buka kunci sudah tampil dan tidak ada yang
 	 * perlu dikunci.
@@ -347,7 +359,7 @@ export const App = (): React.JSX.Element => {
 							onClick: () => void refresh(wallet.address),
 						}}
 					>
-						{`RPC belum dapat dihubungi (${netError}). Saldo tidak diketahui sampai terhubung — periksa URL node di Settings.`}
+						{`RPC belum dapat dihubungi (${netError}). Saldo tidak diketahui sampai terhubung — periksa URL node di Pengaturan.`}
 					</Notice>
 				) : null}
 
@@ -381,13 +393,22 @@ export const App = (): React.JSX.Element => {
 						onSend={() => setAction('kirim')}
 						onReceive={() => setAction('terima')}
 						onChanged={handleSent}
+						onViewAll={() => setView('riwayat')}
+					/>
+				) : view === 'riwayat' ? (
+					<History
+						address={wallet.address}
+						privateKey={wallet.privateKey}
+						activityVersion={activityVersion}
+						onChanged={handleSent}
+						onBack={handleBackHome}
 					/>
 				) : (
 					<Settings
 						mnemonic={wallet.mnemonic}
 						onLock={handleLock}
 						onWipe={handleWipe}
-						onBack={() => setView('beranda')}
+						onBack={handleBackHome}
 					/>
 				)}
 			</main>

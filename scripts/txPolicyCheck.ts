@@ -221,6 +221,8 @@ const { countPendingBySender } =
 	await import('src/core/state/storage/mempool/mempoolIndex')
 const { findPendingByNonce, readMempoolEntry, MAX_PENDING_PER_SENDER } =
 	await import('src/core/state/storage/mempool/mempoolIndex')
+const { getPendingBySender } =
+	await import('src/core/state/storage/mempool/mempoolIndex')
 const { loadMempool, loadAllMempool } =
 	await import('src/core/state/storage/mempool/loadMempool')
 const { validateTransactionNonce } =
@@ -296,6 +298,25 @@ ok(
 	`countPendingBySender(B) === ${N_B} (terisolasi dari A)`,
 	countB === N_B,
 	`${countB}`,
+)
+
+// Wallet membaca tx pending lewat method per-alamat (`nex_getPendingByAddress`),
+// jadi daftarnya harus LENGKAP dan hanya milik pengirim itu — bukan potongan
+// global 100 entri yang dulu dipakai Riwayat.
+const pendingA = await getPendingBySender(SENDER_A)
+ok(
+	`getPendingBySender(A) mengembalikan ${N_A} tx (tidak terpotong)`,
+	pendingA.length === N_A && pendingA.every((tx) => tx.from === SENDER_A),
+	`${pendingA.length}`,
+)
+ok(
+	'getPendingBySender(A) urut nonce menaik (0 … 149)',
+	pendingA[0]?.nonce === 0 && pendingA[pendingA.length - 1]?.nonce === N_A - 1,
+	`${pendingA[0]?.nonce}…${pendingA[pendingA.length - 1]?.nonce}`,
+)
+ok(
+	'getPendingBySender(pengirim tanpa tx) kembali kosong',
+	(await getPendingBySender(`NxC${'cc'.repeat(20)}`)).length === 0,
 )
 
 // Bukti bahwa jalur LAMA salah: loadMempool terpotong, sehingga filter

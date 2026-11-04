@@ -13,8 +13,9 @@ import { addTxToMempool } from 'src/core/transaction/addTransactionToMempool'
 import { TxInterface } from 'src/types/transaction'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
 import { getPendingReserve } from 'src/core/transaction/getPendingReserve'
+import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { loadMempool } from 'src/core/state/storage/mempool/loadMempool'
-import { countPendingBySender } from 'src/core/state/storage/mempool/mempoolIndex'
+import { countPendingBySender, getPendingBySender } from 'src/core/state/storage/mempool/mempoolIndex'
 import { blockSummary } from 'src/types/block'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import { getWork, submitWork } from 'src/core/consensus/work'
@@ -156,6 +157,15 @@ rpc.addMethod('nex_getMempool', async () => {
 	return await loadMempool()
 })
 
+// Wallet: tx pending MILIK SATU alamat saja (indeks `mpf:<from>:`, ≤16 entri).
+// Aditif — `nex_getMempool` tetap apa adanya untuk explorer. Tanpa method ini
+// wallet harus mengunduh pool global yang dipotong 100 entri, sehingga tx
+// pending pengirim bisa hilang dari Riwayat saat mempool ramai.
+rpc.addMethod('nex_getPendingByAddress', async (address: string) => {
+	if (typeof address !== 'string' || !isValidAddress(address)) return []
+	return await getPendingBySender(address)
+})
+
 // Status sinkronisasi P2P (JSON polos, BUKAN hex). `syncing: true` berarti
 // `nex_getWork` sementara ditolak sampai rantai menyusul peer (IBD). Bila P2P
 // mati atau node sudah menyusul, `syncing` bernilai false dan mining normal.
@@ -231,8 +241,34 @@ rpc.addMethod('nex_getTransactionByTxHash', async (txHash: string) => {
 	return await getHistoryByTxHash(txHash)
 })
 
-rpc.addMethod('nex_getTransactionsByAddress', async (address: string) => {
-	return await getHistoryByAddress(address)
+/**
+ * Riwayat alamat — DUA bentuk parameter, keduanya sah:
+ *
+ *   "NxC..."                              → { count, history }        (lama)
+ *   { address, page?, pageSize? }         → { count, history, page, pageSize, totalPages }
+ *
+ * Bentuk string DIPERTAHANKAN apa adanya karena explorer (`api/methods.ts`),
+ * `explorer/scripts/smoke.ts`, dan `scripts/stateCheck.ts` memakainya, dan
+ * explorer memaginasi di sisi klien. Wallet memakai bentuk objek supaya tidak
+ * lagi menarik seluruh riwayat satu alamat sekaligus.
+ *
+ * `count` tetap berarti TOTAL di kedua bentuk — bukan panjang halaman — agar
+ * "halaman 3 dari 47" bisa dihitung tanpa panggilan kedua.
+ */
+rpc.addMethod('nex_getTransactionsByAddress', async (params?: unknown) => {
+	if (typeof params === 'string') return await getHistoryByAddress(params)
+
+	const query = (params ?? {}) as Record<string, unknown>
+	const address = typeof query.address === 'string' ? query.address : ''
+	if (address === '')
+		throw new Error(
+			'nex_getTransactionsByAddress: address wajib diisi (string alamat atau {address, page?, pageSize?})',
+		)
+
+	return await getHistoryByAddress(address, {
+		page: typeof query.page === 'number' ? query.page : undefined,
+		pageSize: typeof query.pageSize === 'number' ? query.pageSize : undefined,
+	})
 })
 
 rpc.addMethod('nex_sendTransaction', async (data: string) => {

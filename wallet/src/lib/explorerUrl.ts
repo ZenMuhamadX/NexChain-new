@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'nex_explorer_url'
-const DEV_FALLBACK = 'http://localhost:5173'
+/** Explorer publik default — Settings hanya perlu diisi bila memakai yang lain. */
+export const DEFAULT_EXPLORER_URL = 'https://explorer.zuns.my.id'
 
 const normalizeBase = (value: string | undefined): string => {
 	const raw = value?.trim()
@@ -16,7 +17,7 @@ const normalizeBase = (value: string | undefined): string => {
 
 const envBase = (): string => normalizeBase(import.meta.env.VITE_EXPLORER_URL)
 
-/** Base URL explorer: Settings override → build-time env → local dev fallback. */
+/** Base URL explorer: Settings override → build-time env → explorer publik. */
 export const getExplorerUrl = (): string => {
 	try {
 		const saved = normalizeBase(localStorage.getItem(STORAGE_KEY) ?? undefined)
@@ -24,13 +25,15 @@ export const getExplorerUrl = (): string => {
 	} catch {
 		// localStorage can be unavailable in private/restricted contexts.
 	}
-	return envBase() || (import.meta.env.DEV ? DEV_FALLBACK : '')
+	return envBase() || DEFAULT_EXPLORER_URL
 }
 
 export const persistExplorerUrl = (value: string): string => {
 	const normalized = normalizeBase(value)
 	if (value.trim() && !normalized) {
-		throw new Error('URL explorer harus berupa http(s) URL atau path yang diawali /.')
+		throw new Error(
+			'URL explorer harus berupa http(s) URL atau path yang diawali /.',
+		)
 	}
 	try {
 		if (normalized) localStorage.setItem(STORAGE_KEY, normalized)

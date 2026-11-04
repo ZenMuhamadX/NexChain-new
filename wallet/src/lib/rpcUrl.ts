@@ -6,12 +6,11 @@ import { errorMessage } from './format'
  *
  * Prioritas endpoint (dari yang paling bisa diubah):
  *   1. `localStorage`      — override manual via Settings (per-origin).
- *   2. `VITE_RPC_URL`      — di-bake saat BUILD (deploy VPS/devnet online).
- *   3. Ikut hostname halaman — fallback dev lokal (lihat defaultRpcUrl).
+ *   2. `VITE_RPC_URL`      — di-bake saat BUILD (deploy khusus satu node).
+ *   3. `DEFAULT_RPC_URL`   — node publik NexChain (lihat di bawah).
  *
- * Default node semula hardcode `http://localhost:8000/rpc` (BUG-E4) — dari HP
- * itu berarti HP itu sendiri. `initRpcUrl` dipanggil SEBELUM request pertama
- * (main.tsx); `setRpcUrl` sendiri menolak selain http(s).
+ * `initRpcUrl` dipanggil SEBELUM request pertama (main.tsx); `setRpcUrl`
+ * sendiri menolak selain http(s).
  */
 const STORAGE_KEY = 'nex_rpc_url'
 // Kredensial Basic Auth method tulis — opsional, hanya dipakai bila node
@@ -19,7 +18,9 @@ const STORAGE_KEY = 'nex_rpc_url'
 // auth tidak ikut mengubah endpoint (dan sebaliknya).
 const USER_KEY = 'nex_rpc_user'
 const PASS_KEY = 'nex_rpc_pass'
-const RPC_PORT = 8000
+
+/** Node publik default — pengguna tetap bisa menggantinya di Pengaturan. */
+export const DEFAULT_RPC_URL = 'https://node1.zuns.my.id/rpc'
 
 /**
  * `VITE_RPC_URL` bila terisi DAN valid http(s), selain itu `undefined`.
@@ -46,34 +47,11 @@ const envRpcUrl = (): string | undefined => {
 /**
  * Endpoint default.
  *
- * 1. `VITE_RPC_URL` (build-time) — halaman https PASTI diblokir bila fetch
- *    http ke port lain (mixed content), jadi deploy wajib mengisi env ini.
- * 2. Halaman https TANPA env → origin yang sama (`/rpc`), minimal boleh
- *    sampai ke proxy sebelum gagal — daripada URL yang pasti diblokir.
- * 3. Fallback dev lokal: ikut HOST HALAMAN, bukan `localhost` (BUG-E4):
- *      halaman http://192.168.90.100:5174 → http://192.168.90.100:8000/rpc
- *      halaman http://localhost:5174      → http://localhost:8000/rpc
+ * `VITE_RPC_URL` (build-time) menang bila diisi — dipakai untuk build yang
+ * harus menunjuk satu node tertentu. Selain itu wallet memakai node publik;
+ * pengguna bisa menggantinya kapan saja di Pengaturan (`persistRpcUrl`).
  */
-const defaultRpcUrl = (): string => {
-	const fromEnv = envRpcUrl()
-	if (fromEnv) return fromEnv
-
-	if (typeof location === 'undefined') return `http://localhost:${RPC_PORT}/rpc`
-
-	if (location.protocol === 'https:') return `${location.origin}/rpc`
-
-	const host = location.hostname
-	// loopback (IPv4 maupun IPv6 — hostname IPv6 datang dengan kurung siku)
-	if (
-		host === 'localhost' ||
-		host === '127.0.0.1' ||
-		host === '[::1]' ||
-		host === '::1'
-	) {
-		return `http://localhost:${RPC_PORT}/rpc`
-	}
-	return `http://${host}:${RPC_PORT}/rpc`
-}
+const defaultRpcUrl = (): string => envRpcUrl() ?? DEFAULT_RPC_URL
 
 export const initRpcUrl = (): void => {
 	// Kredensial pernah disimpan di localStorage (terbaca skrip lain di origin

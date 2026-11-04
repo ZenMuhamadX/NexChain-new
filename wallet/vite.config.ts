@@ -87,9 +87,10 @@ export default defineConfig(({ mode }) => {
 		 * `.env` OPSIONAL — dan idealnya tidak ada sama sekali.
 		 *
 		 * Semua nilai punya default yang benar untuk pemakaian normal:
-		 *   - URL RPC     : shell yang menentukan (desktop lewat bridge,
-		 *                   dev lewat localhost:8000). Lihat `src/lib/rpcUrl.ts`.
-		 *   - Explorer    : kosong = link eksternal dimatikan.
+		 *   - URL RPC     : default node publik, bisa diganti di Settings
+		 *                   atau dipaksa lewat `VITE_RPC_URL`. Lihat
+		 *                   `src/lib/rpcUrl.ts`.
+		 *   - Explorer    : default explorer publik (`src/lib/explorerUrl.ts`).
 		 *   - Backend vault: desktop menyuntik backend berkas sendiri; dev
 		 *                   memakai memori; PWA memakai IndexedDB.
 		 *
@@ -155,12 +156,10 @@ export default defineConfig(({ mode }) => {
 			fs: { allow: [fileURLToPath(new URL('..', import.meta.url))] },
 		},
 		/**
-		 * Port preview WAJIB 5174.
-		 *
-		 * `defaultRpcUrl()` menurunkan `http://localhost:8000/rpc` untuk halaman
-		 * http di loopback, dan allowlist CORS node hanya memuat `:5173`/`:5174`.
-		 * Port default `vite preview` (4173) akan diblokir browser. Dev shell dan
-		 * preview tidak pernah dijalankan bersamaan, jadi port boleh sama.
+		 * Port preview WAJIB 5174 — sama dengan dev server, karena keduanya
+		 * tidak pernah berjalan bersamaan. Default `vite preview` (4173) juga
+		 * akan bekerja (node publik membalas CORS sesuai origin), tapi
+		 * menyamakan port membuat uji PWA tidak perlu mengingat dua alamat.
 		 */
 		preview: isWeb ? { port: 5174 } : undefined,
 		build: {

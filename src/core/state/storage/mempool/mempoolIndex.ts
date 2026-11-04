@@ -325,3 +325,39 @@ export const findPendingByNonce = async (
 		return undefined
 	})
 }
+
+/**
+ * SEMUA tx pending milik satu pengirim (`nex_getPendingByAddress`).
+ *
+ * Dipakai wallet untuk menampilkan baris "Tertunda" di Riwayat TANPA
+ * mengunduh seluruh mempool. Sama seperti `findPendingByNonce`, biayanya
+ * dibatasi prefix `mpf:<from>:` (≤ `MAX_PENDING_PER_SENDER` entri).
+ *
+ * Batas yang diterima: tx MASUK yang masih pending TIDAK terlihat di sini —
+ * pengirimnya bukan pemilik alamat, jadi tidak ada di indeks ini. Tx seperti
+ * itu baru muncul setelah masuk blok. `shortcut:` tambahkan indeks penerima
+ * `mpt:<to>:<txHash>` (ditulis dalam batch yang sama dengan `mpf:`) bila
+ * suatu saat itu dibutuhkan.
+ */
+export const getPendingBySender = async (
+	from: string,
+): Promise<TxInterface[]> => {
+	await ensureMempoolIndex()
+	return runMempoolOp(async () => {
+		const pending: TxInterface[] = []
+		for await (const key of rocksMempool.keys({
+			gte: senderIndexGte(from),
+			lt: senderIndexLt(from),
+		})) {
+			const indexKey = key.toString()
+			const separator = indexKey.indexOf(':', 4)
+			if (separator < 0) continue
+			const txHash = indexKey.slice(separator + 1)
+			if (!txHash) continue
+			const tx = await readMempoolEntry(txHash).catch(() => undefined)
+			if (tx) pending.push(tx)
+		}
+		// Urut nonce = urutan eksekusi, jadi baris Riwayat stabil antar-poll.
+		return pending.sort((a, b) => a.nonce - b.nonce)
+	})
+}

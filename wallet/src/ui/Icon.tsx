@@ -70,7 +70,7 @@ const PATHS: Record<IconName, React.JSX.Element> = {
 			<path d="M5.5 15h-.5a2 2 0 0 1-2-2V5.5a2 2 0 0 1 2-2H13a2 2 0 0 1 2 2V6" />
 		</>
 	),
-	check: <path d="M4.5 12.5 9.5 17.5 19.5 6.5" />,
+	check: <path d="M4.5 12.5 9.5 17.5 19.5 6.5" pathLength={1} />,
 	refresh: (
 		<>
 			<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />

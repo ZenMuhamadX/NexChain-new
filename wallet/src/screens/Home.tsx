@@ -18,6 +18,8 @@ interface HomeProps {
 	onSend: () => void
 	onReceive: () => void
 	onChanged: () => void
+	/** Buka layar Riwayat penuh (daftar di beranda hanya pratinjau 5 baris). */
+	onViewAll: () => void
 }
 
 /**
@@ -25,7 +27,8 @@ interface HomeProps {
  *
  * Tidak ada tab. Kirim & Terima adalah sheet, dan daftar aktivitas tinggal di
  * layar yang sama — berpindah tab hanya untuk melihat transaksi berarti
- * memuat ulang data yang sama.
+ * memuat ulang data yang sama. Riwayat lengkap punya layarnya sendiri supaya
+ * beranda tidak memanjang tanpa ujung.
  */
 export const Home = ({
 	address,
@@ -39,6 +42,7 @@ export const Home = ({
 	onSend,
 	onReceive,
 	onChanged,
+	onViewAll,
 }: HomeProps): React.JSX.Element => {
 	/** `NaN` membuat `AmountDisplay` mencetak "—" (lihat `formatNxc`). */
 	const shown = (value: number): number => (loaded ? value : Number.NaN)
@@ -129,9 +133,9 @@ export const Home = ({
 					address={address}
 					privateKey={privateKey}
 					version={activityVersion}
-					onSend={onSend}
-					onReceive={onReceive}
 					onChanged={onChanged}
+					pageSize={5}
+					onViewAll={onViewAll}
 				/>
 			</section>
 		</div>

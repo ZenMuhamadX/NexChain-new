@@ -1135,16 +1135,83 @@ tr.is-new>td {
    pager
    ============================================================ */
 
+/* ← Prev  1 … 5 [6] 7 … 53  Next →
+   Letaknya DI BAWAH card, jadi diberi jarak atas sendiri. */
 .pager {
 	display: flex;
 	align-items: center;
-	gap: var(--space-3);
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+	margin-block-start: var(--space-4);
 }
 
-.pager-page {
-	font-size: var(--fs-sm);
-	color: var(--muted);
+.pager-btn,
+.pager-num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 2rem;
+	padding-inline: var(--space-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	background: var(--bg-raised);
+	color: var(--text-soft);
+	font-family: inherit;
+	font-size: var(--fs-label);
+	font-weight: 500;
+	line-height: 1;
+	white-space: nowrap;
 	font-variant-numeric: tabular-nums;
+	text-decoration: none;
+	transition:
+		background 0.15s,
+		border-color 0.15s,
+		color 0.15s;
+}
+
+.pager-num {
+	min-width: 2rem;
+	padding-inline: var(--space-1);
+}
+
+.pager-btn:not(.is-disabled):hover,
+.pager-num:not(.is-current):hover {
+	background: var(--bg-hover);
+	border-color: var(--border-strong);
+	color: var(--text);
+	text-decoration: none;
+}
+
+/* Halaman aktif: bukan tautan, jadi tidak ikut hover. */
+.pager-num.is-current {
+	background: var(--accent-soft);
+	border-color: transparent;
+	color: var(--accent);
+	font-weight: 600;
+	cursor: default;
+}
+
+/* Tombol tepi yang tidak berlaku tetap terlihat (layout tidak bergeser),
+   tapi diredupkan dan bukan tautan — lihat Pagination.tsx. */
+.pager-btn.is-disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.pager-gap {
+	padding-inline: var(--space-1);
+	color: var(--muted);
+	font-size: var(--fs-label);
+	user-select: none;
+}
+
+/* Layar sempit: sisakan Prev / halaman aktif / Next saja. */
+@media (max-width: 700px) {
+	.pager-gap,
+	.pager-num:not(.is-current) {
+		display: none;
+	}
 }
 
 /* ============================================================
@@ -2127,10 +2194,15 @@ tr.is-new>td {
 }
 
 /* Hero */
+/* TIDAK memakai `overflow: hidden` maupun `isolation: isolate` di sini.
+   Keduanya memerangkap dropdown "Recent searches" (.search-suggest, di dalam
+   hero): `overflow: hidden` memotongnya di tepi bawah hero, dan stacking
+   context dari `isolation` membuat z-index dropdown tidak bisa naik melewati
+   .panel sesudahnya. Pola dekoratif tetap terkurung karena .hero-network
+   berukuran `inset: 0`, dan urutan catnya diatur oleh .hero-content yang
+   diposisikan (lihat di bawah). */
 .explorer-hero {
 	position: relative;
-	isolation: isolate;
-	overflow: hidden;
 	background: linear-gradient(135deg, var(--hero-bg), var(--hero-bg-strong));
 	color: var(--hero-text);
 }
@@ -2138,7 +2210,6 @@ tr.is-new>td {
 .hero-network {
 	position: absolute;
 	inset: 0;
-	z-index: -1;
 	opacity: 0.28;
 	background-image:
 		linear-gradient(30deg,
@@ -2158,6 +2229,7 @@ tr.is-new>td {
 }
 
 .hero-content {
+	position: relative;
 	max-width: 52rem;
 	padding-block: var(--space-12);
 	padding-inline: var(--space-8);

@@ -1,6 +1,7 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { rpc } from '../api/methods'
 import { BlockTable } from '../components/BlockTable'
+import { Pagination } from '../components/Pagination'
 import { PageSkeleton, SkeletonTable } from '../components/common/Skeleton'
 import { EmptyState, ErrorState } from '../components/common/States'
 import { useAsync } from '../hooks/useAsync'
@@ -14,12 +15,22 @@ const POLL_MS = 10_000
 export function BlocksPage() {
 	useDocumentTitle('Blocks')
 	const chain = useChain()
-	const [params, setParams] = useSearchParams()
-
-	const rawPage = Number.parseInt(params.get('page') ?? '1', 10)
-	const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1
+	const [params] = useSearchParams()
+	const { pathname } = useLocation()
 
 	const latest = chain.state?.currentBlockHeight
+	// Genesis (height 0) ikut dihitung, jadi jumlah blok = tip + 1.
+	const totalPages =
+		latest !== undefined ? Math.max(1, Math.ceil((latest + 1) / PAGE_SIZE)) : 1
+
+	const rawPage = Number.parseInt(params.get('page') ?? '1', 10)
+	// Halaman di luar jangkauan (?page=999) dijepit ke halaman terakhir,
+	// supaya user melihat data, bukan tabel kosong.
+	const page = Math.min(
+		Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1,
+		totalPages,
+	)
+
 	const from =
 		latest !== undefined ? latest - (page - 1) * PAGE_SIZE : undefined
 	const inRange = from !== undefined && from >= 0
@@ -31,11 +42,9 @@ export function BlocksPage() {
 		pollMs: POLL_MS,
 	})
 
-	const setPage = (next: number) => {
-		const search = new URLSearchParams()
-		if (next > 1) search.set('page', String(next))
-		setParams(search)
-	}
+	// Halaman 1 memakai URL bersih (tanpa ?page=1) supaya bisa dibagikan.
+	const hrefFor = (next: number) =>
+		next > 1 ? `${pathname}?page=${next}` : pathname
 
 	if (latest === undefined && chain.loading) {
 		return (
@@ -57,7 +66,6 @@ export function BlocksPage() {
 	// Halaman melewati akhir rantai (from < 0) atau hasil kosong.
 	const isEmptyPage =
 		inRange && !blocks.loading && (blocks.data?.length ?? 0) === 0
-	const hasMore = (blocks.data?.length ?? 0) === PAGE_SIZE
 	const first = from ?? 0
 	const last = first - (blocks.data?.length ?? 0) + 1
 
@@ -76,25 +84,6 @@ export function BlocksPage() {
 							<>Tip #{formatNumber(latest ?? 0)}</>
 						)}
 					</p>
-				</div>
-				<div className="pager">
-					<button
-						type="button"
-						className="btn"
-						disabled={page <= 1}
-						onClick={() => setPage(page - 1)}
-					>
-						← Newer
-					</button>
-					<span className="pager-page">Page {formatNumber(page)}</span>
-					<button
-						type="button"
-						className="btn"
-						disabled={!hasMore || isEmptyPage}
-						onClick={() => setPage(page + 1)}
-					>
-						Older →
-					</button>
 				</div>
 			</div>
 
@@ -117,13 +106,9 @@ export function BlocksPage() {
 							title="No older blocks"
 							hint="This page is past the genesis block."
 							action={
-								<button
-									type="button"
-									className="btn btn-primary"
-									onClick={() => setPage(1)}
-								>
+								<Link className="btn btn-primary" to={pathname}>
 									Go to latest
-								</button>
+								</Link>
 							}
 						/>
 					) : blocks.loading && !blocks.data ? (
@@ -153,6 +138,13 @@ export function BlocksPage() {
 					)}
 				</div>
 			</section>
+
+			<Pagination
+				page={page}
+				totalPages={totalPages}
+				hrefFor={hrefFor}
+				label="Blocks pagination"
+			/>
 		</div>
 	)
 }

@@ -72,16 +72,59 @@ export interface WalletVault {
 }
 
 /**
+ * Operasi kripto vault — titik suntik supaya satu implementasi vault dipakai
+ * Node/CLI (sinkron) DAN browser (Web Worker, PBKDF2 tidak memblok UI).
+ *
+ * Sebelumnya browser memelihara SALINAN vault sendiri di `wallet/src/lib/vault.ts`
+ * (create/import/unlock/lock/wipe ditulis ulang). Salinan itu tidak tercakup
+ * gate mana pun — `check:wallet` menguji `createWalletVault` — sehingga jalur
+ * yang benar-benar dikirim ke pengguna adalah satu-satunya tanpa test.
+ */
+export interface VaultCrypto {
+	genMnemonic(): string
+	validateMnemonic(mnemonic: string): void
+	deriveKeys(mnemonic: string): UnlockedWallet | Promise<UnlockedWallet>
+	encryptSecret(secret: string, passphrase: string): Promise<EncryptedBlob>
+	decryptSecret(blob: EncryptedBlob, passphrase: string): Promise<string>
+}
+
+const defaultCrypto: VaultCrypto = {
+	genMnemonic: genRandomMnemonic,
+	validateMnemonic,
+	deriveKeys: (mnemonic: string): UnlockedWallet => {
+		const { privateKey, publicKey } = generateKeysFromMnemonic(mnemonic)
+		return {
+			address: generateAddressFromPublicKey(publicKey),
+			publicKey,
+			privateKey,
+			mnemonic,
+		}
+	},
+	encryptSecret,
+	decryptSecret,
+}
+
+export interface VaultOptions {
+	/** Record yang dipakai; default `'primary'`. */
+	walletId?: string
+	/** Suntikan kripto; default implementasi lokal (Node/CLI, gate). */
+	crypto?: VaultCrypto
+}
+
+/**
  * Buat vault di atas backend penyimpanan apa pun.
  *
- * @param kv    IndexedDB di browser (`createIdbKV`), memori di pengujian
- *              (`createMemoryKV`).
- * @param walletId  Record yang dipakai; default `'primary'`.
+ * @param kv        IndexedDB di browser (`createIdbKV`), memori di pengujian
+ *                  (`createMemoryKV`), jembatan berkas di shell desktop.
+ * @param options   `walletId` dan suntikan kripto (lihat `VaultCrypto`).
  */
 export const createWalletVault = (
 	kv: WalletKV,
-	walletId: string = PRIMARY_WALLET_ID,
+	options: VaultOptions = {},
 ): WalletVault => {
+	const walletId = options.walletId ?? PRIMARY_WALLET_ID
+	const ops = options.crypto ?? defaultCrypto
+
 	/** Rahasia terbuka — hanya di memori proses ini. */
 	let unlocked: UnlockedWallet | undefined
 
@@ -95,17 +138,14 @@ export const createWalletVault = (
 	})
 
 	/** Mnemonic -> kunci + alamat, memakai jalur turunan yang SUDAH teruji. */
-	const deriveFromMnemonic = (mnemonic: string): UnlockedWallet => {
+	const deriveFromMnemonic = async (
+		mnemonic: string,
+	): Promise<UnlockedWallet> => {
 		// Normalisasi spasi: handle copy-paste dengan spasi ganda/newline
 		// Idempotent: aman dipakai berulang, tidak mengubah mnemonic yang sudah bersih
 		const normalized = mnemonic.trim().replace(/\s+/g, ' ')
-		const { privateKey, publicKey } = generateKeysFromMnemonic(normalized)
-		return {
-			address: generateAddressFromPublicKey(publicKey),
-			publicKey,
-			privateKey,
-			mnemonic: normalized,
-		}
+		const derived = await ops.deriveKeys(normalized)
+		return { ...derived, mnemonic: normalized }
 	}
 
 	const assertEmpty = async (): Promise<void> => {
@@ -120,8 +160,8 @@ export const createWalletVault = (
 		mnemonic: string,
 		passphrase: string,
 	): Promise<WalletInfo> => {
-		const derived = deriveFromMnemonic(mnemonic)
-		const blob = await encryptSecret(mnemonic, passphrase)
+		const derived = await deriveFromMnemonic(mnemonic)
+		const blob = await ops.encryptSecret(mnemonic, passphrase)
 		const record: VaultRecord = {
 			id: walletId,
 			address: derived.address,
@@ -149,7 +189,7 @@ export const createWalletVault = (
 
 		create: async (passphrase: string): Promise<WalletInfo> => {
 			await assertEmpty()
-			return persist(genRandomMnemonic(), passphrase)
+			return persist(ops.genMnemonic(), passphrase)
 		},
 
 		importMnemonic: async (
@@ -159,7 +199,7 @@ export const createWalletVault = (
 			// Normalisasi spasi dulu: salinan/tempel sering membawa spasi ganda
 			// atau newline, yang membuat checksum BIP39 gagal padahal benar.
 			const normalized = mnemonic.trim().replace(/\s+/g, ' ')
-			validateMnemonic(normalized)
+			ops.validateMnemonic(normalized)
 			await assertEmpty()
 			return persist(normalized, passphrase)
 		},
@@ -170,10 +210,10 @@ export const createWalletVault = (
 				throw new Error('Vault kosong — buat atau impor wallet dulu.')
 			}
 
-			const mnemonic = await decryptSecret(record.blob, passphrase)
-			// `generateKeysFromMnemonic` melempar bila mnemonic korup, sehingga
-			// `unlocked` tidak pernah terisi oleh isi yang rusak.
-			const derived = deriveFromMnemonic(mnemonic)
+			const mnemonic = await ops.decryptSecret(record.blob, passphrase)
+			// Turunan yang gagal melempar, sehingga `unlocked` tidak pernah
+			// terisi oleh isi yang rusak.
+			const derived = await deriveFromMnemonic(mnemonic)
 
 			if (derived.address !== record.address) {
 				throw new Error(

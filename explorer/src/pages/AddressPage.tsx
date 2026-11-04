@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { rpc } from '../api/methods'
 import { isNotFound } from '../api/rpcClient'
 import type { HistoryEntry, structBalance } from '../api/types'
 import { Breadcrumbs } from '../components/Breadcrumbs'
+import { Pagination } from '../components/Pagination'
 import { TxTable } from '../components/TxTable'
 import { CopyButton } from '../components/common/CopyButton'
 import { RawJson } from '../components/common/RawJson'
@@ -26,7 +27,8 @@ const PAGE_SIZE = 25
 export function AddressPage() {
 	const { address = '' } = useParams()
 	const valid = ADDRESS_PATTERN.test(address)
-	const [page, setPage] = useState(1)
+	const [params] = useSearchParams()
+	const { pathname } = useLocation()
 	/** Overview default RINGKAS (2 pasang); Nonce & History entries saat expand. */
 	const [expanded, setExpanded] = useState(false)
 
@@ -42,10 +44,6 @@ export function AddressPage() {
 		[address],
 		{ enabled: valid },
 	)
-
-	useEffect(() => {
-		setPage(1)
-	}, [address])
 
 	const balance = account.data
 
@@ -132,9 +130,16 @@ export function AddressPage() {
 	const txs = history.data?.history ?? []
 	const txCount = history.data?.count ?? 0
 	const totalPages = Math.max(1, Math.ceil(txs.length / PAGE_SIZE))
-	const current = Math.min(page, totalPages)
+	const rawPage = Number.parseInt(params.get('page') ?? '1', 10)
+	// Halaman di luar jangkauan dijepit ke halaman terakhir.
+	const current = Math.min(
+		Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1,
+		totalPages,
+	)
 	const start = (current - 1) * PAGE_SIZE
 	const visible = txs.slice(start, start + PAGE_SIZE)
+	const hrefFor = (next: number) =>
+		next > 1 ? `${pathname}?page=${next}` : pathname
 
 	return (
 		<div className="page detail-page">
@@ -258,29 +263,6 @@ export function AddressPage() {
 							<span className="heading-count">{formatNumber(txCount)}</span>
 						</h2>
 					</div>
-					{totalPages > 1 ? (
-						<div className="pager">
-							<button
-								type="button"
-								className="btn"
-								disabled={current <= 1}
-								onClick={() => setPage(current - 1)}
-							>
-								← Newer
-							</button>
-							<span className="pager-page">
-								Page {formatNumber(current)} of {formatNumber(totalPages)}
-							</span>
-							<button
-								type="button"
-								className="btn"
-								disabled={current >= totalPages}
-								onClick={() => setPage(current + 1)}
-							>
-								Older →
-							</button>
-						</div>
-					) : null}
 				</div>
 				<div className="panel-body table-panel-body">
 					{history.loading && !history.data ? (
@@ -300,6 +282,13 @@ export function AddressPage() {
 					)}
 				</div>
 			</section>
+
+			<Pagination
+				page={current}
+				totalPages={totalPages}
+				hrefFor={hrefFor}
+				label="Transaction history pagination"
+			/>
 
 			<RawJson data={balance} summary="Raw account JSON" />
 		</div>

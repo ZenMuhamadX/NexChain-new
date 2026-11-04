@@ -402,6 +402,48 @@ const indexEntries = async (
 		`${count}`,
 	)
 
+	/**
+	 * Paginasi: satu lintasan iterator harus menghasilkan TOTAL sekaligus
+	 * jendela halaman. Kontrak yang dijaga: `count` tetap total di setiap
+	 * halaman (bukan panjang halaman), halaman 1..n menyusun ulang daftar
+	 * penuh tanpa duplikat, halaman di luar jangkauan kosong tanpa kehilangan
+	 * total, dan `page`/`pageSize` di-clamp.
+	 */
+	const page1 = await getHistoryByAddress(MINER, { page: 1, pageSize: 1 })
+	const page2 = await getHistoryByAddress(MINER, { page: 2, pageSize: 1 })
+	const beyond = await getHistoryByAddress(MINER, { page: 99, pageSize: 1 })
+	const clamped = await getHistoryByAddress(MINER, { page: 0, pageSize: 0 })
+	// Menyusuri SEMUA halaman (pageSize 1) harus menyusun ulang daftar penuh
+	// dalam urutan yang sama — bukti tidak ada baris yang hilang atau dobel di
+	// batas halaman.
+	const walked: string[] = []
+	for (let page = 1; page <= count; page += 1) {
+		const chunk = await getHistoryByAddress(MINER, { page, pageSize: 1 })
+		walked.push(...chunk.history.map((tx) => tx.txHash ?? ''))
+	}
+	ok(
+		'semua halaman = riwayat penuh, tanpa duplikat',
+		walked.join(',') === history.map((tx) => tx.txHash).join(','),
+		`${walked.length} baris`,
+	)
+	ok(
+		'`count` tetap total di setiap halaman',
+		page1.count === count && page2.count === count && beyond.count === count,
+		`${page1.count}/${page2.count}/${beyond.count}`,
+	)
+	ok(
+		'halaman di luar jangkauan → kosong, total tetap',
+		beyond.history.length === 0 && beyond.totalPages === count,
+		`${beyond.history.length}/${beyond.totalPages}`,
+	)
+	ok(
+		'`page` & `pageSize` di-clamp ke minimal 1',
+		clamped.page === 1 &&
+			clamped.pageSize === 1 &&
+			clamped.history.length === 1,
+		`${clamped.page}/${clamped.pageSize}/${clamped.history.length}`,
+	)
+
 	let legacy = 0
 	let coinbaseEntry = 0
 	for await (const [key] of rocksHistory.iterator()) {

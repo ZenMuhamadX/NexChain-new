@@ -30,10 +30,10 @@ Kalau HTML-nya tetap di `dist/web/shells/web/index.html`, service worker akan
 jatuh ke fallback navigation yang salah tanpa error yang jelas. Shell dev dan
 desktop tetap memakai `wallet/` sebagai root, jadi keduanya tidak berubah.
 
-`preview.port` sengaja **5174**: `defaultRpcUrl()` menurunkan
-`http://localhost:8000/rpc` untuk halaman loopback, dan allowlist CORS node
-hanya memuat `:5173`/`:5174`. Port default `vite preview` (4173) akan diblokir
-browser dan membuat wallet tampil "RPC offline" padahal node hidup.
+`preview.port` sengaja **5174** (sama dengan dev server) supaya build PWA bisa
+diuji di port yang sama dengan pengembangan; node publik membalas CORS sesuai
+origin pemanggil, jadi port berapa pun tetap bisa. Dev shell dan preview tidak
+pernah dijalankan bersamaan, jadi port boleh sama.
 
 ## Berkas
 

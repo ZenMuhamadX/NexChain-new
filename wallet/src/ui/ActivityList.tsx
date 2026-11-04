@@ -21,37 +21,43 @@ import { Notice } from '../ui/Notice'
 interface ActivityListProps {
 	address: string
 	privateKey: string
-	/** Naik setiap transaksi terkirim → halaman pertama dimuat ulang. */
+	/** Naik setiap transaksi terkirim → daftar dimuat ulang. */
 	version: number
-	onSend: () => void
-	onReceive: () => void
 	/** Ada perubahan di luar alur kirim (mis. percepat) → saldo ikut disegarkan. */
 	onChanged: () => void
+	/** Baris per halaman. Beranda memakai 5 sebagai pratinjau. */
+	pageSize?: number
+	/**
+	 * Ada = mode pratinjau: daftar dibatasi satu halaman dan diganti tautan
+	 * "Lihat semua". Tanpa prop ini daftar memakai navigasi halaman penuh.
+	 */
+	onViewAll?: () => void
 }
 
 /**
- * Daftar aktivitas Beranda: satu baris per transaksi, tumbuh lewat "Muat lebih
- * banyak" — bukan nomor halaman.
+ * Daftar aktivitas, dua mode dalam satu komponen:
  *
- * MENGAPA muat-lebih-banyak: nomor halaman memaksa node menghitung total tiap
- * permintaan dan membuat pengguna kehilangan posisi saat daftar bertambah di
- * atas. Penambahan halaman berikutnya di-dedup per `txHash` karena transaksi
- * baru bisa masuk di antara dua permintaan dan menggeser offset.
+ * - **Pratinjau (Beranda)**: satu halaman kecil + tautan ke layar Riwayat.
+ * - **Penuh (Riwayat)**: tombol Sebelumnya/Selanjutnya memakai `totalPages`
+ *   dari node, jadi tidak pernah ada satu halaman berisi seluruh riwayat.
+ *
+ * Nomor halaman (bukan "muat lebih banyak") karena node sudah menghitung
+ * `count`/`totalPages`; menambah baris ke bawah membuat halaman jadi tak
+ * berujung dan pengguna kehilangan posisi.
  */
 export const ActivityList = ({
 	address,
 	privateKey,
 	version,
-	onSend,
-	onReceive,
 	onChanged,
+	pageSize = ACTIVITY_PAGE_SIZE,
+	onViewAll,
 }: ActivityListProps): React.JSX.Element => {
 	const [rows, setRows] = useState<HistoryRow[]>([])
 	const [total, setTotal] = useState(0)
 	const [page, setPage] = useState(1)
-	/** true hanya sebelum jawaban PERTAMA — "muat lebih banyak" tidak mengedipkan daftar. */
+	const [totalPages, setTotalPages] = useState(1)
 	const [loading, setLoading] = useState(true)
-	const [loadingMore, setLoadingMore] = useState(false)
 	const [error, setError] = useState('')
 	const [detail, setDetail] = useState<HistoryRow | null>(null)
 	const [bumpTarget, setBumpTarget] = useState<HistoryRow | null>(null)
@@ -61,49 +67,37 @@ export const ActivityList = ({
 		text: string
 	} | null>(null)
 
-	const loadFirst = useCallback(async (): Promise<void> => {
-		setError('')
-		try {
-			const first = await fetchActivityPage(address, 1, ACTIVITY_PAGE_SIZE)
-			setRows(first.rows)
-			setTotal(first.total)
-			setPage(1)
-		} catch (e) {
-			setError(errorMessage(e))
-		} finally {
-			setLoading(false)
-		}
-	}, [address])
+	const load = useCallback(
+		async (target: number): Promise<void> => {
+			setError('')
+			setLoading(true)
+			try {
+				const next = await fetchActivityPage(address, target, pageSize)
+				setRows(next.rows)
+				setTotal(next.total)
+				setTotalPages(Math.max(1, next.totalPages))
+				setPage(next.page)
+			} catch (e) {
+				// Daftar halaman lain tidak boleh tertinggal di bawah nomor halaman
+				// yang gagal dimuat — kosongkan dan tampilkan error.
+				setRows([])
+				setError(errorMessage(e))
+			} finally {
+				setLoading(false)
+			}
+		},
+		[address, pageSize],
+	)
 
+	/** Transaksi baru masuk → kembali ke halaman pertama. */
 	useEffect(() => {
-		void loadFirst()
-	}, [loadFirst, version])
+		void load(1)
+	}, [load, version])
 
-	const loadMore = async (): Promise<void> => {
-		setLoadingMore(true)
-		setError('')
-		try {
-			const next = await fetchActivityPage(
-				address,
-				page + 1,
-				ACTIVITY_PAGE_SIZE,
-			)
-			setPage(page + 1)
-			setTotal(next.total)
-			setRows((previous) => {
-				const seen = new Set(previous.map((row) => row.tx.txHash))
-				return [
-					...previous,
-					...next.rows.filter(
-						(row) => !row.tx.txHash || !seen.has(row.tx.txHash),
-					),
-				]
-			})
-		} catch (e) {
-			setError(errorMessage(e))
-		} finally {
-			setLoadingMore(false)
-		}
+	const goTo = (target: number): void => {
+		if (target < 1 || target > totalPages || target === page) return
+		void load(target)
+		window.scrollTo({ top: 0 })
 	}
 
 	const runBump = async (): Promise<void> => {
@@ -113,7 +107,7 @@ export const ActivityList = ({
 			const outcome = await bumpPendingFee(bumpTarget.tx, address, privateKey)
 			if (outcome.ok) {
 				setBumpTarget(null)
-				await loadFirst()
+				await load(page)
 				onChanged()
 			}
 			setBumpResult(
@@ -129,7 +123,6 @@ export const ActivityList = ({
 	}
 
 	const confirmedShown = rows.filter((row) => !row.pending).length
-	const hasMore = confirmedShown < total
 
 	const detailOutgoing = detail !== null && detail.tx.from === address
 	const detailHash = detail?.tx.txHash ?? ''
@@ -142,7 +135,6 @@ export const ActivityList = ({
 
 	return (
 		<>
-			{error ? <Notice variant="error">{error}</Notice> : null}
 			{bumpResult ? (
 				<Notice
 					variant={bumpResult.ok ? 'ok' : 'error'}
@@ -155,6 +147,29 @@ export const ActivityList = ({
 			{loading ? (
 				<div className="loading-state loading-state--inline">
 					<span className="spinner spinner--sm" /> Memuat aktivitas…
+				</div>
+			) : error ? (
+				/*
+				 * Gagal memuat TIDAK boleh tampil sebagai "Belum ada transaksi" —
+				 * daftar kosong karena node mati/salah URL bukan pernyataan bahwa
+				 * alamat ini belum pernah bertransaksi.
+				 */
+				<div className="empty-state" role="alert">
+					<span className="empty-state__icon">
+						<Icon name="refresh" size={22} aria-hidden="true" />
+					</span>
+					<p>
+						Riwayat tidak dapat dimuat dari node ini. Periksa URL node di
+						Pengaturan, lalu coba lagi.
+					</p>
+					<p className="empty-state__detail mono">{error}</p>
+					<button
+						type="button"
+						className="button button--secondary"
+						onClick={() => void load(page)}
+					>
+						Coba lagi
+					</button>
 				</div>
 			) : rows.length === 0 ? (
 				<div className="empty-state">
@@ -210,17 +225,41 @@ export const ActivityList = ({
 						})}
 					</ul>
 
-					{hasMore ? (
-						<button
-							type="button"
-							className="button button--secondary button--wide load-more"
-							onClick={() => void loadMore()}
-							disabled={loadingMore}
-						>
-							{loadingMore ? 'Memuat…' : 'Muat lebih banyak'}
-						</button>
-					) : total > ACTIVITY_PAGE_SIZE ? (
-						<p className="tx-list__end">Semua transaksi sudah ditampilkan.</p>
+					{onViewAll ? (
+						confirmedShown < total ? (
+							<button
+								type="button"
+								className="button button--secondary button--wide load-more"
+								onClick={onViewAll}
+							>
+								Lihat semua ({total})
+								<Icon name="arrowRight" size={14} aria-hidden="true" />
+							</button>
+						) : null
+					) : totalPages > 1 ? (
+						<nav className="pagination" aria-label="Halaman riwayat">
+							<button
+								type="button"
+								className="button button--secondary button--sm"
+								onClick={() => goTo(page - 1)}
+								disabled={page <= 1}
+							>
+								<Icon name="arrowLeft" size={14} aria-hidden="true" />
+								Sebelumnya
+							</button>
+							<span className="pagination__label">
+								Halaman {page} dari {totalPages}
+							</span>
+							<button
+								type="button"
+								className="button button--secondary button--sm"
+								onClick={() => goTo(page + 1)}
+								disabled={page >= totalPages}
+							>
+								Selanjutnya
+								<Icon name="arrowRight" size={14} aria-hidden="true" />
+							</button>
+						</nav>
 					) : null}
 				</>
 			)}

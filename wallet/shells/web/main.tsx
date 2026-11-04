@@ -8,7 +8,7 @@
  * Perbedaan dengan shell lain HANYA di titik suntik:
  *   - vault   : IndexedDB (disuntik eksplisit di bawah, lihat alasannya)
  *   - device  : heuristik (jangan dipaksa — HP memang perangkat lemah)
- *   - rpc     : localStorage → `VITE_RPC_URL` → origin halaman (`/rpc`)
+ *   - rpc     : localStorage → `VITE_RPC_URL` → node publik default
  *   - platform: `installWebPlatform()` (install/update/persistensi)
  *
  * Menyalakan untuk uji PWA:  bun run wallet:build:web && bun run wallet:preview:web

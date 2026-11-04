@@ -88,12 +88,12 @@ export const Settings = ({
 
 	const saveExplorer = (): void => {
 		try {
-			const normalized = persistExplorerUrl(explorerUrl)
-			setExplorerUrl(normalized)
+			persistExplorerUrl(explorerUrl)
+			setExplorerUrl(getExplorerUrl())
 			setExplorerMessage(
-				normalized
+				explorerUrl.trim()
 					? 'URL Explorer tersimpan.'
-					: 'Link Explorer dikembalikan ke default development.',
+					: 'Link Explorer dikembalikan ke explorer publik default.',
 			)
 			setExplorerError('')
 		} catch (error) {
@@ -197,7 +197,7 @@ export const Settings = ({
 								className="input mono"
 								value={rpcUrl}
 								onChange={(event) => setRpcUrl(event.target.value)}
-								placeholder="http://localhost:8000/rpc"
+								placeholder="https://node1.zuns.my.id/rpc"
 							/>
 							<button
 								type="button"
@@ -276,7 +276,7 @@ export const Settings = ({
 								className="input mono"
 								value={explorerUrl}
 								onChange={(event) => setExplorerUrl(event.target.value)}
-								placeholder="https://explorer.example.com"
+								placeholder="https://explorer.zuns.my.id"
 							/>
 							<button
 								type="button"
@@ -287,8 +287,8 @@ export const Settings = ({
 							</button>
 						</div>
 						<p className="input-hint">
-							Kosongkan untuk menonaktifkan link eksternal. Development lokal
-							memakai http://localhost:5173.
+							Kosongkan untuk kembali ke explorer publik default
+							(explorer.zuns.my.id).
 						</p>
 						{explorerMessage ? (
 							<Notice variant="ok">{explorerMessage}</Notice>

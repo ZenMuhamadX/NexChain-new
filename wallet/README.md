@@ -3,14 +3,14 @@
 NexChain Wallet — **satu basis kode, beberapa shell**.
 
 Bukan satu aplikasi. `src/` adalah sumber bersama, `shells/` adalah entry point
-per platform. Sembilan layar wallet tidak pernah tahu dirinya berjalan di mana;
+per platform. Delapan layar wallet tidak pernah tahu dirinya berjalan di mana;
 yang berbeda antar platform hanya **empat titik suntik**.
 
 ```
 wallet/
   src/                 ← sumber bersama (JANGAN bercabang per platform di sini)
-    screens/           ← 9 layar: Welcome, Setup, Unlock, Dashboard, Send,
-                         Receive, History, Settings
+    screens/           ← 8 layar: Welcome, Setup, Unlock, Home, History,
+                         Send, Receive, Settings
     ui/                ← komponen kecil (Icon, Modal, Notice, AmountDisplay, …)
     lib/               ← rpc, format, vault, vaultStore, deviceCrypto, rpcUrl,
                          platform (status PWA)
@@ -25,14 +25,14 @@ wallet/
 
 ## Empat titik suntik
 
-Ini inti desainnya. Kalau Anda menambal `if (isDesktop)` di sembilan layar,
+Ini inti desainnya. Kalau Anda menambal `if (isDesktop)` di delapan layar,
 hasilnya neraka pemeliharaan. Yang benar: seluruh layar tetap identik, dan hanya
 empat hal ini yang berbeda.
 
 | #   | Berkas                    | Yang ditukar                                               | Dipilih oleh                                       |
 | --- | ------------------------- | ---------------------------------------------------------- | -------------------------------------------------- |
 | 1   | `src/lib/vaultStore.ts`   | backend penyimpanan vault                                  | `installVaultKV()` dari shell (nama ikut disuntik) |
-| 2   | `src/lib/rpcUrl.ts`       | URL node awal                                              | `VITE_RPC_URL`, atau Settings saat runtime         |
+| 2   | `src/lib/rpcUrl.ts`       | URL node awal                                              | `VITE_RPC_URL`, default node publik, atau Settings |
 | 3   | `src/lib/deviceCrypto.ts` | kelas perangkat (menentukan iterasi PBKDF2)                | `installDeviceClass()` dari shell                  |
 | 4   | `src/lib/platform.ts`     | status aplikasi terpasang (install / penyimpanan / update) | `installPlatform()` dari shell web                 |
 
@@ -161,6 +161,7 @@ pengguna portabel.
   per origin, jadi wallet yang dibuat di `http://localhost:5174` **tidak**
   muncul di `https://wallet.contoh.com` dan sebaliknya. Tentukan hostname final
   sebelum membuat wallet di HP, atau impor mnemonic yang sama di sana.
-- **PWA tidak punya `.env` yang dibutuhkan.** Alamat halaman menentukan default
-  RPC (`https://host/rpc` untuk halaman https), jadi deploy normal tidak perlu
-  `VITE_RPC_URL` selama `/rpc` berada di origin yang sama.
+- **PWA tidak punya `.env` yang dibutuhkan.** Default RPC adalah node publik
+  `https://node1.zuns.my.id/rpc` dan explorer `https://explorer.zuns.my.id`,
+  jadi deploy normal tidak perlu mengisi `VITE_RPC_URL`/`VITE_EXPLORER_URL`;
+  keduanya hanya untuk build yang harus menunjuk host lain sejak awal.
