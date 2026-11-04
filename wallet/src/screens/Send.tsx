@@ -295,10 +295,6 @@ export const Send = ({
 
 	const formFooter = (
 		<div className="sheet-footer">
-			<div className="sheet-footer__info">
-				<span>Tersedia</span>
-				<strong className="mono">{formatNxc(available)} NXC</strong>
-			</div>
 			<button
 				type="submit"
 				form="send-sheet-form"
@@ -358,12 +354,11 @@ export const Send = ({
 	)
 
 	return (
-		// Layar selesai bukan formulir: kartu setinggi isinya membuat pesan
-		// singkat tidak melayang di atas ruang kosong satu layar penuh.
+		// Sheet Kirim: kartu setinggi isinya, masuk dari bawah.
 		<Modal
 			open={open}
 			onClose={close}
-			size={step === 'done' ? 'md' : 'full'}
+			size="sheet"
 			title={
 				step === 'review'
 					? 'Tinjau transaksi'
@@ -410,6 +405,8 @@ export const Send = ({
 								disabled={
 									previewing || busy || !Number.isSafeInteger(available)
 								}
+								title={`Isi seluruh saldo tersedia: ${formatNxc(available)} NXC`}
+								aria-label={`Isi seluruh saldo tersedia: ${formatNxc(available)} NXC`}
 							>
 								Maks
 							</button>
@@ -420,45 +417,46 @@ export const Send = ({
 						{touched && errors.fee ? (
 							<p className="input-error">{errors.fee}</p>
 						) : null}
-						<p className="input-hint">
-							Tersedia {formatNxc(available)} NXC. Biaya jaringan dihitung
-							otomatis dari ukuran transaksi.
-						</p>
 					</div>
 
 					<div className="field">
 						<label className="label" htmlFor="receiver">
 							Alamat penerima
 						</label>
-						<input
-							id="receiver"
-							className="input mono"
-							placeholder="NxC…"
-							value={form.receiver}
-							onChange={(event) => update({ receiver: event.target.value })}
-							/**
-							 * Alamat harus disalin apa adanya: autokoreksi/autokapital
-							 * di HP bisa mengubah huruf sehingga alamat jadi tidak sah
-							 * (dan salah ketik seperti itu tidak bisa dipulihkan).
-							 */
-							autoComplete="off"
-							autoCorrect="off"
-							autoCapitalize="characters"
-							spellCheck={false}
-						/>
-						<button
-							type="button"
-							className="text-button"
-							onClick={() => void pasteReceiver()}
-						>
-							<Icon name="copy" size={13} aria-hidden="true" />
-							Tempel dari clipboard
-						</button>
+						<div className="input-with-action">
+							<input
+								id="receiver"
+								className="input mono"
+								placeholder="NxC…"
+								value={form.receiver}
+								onChange={(event) => update({ receiver: event.target.value })}
+								/**
+								 * Alamat harus disalin apa adanya: autokoreksi/autokapital
+								 * di HP bisa mengubah huruf sehingga alamat jadi tidak sah
+								 * (dan salah ketik seperti itu tidak bisa dipulihkan).
+								 */
+								autoComplete="off"
+								autoCorrect="off"
+								autoCapitalize="characters"
+								spellCheck={false}
+							/>
+							<button
+								type="button"
+								className="icon-button"
+								onClick={() => void pasteReceiver()}
+								aria-label="Tempel alamat dari clipboard"
+								title="Tempel dari clipboard"
+							>
+								<Icon name="copy" size={15} aria-hidden="true" />
+							</button>
+						</div>
 						{errors.receiver ? (
 							<p className="input-error">{errors.receiver}</p>
 						) : null}
 						{pasteError ? <p className="input-error">{pasteError}</p> : null}
-						{!touched || errors.receiver ? (
+						{!errors.receiver &&
+						form.receiver.length > 0 &&
+						form.receiver.length < 43 ? (
 							<p className="input-hint">
 								Alamat diawali NxC dan terdiri dari 43 karakter.
 							</p>
@@ -489,14 +487,6 @@ export const Send = ({
 							+ Tambah catatan
 						</button>
 					)}
-
-					<p className="safety-note">
-						<Icon name="lock" size={14} aria-hidden="true" />
-						<span>
-							Private key dipakai di perangkat ini dan tidak pernah dikirim ke
-							node.
-						</span>
-					</p>
 				</form>
 			) : null}
 

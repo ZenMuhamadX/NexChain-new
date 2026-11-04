@@ -1169,6 +1169,22 @@ textarea.input {
 	resize: vertical;
 }
 
+/* Input dengan aksi di dalam kotaknya (mis. tempel alamat dari clipboard). */
+.input-with-action {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.input-with-action .input {
+	padding-right: 2.75rem;
+}
+
+.input-with-action .icon-button {
+	position: absolute;
+	right: 0.25rem;
+}
+
 .mnemonic-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1441,18 +1457,6 @@ textarea.input {
 	font-size: 0.78rem;
 	text-align: right;
 	overflow-wrap: anywhere;
-}
-
-.safety-note {
-	display: flex;
-	align-items: flex-start;
-	gap: 0.45rem;
-	margin-top: 1.25rem;
-	padding: 0.7rem;
-	border-radius: var(--radius-sm);
-	background: var(--info-soft);
-	color: var(--info);
-	font-size: 0.72rem;
 }
 
 .result-copy {
@@ -1884,11 +1888,6 @@ textarea.input {
 	background: var(--overlay);
 }
 
-/* Sheet penuh menempel ke tepi layar: tidak ada sisa padding di sekeliling. */
-.modal-overlay--full {
-	padding: 0;
-}
-
 .modal {
 	width: 100%;
 	max-height: 88vh;
@@ -1912,54 +1911,44 @@ textarea.input {
 }
 
 /*
- * Sheet ukuran penuh: judul + isi yang bisa di-scroll + footer aksi.
+ * Sheet Kirim/Terima: kartu setinggi isinya, masuk dari bawah.
  *
- * MENGAPA bukan `max-height`: isi formulir kirim lebih tinggi dari 88vh di
- * layar 390×844, jadi tanpa `flex` + `overflow-y` di body, tombol aksi ikut
- * terdorong keluar layar dan pengguna harus menggulir untuk menemukannya.
+ * MENGAPA flex + overflow hanya di body: isi formulir bisa lebih tinggi dari
+ * 88vh di ponsel kecil, dan tanpa itu tombol aksi terdorong keluar layar.
  * Footer memakai `env(safe-area-inset-bottom)` supaya tidak tertutup gesture
  * bar iOS.
  */
-.modal--full {
+.modal--sheet {
 	display: flex;
 	flex-direction: column;
-	max-width: none;
-	height: 100dvh;
-	max-height: 100dvh;
-	border: 0;
-	border-radius: 0;
+	max-width: 520px;
+	max-height: 88vh;
+	animation: sheet-in 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
-.modal--full .modal-header {
-	flex: 0 0 auto;
-}
-
-.modal--full .modal-body {
+.modal--sheet .modal-body {
 	flex: 1 1 auto;
 	max-height: none;
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
 }
 
-.modal--full .modal-footer {
+.modal--sheet .modal-footer {
 	flex: 0 0 auto;
 	padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* Di layar lebar, sheet penuh tidak perlu menutupi seluruh monitor. */
-@media (min-width: 700px) {
-	.modal-overlay--full {
-		place-items: center;
-		padding: 1.5rem;
-	}
+.modal-overlay--sheet {
+	animation: overlay-in 180ms ease both;
+}
 
-	.modal--full {
-		height: auto;
-		max-height: 88vh;
-		max-width: 520px;
-		border: 1px solid var(--border);
-		border-radius: var(--radius-lg);
-	}
+/* Turun dulu sebelum unmount; durasinya dijaga SHEET_EXIT_MS di Modal.tsx. */
+.modal--sheet.modal--closing {
+	animation: sheet-out 200ms cubic-bezier(0.4, 0, 0.8, 1) both;
+}
+
+.modal-overlay--sheet.modal-overlay--closing {
+	animation: overlay-out 200ms ease both;
 }
 
 .modal--danger {
@@ -2034,6 +2023,47 @@ textarea.input {
 	to {
 		opacity: 1;
 		transform: none;
+	}
+}
+
+/* Sheet naik dari bawah layar — bukan fade di tempat. */
+@keyframes sheet-in {
+	from {
+		transform: translateY(100%);
+	}
+
+	to {
+		transform: translateY(0);
+	}
+}
+
+@keyframes sheet-out {
+	from {
+		transform: translateY(0);
+	}
+
+	to {
+		transform: translateY(100%);
+	}
+}
+
+@keyframes overlay-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes overlay-out {
+	from {
+		opacity: 1;
+	}
+
+	to {
+		opacity: 0;
 	}
 }
 
@@ -2257,23 +2287,6 @@ textarea.input {
 
 .sheet-footer .button {
 	flex: 1;
-}
-
-.sheet-footer__info {
-	display: flex;
-	flex-direction: column;
-	gap: 0.1rem;
-	min-width: 0;
-	color: var(--text-muted);
-	font-size: 0.72rem;
-}
-
-.sheet-footer__info strong {
-	overflow: hidden;
-	color: var(--text-strong);
-	font-size: 0.82rem;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .send-amount {
@@ -2589,11 +2602,9 @@ textarea.input {
 		border-radius: 16px 16px 0 0;
 	}
 
-	/* Sheet penuh tetap penuh: 90vh dari aturan di atas akan memotong footer. */
-	.modal--full {
-		height: 100dvh;
-		max-height: 100dvh;
-		border-radius: 0;
+	/* Sheet mengambang 1rem dari tepi, jadi keempat sudutnya tetap membulat. */
+	.modal--sheet {
+		border-radius: var(--radius-lg);
 	}
 
 	.modal-header,

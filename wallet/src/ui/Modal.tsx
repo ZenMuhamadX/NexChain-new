@@ -16,15 +16,18 @@ interface ModalProps {
 	confirmLabel?: string
 	onConfirm?: () => void | Promise<void>
 	confirmLoading?: boolean
-	size?: 'sm' | 'md' | 'lg' | 'full'
+	size?: 'sm' | 'md' | 'lg' | 'sheet'
 }
 
 const sizeClass = {
 	sm: 'modal--sm',
 	md: 'modal--md',
 	lg: 'modal--lg',
-	full: 'modal--full',
+	sheet: 'modal--sheet',
 }
+
+/** Durasi animasi turun; harus sama dengan `sheet-out` di `style.css`. */
+const SHEET_EXIT_MS = 200
 
 /**
  * Dialog yang sedang terbuka, urut dari yang paling awal.
@@ -56,6 +59,31 @@ export const Modal = ({
 	onCloseRef.current = onClose
 	const [confirmValue, setConfirmValue] = useState('')
 	const confirmMet = !confirmText || confirmValue === confirmText
+	/**
+	 * Sheet tetap ter-mount selama animasi turun. `mounted` mengikuti `open`
+	 * dengan penundaan hanya untuk sheet; dialog lain hilang seketika.
+	 */
+	const [mounted, setMounted] = useState(open)
+	const [closing, setClosing] = useState(false)
+
+	useEffect(() => {
+		if (open) {
+			setMounted(true)
+			setClosing(false)
+			return
+		}
+		if (!mounted) return
+		if (size !== 'sheet') {
+			setMounted(false)
+			return
+		}
+		setClosing(true)
+		const timer = window.setTimeout(() => {
+			setClosing(false)
+			setMounted(false)
+		}, SHEET_EXIT_MS)
+		return () => window.clearTimeout(timer)
+	}, [open, mounted, size])
 
 	/**
 	 * Reset HANYA saat dialog dibuka — bukan di efek utama.
@@ -130,7 +158,7 @@ export const Modal = ({
 		}
 	}, [open])
 
-	if (!open) return null
+	if (!mounted) return null
 
 	const defaultActions = (
 		<div className="modal-actions">
@@ -155,7 +183,7 @@ export const Modal = ({
 
 	return createPortal(
 		<div
-			className={`modal-overlay ${size === 'full' ? 'modal-overlay--full' : ''}`}
+			className={`modal-overlay${size === 'sheet' ? ' modal-overlay--sheet' : ''}${closing ? ' modal-overlay--closing' : ''}`}
 			role="presentation"
 			onMouseDown={(event) => {
 				if (event.target === event.currentTarget) onClose()
@@ -163,7 +191,7 @@ export const Modal = ({
 		>
 			<div
 				ref={dialogRef}
-				className={`modal ${sizeClass[size]} ${variant === 'danger' ? 'modal--danger' : ''}`}
+				className={`modal ${sizeClass[size]} ${variant === 'danger' ? 'modal--danger' : ''}${closing ? ' modal--closing' : ''}`}
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby={titleId}

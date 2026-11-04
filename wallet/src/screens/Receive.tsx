@@ -61,7 +61,7 @@ export const Receive = ({
 		<Modal
 			open={open}
 			onClose={onClose}
-			size="md"
+			size="sheet"
 			title="Terima NXC"
 			actions={
 				<div className="modal-actions">
