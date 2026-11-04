@@ -9,8 +9,9 @@ import { createIdbKV } from 'src/client/wallet/idbKv'
  * pakai adalah `getVault()` dari `./vault`, dan itu memanggil `getVaultKV()`
  * di sini. Dengan begitu SATU basis kode bisa melayani beberapa target:
  *
- *   - `idb`    → browser / preview (IndexedDB, `nex-wallet`)
- *   - `memory` → shell developer, tanpa berkas sama sekali
+ *   - `idb`    → browser, preview, DAN shell developer (IndexedDB,
+ *                `nex-wallet`); lihat `createIdbVaultKV()`
+ *   - `memory` → pengujian/CLI yang tidak butuh persistensi
  *   - `file`   → shell desktop (Shell memanggil `installVaultKV()` lebih dulu)
  *
  * Backend `file` TIDAK diimplementasikan di sini karena ia butuh jembatan
@@ -64,9 +65,8 @@ export const resetVaultKV = (): void => {
 /**
  * Backend dari env build (`VITE_VAULT_BACKEND`), bila valid.
  *
- * Dipakai shell developer: `VITE_VAULT_BACKEND=memory` membuat wallet bisa
- * dijalankan tanpa IndexedDB dan tanpa berkas — cukup untuk mengerjakan
- * tampilan dan alur.
+ * `VITE_VAULT_BACKEND=memory` dipakai pengujian yang ingin vault sekali pakai;
+ * shell developer TIDAK memakainya (lihat `shells/dev/main.tsx`).
  */
 const envBackend = (): VaultBackendName | undefined => {
 	const raw = import.meta.env.VITE_VAULT_BACKEND
@@ -112,4 +112,27 @@ export const getVaultKV = (): Promise<WalletKV> => {
 
 	cached = createIdbKV()
 	return cached
+}
+
+/**
+ * Adaptor IndexedDB siap disuntik.
+ *
+ * `createIdbKV()` mengembalikan Promise (membuka database), sedangkan
+ * `installVaultKV()` menerima `WalletKV` secara sinkron. Database baru dibuka
+ * pada operasi pertama, jadi boot tidak menunggu.
+ *
+ * Dipakai shell web DAN shell developer: keduanya berjalan di origin yang
+ * sama (`localhost:5174`), sehingga satu vault dipakai bersama dan refresh
+ * tidak menghapus wallet.
+ */
+export const createIdbVaultKV = (): WalletKV => {
+	let db: Promise<WalletKV> | undefined
+	const open = (): Promise<WalletKV> => (db ??= createIdbKV())
+	return {
+		get: <T>(key: string): Promise<T | undefined> =>
+			open().then((kv) => kv.get<T>(key)),
+		set: <T>(key: string, value: T): Promise<void> =>
+			open().then((kv) => kv.set<T>(key, value)),
+		delete: (key: string): Promise<void> => open().then((kv) => kv.delete(key)),
+	}
 }

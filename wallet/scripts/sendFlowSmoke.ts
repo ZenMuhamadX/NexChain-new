@@ -41,6 +41,12 @@ import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 import { signTransaction } from 'src/crypto/signTransaction'
 import { buildBumpedTransaction } from '../src/lib/sendFlow'
 import {
+	isKnownWord,
+	normalizeWord,
+	suggestWords,
+	splitMnemonic,
+} from '../src/lib/mnemonicWords'
+import {
 	buildSignedTransaction,
 	validateSendForm,
 	MIN_WIRE_FEE_NEXU,
@@ -429,6 +435,31 @@ const main = async (): Promise<void> => {
 			badRejected = true
 		}
 		ok(badRejected, 'key/validateMnemonic: frasa sampah DITOLAK')
+
+		// Kotak frasa per kata: saran, normalisasi, dan tempelan frasa utuh.
+		ok(
+			suggestWords('aban').includes('abandon'),
+			'mnemonic: saran "aban" memuat abandon',
+		)
+		ok(
+			suggestWords('abandon').length === 0,
+			'mnemonic: kata utuh tidak memunculkan saran',
+		)
+		ok(suggestWords('').length === 0, 'mnemonic: query kosong tanpa saran')
+		ok(suggestWords('a').length <= 6, 'mnemonic: saran dibatasi 6 baris')
+		ok(
+			isKnownWord('abandon') && !isKnownWord('aband0n'),
+			'mnemonic: ejaan asing ditandai tidak dikenal',
+		)
+		ok(
+			normalizeWord(' Ab1andon ') === 'abandon',
+			'mnemonic: spasi/angka dibuang dari satu kotak',
+		)
+		const pasted = splitMnemonic('  abandon\nabandon   about ')
+		ok(
+			pasted.length === 3 && pasted[2] === 'about',
+			'mnemonic: tempelan dirapikan menjadi kata',
+		)
 
 		// Guard: nol default-import bip39 di seluruh root module yang di-alias UI.
 		const repoRoot = fileURLToPath(new URL('../../', import.meta.url))

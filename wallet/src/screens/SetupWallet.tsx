@@ -4,6 +4,7 @@ import { validateMnemonic } from 'src/crypto/validateMnemonic'
 import { errorMessage } from '../lib/format'
 import { Icon } from '../ui/Icon'
 import { CopyButton } from '../ui/CopyButton'
+import { MnemonicGrid } from '../ui/MnemonicGrid'
 import { Notice } from '../ui/Notice'
 import type { Screen } from '../types'
 
@@ -40,7 +41,9 @@ export const SetupWallet = ({
 	)
 	const [passphrase, setPassphrase] = useState('')
 	const [confirm, setConfirm] = useState('')
-	const [reveal, setReveal] = useState(mode === 'import')
+	// Frasa dibuat terlihat supaya bisa dicatat; tombol sembunyikan hanya
+	// menyamarkan tampilan saat ada orang lain melihat layar.
+	const [reveal, setReveal] = useState(true)
 	const [backedUp, setBackedUp] = useState(false)
 	const [error, setError] = useState('')
 	const [busy, setBusy] = useState(false)
@@ -48,7 +51,7 @@ export const SetupWallet = ({
 
 	useEffect(() => {
 		setBackedUp(false)
-		setReveal(mode === 'import')
+		setReveal(true)
 		setMnemonic(mode === 'create' ? genRandomMnemonic() : '')
 	}, [mode])
 
@@ -87,21 +90,38 @@ export const SetupWallet = ({
 	}
 
 	return (
-		<form className="auth-card auth-card--wide" onSubmit={(event) => void submit(event)}>
-			<input className="sr-only" aria-hidden="true" tabIndex={-1} autoComplete="username" name="username" value="nexchain-wallet" readOnly />
+		<form
+			className="auth-card auth-card--wide"
+			onSubmit={(event) => void submit(event)}
+		>
+			<input
+				className="sr-only"
+				aria-hidden="true"
+				tabIndex={-1}
+				autoComplete="username"
+				name="username"
+				value="nexchain-wallet"
+				readOnly
+			/>
 			<div className="stepper" aria-label="Wallet setup progress">
 				<div className="stepper__step stepper__step--active">
 					<span>1</span> Frasa pemulihan
 				</div>
 				<div className="stepper__line" />
-				<div className={`stepper__step ${passphrase.length >= 8 ? 'stepper__step--active' : ''}`}>
+				<div
+					className={`stepper__step ${passphrase.length >= 8 ? 'stepper__step--active' : ''}`}
+				>
 					<span>2</span> Lindungi wallet
 				</div>
 			</div>
 
 			<div className="page-heading page-heading--compact">
-				<p className="eyebrow">{mode === 'create' ? 'WALLET BARU' : 'PULIHKAN WALLET'}</p>
-				<h1>{mode === 'create' ? 'Buat wallet Anda' : 'Pulihkan wallet Anda'}</h1>
+				<p className="eyebrow">
+					{mode === 'create' ? 'WALLET BARU' : 'PULIHKAN WALLET'}
+				</p>
+				<h1>
+					{mode === 'create' ? 'Buat wallet Anda' : 'Pulihkan wallet Anda'}
+				</h1>
 				<p>
 					{mode === 'create'
 						? 'Mulai dengan frasa pemulihan yang dibuat secara lokal di browser ini.'
@@ -112,56 +132,73 @@ export const SetupWallet = ({
 			{mode === 'create' ? (
 				<div className="field">
 					<div className="field-heading">
-						<label className="label" htmlFor="mnemonic">
-							Frasa pemulihan Anda
-						</label>
+						<span className="label">Frasa pemulihan Anda</span>
 						<span className="field-badge">12 kata</span>
 					</div>
-					<textarea
-						id="mnemonic"
-						className="input mnemonic-input"
-						readOnly={!reveal}
+					<MnemonicGrid
 						value={mnemonic}
-						rows={4}
-						aria-describedby="mnemonic-help"
+						onChange={setMnemonic}
+						readOnly
+						masked={!reveal}
+						label="Frasa pemulihan Anda"
 					/>
 					<div className="field-actions">
-						<button type="button" className="button button--ghost button--sm" onClick={() => setReveal((value) => !value)}>
-							<Icon name={reveal ? 'eyeOff' : 'eye'} size={15} aria-hidden="true" />
+						<button
+							type="button"
+							className="button button--ghost button--sm"
+							onClick={() => setReveal((value) => !value)}
+						>
+							<Icon
+								name={reveal ? 'eyeOff' : 'eye'}
+								size={15}
+								aria-hidden="true"
+							/>
 							{reveal ? 'Sembunyikan frasa' : 'Tampilkan frasa'}
 						</button>
-						{reveal && backedUp ? <CopyButton text={mnemonic} ariaLabel="Salin frasa pemulihan" variant="secondary" /> : null}
+						{reveal && backedUp ? (
+							<CopyButton
+								text={mnemonic}
+								ariaLabel="Salin frasa pemulihan"
+								variant="secondary"
+							/>
+						) : null}
 					</div>
 					{reveal && !backedUp ? (
 						<p className="input-hint">
-							Menyalin ke clipboard dinonaktifkan sampai frasa dicadangkan — clipboard berisiko sebelum Anda punya salinan offline.
+							Menyalin ke clipboard dinonaktifkan sampai frasa dicadangkan —
+							clipboard berisiko sebelum Anda punya salinan offline.
 						</p>
 					) : null}
 					<p id="mnemonic-help" className="input-hint">
-						Catatan kata-kata ini secara berurutan. Ini satu-satunya cara memulihkan wallet ini.
+						Catatan kata-kata ini secara berurutan. Ini satu-satunya cara
+						memulihkan wallet ini.
 					</p>
-					<label className={`check-card ${backedUp ? 'check-card--checked' : ''}`}>
-						<input type="checkbox" checked={backedUp} onChange={(event) => setBackedUp(event.target.checked)} />
+					<label
+						className={`check-card ${backedUp ? 'check-card--checked' : ''}`}
+					>
+						<input
+							type="checkbox"
+							checked={backedUp}
+							onChange={(event) => setBackedUp(event.target.checked)}
+						/>
 						<span>
 							<strong>Saya sudah menyimpan frasa pemulihan</strong>
-							<small>Simpan secara offline dan jangan pernah bagikan kepada siapa pun.</small>
+							<small>
+								Simpan secara offline dan jangan pernah bagikan kepada siapa
+								pun.
+							</small>
 						</span>
 					</label>
 				</div>
 			) : (
 				<div className="field">
-					<label className="label" htmlFor="mnemonic">
-						Frasa pemulihan
-					</label>
-					<textarea
-						id="mnemonic"
-						className="input mnemonic-input"
-						value={mnemonic}
-						rows={4}
-						placeholder="Masukkan 12 kata dipisahkan spasi"
-						onChange={(event) => setMnemonic(event.target.value)}
-					/>
-					<p className="input-hint">Gunakan spasi antar kata. Spasi tambahan dan baris baru otomatis dirapikan.</p>
+					<span className="label">Frasa pemulihan</span>
+					<MnemonicGrid value={mnemonic} onChange={setMnemonic} />
+					<p className="input-hint">
+						Ketik satu kata per kotak — saran kata muncul saat Anda mengetik.
+						Tempel frasa utuh di kotak mana pun untuk mengisi semuanya
+						sekaligus.
+					</p>
 				</div>
 			)}
 
@@ -196,9 +233,14 @@ export const SetupWallet = ({
 					/>
 				</div>
 			</div>
-			<div className="strength-meter" aria-label={`Kekuatan passphrase: ${passphraseLabel(score)}`}>
+			<div
+				className="strength-meter"
+				aria-label={`Kekuatan passphrase: ${passphraseLabel(score)}`}
+			>
 				<div className="strength-meter__track">
-					<span className={`strength-meter__fill strength-meter__fill--${score}`} />
+					<span
+						className={`strength-meter__fill strength-meter__fill--${score}`}
+					/>
 				</div>
 				<span>{passphraseLabel(score)}</span>
 			</div>
@@ -206,11 +248,24 @@ export const SetupWallet = ({
 			{error ? <Notice variant="error">{error}</Notice> : null}
 
 			<div className="form-actions">
-				<button type="button" className="button button--ghost" onClick={() => go('welcome')} disabled={busy}>
+				<button
+					type="button"
+					className="button button--ghost"
+					onClick={() => go('welcome')}
+					disabled={busy}
+				>
 					Kembali
 				</button>
-				<button type="submit" className="button button--primary" disabled={busy}>
-					{busy ? 'Menyimpan wallet…' : mode === 'create' ? 'Buat wallet' : 'Pulihkan wallet'}
+				<button
+					type="submit"
+					className="button button--primary"
+					disabled={busy}
+				>
+					{busy
+						? 'Menyimpan wallet…'
+						: mode === 'create'
+							? 'Buat wallet'
+							: 'Pulihkan wallet'}
 					<Icon name="arrowUpRight" size={15} aria-hidden="true" />
 				</button>
 			</div>

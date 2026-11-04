@@ -16,47 +16,22 @@
  */
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import type { WalletKV } from 'src/client/wallet/kv'
-import { createIdbKV } from 'src/client/wallet/idbKv'
 import '../../src/polyfill'
 import '../../src/style.css'
-import { installVaultKV } from '../../src/lib/vaultStore'
+import { createIdbVaultKV, installVaultKV } from '../../src/lib/vaultStore'
 import { initRpcUrl } from '../../src/lib/rpcUrl'
 import { installWebPlatform } from '../../src/pwa/register'
 import { App } from '../../src/App'
 import { CryptoProgress } from '../../src/ui/CryptoProgress'
 import { PwaOverlay } from './PwaOverlay'
 
-/**
- * Vault IndexedDB, dibuka sekali dan dipakai bersama.
- *
- * `createIdbKV()` mengembalikan Promise (membuka database), sedangkan
- * `installVaultKV()` menerima `WalletKV` secara sinkron. Adaptor ini
- * menjembatani keduanya tanpa membuat boot menunggu: promise-nya baru
- * ditunggu saat operasi pertama.
- *
- * KENAPA disuntik eksplisit, bukan dibiarkan memakai default `idb`:
- * `VITE_VAULT_BACKEND` bisa mengubah default itu (mis. `memory` yang bocor
- * dari sesi debugging). Di PWA, vault memori berarti wallet pengguna hilang
- * setiap tab ditutup — tanpa error, hanya "wallet tidak ada". Injeksi
- * eksplisit menutup jalur itu.
- */
-let idb: Promise<WalletKV> | undefined
-const openIdb = (): Promise<WalletKV> => (idb ??= createIdbKV())
-
-const idbKV: WalletKV = {
-	get: <T,>(key: string): Promise<T | undefined> =>
-		openIdb().then((kv) => kv.get<T>(key)),
-	set: <T,>(key: string, value: T): Promise<void> =>
-		openIdb().then((kv) => kv.set<T>(key, value)),
-	delete: (key: string): Promise<void> =>
-		openIdb().then((kv) => kv.delete(key)),
-}
-
 // ── URUTAN PENTING ────────────────────────────────────────────────────────
 // 1. Backend vault: `getVault()` menyimpan promise singleton, jadi backend
-//    harus terpasang SEBELUM render pertama.
-installVaultKV(idbKV, 'idb')
+//    harus terpasang SEBELUM render pertama. Disuntik eksplisit, bukan
+//    dibiarkan memakai default `idb`: `VITE_VAULT_BACKEND` yang bocor dari
+//    sesi debugging (mis. `memory`) membuat wallet pengguna hilang setiap tab
+//    ditutup — tanpa error, hanya "wallet tidak ada".
+installVaultKV(createIdbVaultKV(), 'idb')
 // 2. Platform PWA: mendaftarkan service worker + menangkap
 //    `beforeinstallprompt`. Statusnya dibaca Settings dan banner update.
 installWebPlatform()

@@ -47,11 +47,13 @@ tidak dirender. Itu sebabnya build desktop tidak perlu tahu soal service worker.
 
 ### `shells/dev/` — untuk mengerjakan tampilan
 
-Vault di memori, dipasang **eksplisit** (`installVaultKV(createMemoryKV())`).
-Hilang saat tab ditutup, dan itu memang tujuannya: mengubah desain tidak perlu
-membuat wallet baru dan mencatat mnemonic setiap kali. Injeksi eksplisit juga
-mencegah `VITE_VAULT_BACKEND` yang tertinggal dari sesi debugging diam-diam
-mengubah media penyimpanan.
+Vault di IndexedDB, dipasang **eksplisit** (`installVaultKV(createIdbVaultKV())`)
+— media yang sama dengan PWA, jadi refresh tidak menghapus wallet dan mnemonic
+tidak perlu ditempel ulang. Dev dan preview PWA memakai origin yang sama
+(`localhost:5174`) sehingga berbagi satu vault; untuk mulai bersih, pakai
+"Hapus wallet" di Pengaturan. Injeksi eksplisit juga mencegah
+`VITE_VAULT_BACKEND` yang tertinggal dari sesi debugging diam-diam mengubah
+media penyimpanan.
 
 ```bash
 bun run wallet:dev       # http://localhost:5174

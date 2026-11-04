@@ -1,32 +1,29 @@
 /**
  * Shell DEVELOPER — untuk mengerjakan tampilan dan alur wallet.
  *
- * Bukan aplikasi yang dikirim ke pengguna. Gunanya: menjalankan wallet tanpa
- * IndexedDB dan tanpa berkas vault, sehingga setiap kali mengubah desain tidak
- * perlu membuat wallet baru, mencatat mnemonic, dan unlock berulang.
+ * Bukan aplikasi yang dikirim ke pengguna. Vault memakai **IndexedDB yang sama
+ * dengan PWA** (`createIdbVaultKV()`), jadi refresh (Ctrl+R) tidak menghapus
+ * wallet dan tidak perlu menempel mnemonic berulang. Dev shell dan preview PWA
+ * memang berjalan di origin yang sama (`localhost:5174`), sehingga keduanya
+ * berbagi satu vault — untuk mulai bersih, pakai "Hapus wallet" di Pengaturan.
  *
- * Vault memakai backend `memory` — hilang saat tab ditutup, dan itu memang
- * yang diinginkan.
- *
- * Backend dipasang EKSPLISIT (bukan lewat `VITE_VAULT_BACKEND`): dev shell dan
- * preview PWA sama-sama memakai `localhost:5174`, jadi vault memori di sini
- * mencegah vault uji PWA (IndexedDB di origin yang sama) tercampur atau
- * terhapus tanpa sengaja.
+ * Backend dipasang EKSPLISIT (bukan lewat `VITE_VAULT_BACKEND`) supaya env
+ * yang tertinggal dari sesi debugging tidak diam-diam mengganti media
+ * penyimpanan.
  *
  * Menyalakan:  bun run wallet:dev     (dari root repo)
  */
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createMemoryKV } from 'src/client/wallet/kv'
 import '../../src/polyfill'
 import '../../src/style.css'
-import { installVaultKV } from '../../src/lib/vaultStore'
+import { createIdbVaultKV, installVaultKV } from '../../src/lib/vaultStore'
 import { initRpcUrl } from '../../src/lib/rpcUrl'
 import { App } from '../../src/App'
 import { CryptoProgress } from '../../src/ui/CryptoProgress'
 
-// Vault memori sebelum render: `getVault()` menyimpan promise singleton.
-installVaultKV(createMemoryKV(), 'memory')
+// Vault IndexedDB sebelum render: `getVault()` menyimpan promise singleton.
+installVaultKV(createIdbVaultKV(), 'idb')
 
 // URL RPC dari localStorage dipasang SEBELUM request pertama.
 initRpcUrl()
