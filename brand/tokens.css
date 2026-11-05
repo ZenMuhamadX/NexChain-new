@@ -1,0 +1,33 @@
+/* NexChain identity tokens — drop-in CSS custom properties. */
+
+:root {
+	/* Colour */
+	--nx-blue: #008ff6;
+	--nx-blue-pressed: #0079d1;
+	--nx-blue-soft: #e5f4fe;
+	--nx-ink: #000000;
+	--nx-paper: #ffffff;
+
+	/* Logo metrics (design units, see README) */
+	--nx-mark-ratio: 1.0535; /* width ÷ height of the mark */
+	--nx-logo-ratio: 3.1421; /* width ÷ height of the horizontal lockup */
+
+	/* Default rendered size of the mark in a header */
+	--nx-mark-size: 30px;
+}
+
+/* Header mark: height-driven, width follows the mark ratio. */
+.nx-mark {
+	display: block;
+	height: var(--nx-mark-size);
+	width: auto;
+	aspect-ratio: var(--nx-mark-ratio);
+}
+
+/* Horizontal lockup: width-driven. */
+.nx-logo {
+	display: block;
+	width: 220px;
+	height: auto;
+	aspect-ratio: var(--nx-logo-ratio);
+}

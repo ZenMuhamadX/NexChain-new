@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 335 318" width="335" height="318" role="img" aria-label="NexChain">
+	<title>NexChain</title>
+	<desc>Single-colour mark. Inherits currentColor; renders black in an img tag.</desc>
+	<path fill="currentColor" d="M73 47L0 92L0 225L73 270L73 189L120 158L73 128Z" />
+	<path fill="currentColor" d="M262 47L335 92L335 225L262 270L262 189L215 158L262 128Z" />
+	<path fill="currentColor" d="M167.5 0L240 46L175.5 92L175.5 249L239.5 208L239.5 275L167.5 318L105 275L105 188L159.5 158L159.5 92L95 46Z" />
+</svg>
