@@ -6,6 +6,8 @@ interface HistoryProps {
 	privateKey: string
 	/** Naik setiap transaksi terkirim → daftar dimuat ulang. */
 	activityVersion: number
+	/** Naik saat saldo/pending berubah di latar → segarkan halaman yang dibaca. */
+	liveVersion: number
 	onChanged: () => void
 	onBack: () => void
 }
@@ -18,6 +20,7 @@ export const History = ({
 	address,
 	privateKey,
 	activityVersion,
+	liveVersion,
 	onChanged,
 	onBack,
 }: HistoryProps): React.JSX.Element => (
@@ -30,7 +33,7 @@ export const History = ({
 			</div>
 			<button
 				type="button"
-				className="button button--secondary"
+				className="button button--secondary page-back"
 				onClick={onBack}
 			>
 				<Icon name="arrowLeft" size={15} aria-hidden="true" /> Kembali
@@ -42,6 +45,7 @@ export const History = ({
 				address={address}
 				privateKey={privateKey}
 				version={activityVersion}
+				liveVersion={liveVersion}
 				onChanged={onChanged}
 			/>
 		</section>

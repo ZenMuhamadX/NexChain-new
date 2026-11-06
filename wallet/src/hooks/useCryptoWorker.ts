@@ -29,7 +29,11 @@ interface WorkerRequest<T = any> {
 }
 
 type WorkerRequestType =
-	'ENCRYPT_SECRET' | 'DECRYPT_SECRET' | 'DERIVE_KEYS' | 'SIGN_TRANSACTION'
+	| 'ENCRYPT_SECRET'
+	| 'DECRYPT_SECRET'
+	| 'DERIVE_KEYS'
+	| 'PREPARE_WALLET'
+	| 'SIGN_TRANSACTION'
 
 interface WorkerResponse<T = any> {
 	id: string
@@ -54,6 +58,18 @@ export interface DerivedKeys {
 	publicKey: string
 	address: string
 	mnemonic: string
+}
+
+/**
+ * Hasil `prepareWallet()`: frasa baru + alamat yang benar-benar dihasilkannya.
+ *
+ * Alamat ikut dikirim supaya layar penyiapan punya bukti nyata bahwa langkah
+ * terakhir bukan sekadar animasi — dan pengguna sempat melihat tujuan dananya
+ * sebelum sempat menyimpan frasa.
+ */
+export interface PreparedWallet {
+	mnemonic: string
+	address: string
 }
 
 // Use actual TxInterface from codebase
@@ -242,7 +258,7 @@ const singletonRequest = async <T>(
 		const timeout = getCryptoTimeout(
 			type === 'ENCRYPT_SECRET' || type === 'DECRYPT_SECRET'
 				? 'ENCRYPT'
-				: type === 'DERIVE_KEYS'
+				: type === 'DERIVE_KEYS' || type === 'PREPARE_WALLET'
 					? 'DERIVE'
 					: type === 'SIGN_TRANSACTION'
 						? 'SIGN'
@@ -279,6 +295,17 @@ export const cryptoWorker = {
 	deriveKeys: (mnemonic: string): Promise<DerivedKeys> =>
 		singletonRequest<DerivedKeys>('DERIVE_KEYS', { mnemonic }),
 
+	/**
+	 * Frasa baru + alamatnya, dihitung seluruhnya di worker.
+	 *
+	 * Dipakai layar penyiapan wallet: satu permintaan, tiga langkah nyata di
+	 * dalamnya, sehingga UI tidak perlu menyusun mnemonic sendiri di main
+	 * thread (yang juga menghapus satu jalur di mana `genRandomMnemonic`
+	 * dipanggil saat render).
+	 */
+	prepareWallet: (): Promise<PreparedWallet> =>
+		singletonRequest<PreparedWallet>('PREPARE_WALLET', {}),
+
 	signTransaction: (
 		unsignedTx: UnsignedTx,
 		privateKey: string,
@@ -289,4 +316,16 @@ export const cryptoWorker = {
 		}),
 
 	isReady: () => singletonReady,
+
+	/**
+	 * Nyalakan worker sebelum ada yang membutuhkannya.
+	 *
+	 * KENAPA: permintaan pertama ke worker harus memuat chunk kripto (bip39 +
+	 * bip32 + elliptic, ~495 kB) dan menunggu `READY`. Tanpa pemanasan, biaya
+	 * itu jatuh tepat saat pengguna menekan "Buat wallet baru" — langkah ketiga
+	 * di layar penyiapan lalu menggantung satu-dua detik di dev, dan seluruh
+	 * animasi terasa rusak. Dipanggil dari boot `App`, berbarengan dengan
+	 * pembacaan vault, jadi tidak ada yang menunggu tambahan.
+	 */
+	warmup: (): Promise<void> => initSingletonWorker(),
 }

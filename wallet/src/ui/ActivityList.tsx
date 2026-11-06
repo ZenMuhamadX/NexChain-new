@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ACTIVITY_PAGE_SIZE, fetchActivityPage } from '../lib/rpc'
 import type { HistoryRow } from '../lib/rpc'
 import {
@@ -6,6 +6,7 @@ import {
 	formatNxcCompact,
 	formatNxcExact,
 	formatTime,
+	truncate,
 } from '../lib/format'
 import { bumpPendingFee } from '../lib/sendFlow'
 import {
@@ -23,6 +24,15 @@ interface ActivityListProps {
 	privateKey: string
 	/** Naik setiap transaksi terkirim → daftar dimuat ulang. */
 	version: number
+	/**
+	 * Naik saat saldo/pending di latar berubah (mis. tx terkonfirmasi).
+	 *
+	 * Beda peran dengan `version`: `version` berasal dari aksi pengguna dan
+	 * mengembalikan daftar ke halaman 1 (transaksi baru ada di atas), sedangkan
+	 * `liveVersion` hanya menyegarkan halaman yang sedang dibaca — pengguna
+	 * tidak boleh terlempar dari halaman 3 karena sebuah tx kebetulan masuk blok.
+	 */
+	liveVersion: number
 	/** Ada perubahan di luar alur kirim (mis. percepat) → saldo ikut disegarkan. */
 	onChanged: () => void
 	/** Baris per halaman. Beranda memakai 5 sebagai pratinjau. */
@@ -33,6 +43,17 @@ interface ActivityListProps {
 	 */
 	onViewAll?: () => void
 }
+
+/**
+ * Kunci baris yang stabil: hash tx bila ada, selain itu from+nonce.
+ *
+ * Dipakai untuk `key` daftar DAN untuk melacak baris mana yang sedang dibuka
+ * di modal detail. Sebelumnya modal menyimpan OBJEK baris, jadi saat daftar
+ * dimuat ulang modal tetap menampilkan salinan lama — "Tertunda" bertahan
+ * walau transaksinya sudah masuk blok.
+ */
+const rowKey = (row: HistoryRow): string =>
+	row.tx.txHash || `${row.tx.from ?? ''}-${row.tx.nonce}`
 
 /**
  * Daftar aktivitas, dua mode dalam satu komponen:
@@ -49,6 +70,7 @@ export const ActivityList = ({
 	address,
 	privateKey,
 	version,
+	liveVersion,
 	onChanged,
 	pageSize = ACTIVITY_PAGE_SIZE,
 	onViewAll,
@@ -59,7 +81,10 @@ export const ActivityList = ({
 	const [totalPages, setTotalPages] = useState(1)
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
-	const [detail, setDetail] = useState<HistoryRow | null>(null)
+	/** Kunci baris yang sedang dibuka di modal detail. */
+	const [detailKey, setDetailKey] = useState('')
+	/** Cadangan bila baris itu tidak lagi ada di halaman yang dimuat. */
+	const [detailSnapshot, setDetailSnapshot] = useState<HistoryRow | null>(null)
 	const [bumpTarget, setBumpTarget] = useState<HistoryRow | null>(null)
 	const [bumpBusy, setBumpBusy] = useState(false)
 	const [bumpResult, setBumpResult] = useState<{
@@ -67,23 +92,39 @@ export const ActivityList = ({
 		text: string
 	} | null>(null)
 
+	/** Halaman aktif tanpa memasukkan `page` ke dependency penyegaran latar. */
+	const pageRef = useRef(page)
+	pageRef.current = page
+
 	const load = useCallback(
-		async (target: number): Promise<void> => {
-			setError('')
-			setLoading(true)
+		async (target: number, options?: { silent?: boolean }): Promise<void> => {
+			const silent = options?.silent === true
+			if (!silent) {
+				setError('')
+				setLoading(true)
+			}
 			try {
 				const next = await fetchActivityPage(address, target, pageSize)
 				setRows(next.rows)
 				setTotal(next.total)
 				setTotalPages(Math.max(1, next.totalPages))
 				setPage(next.page)
+				if (silent) setError('')
 			} catch (e) {
+				/*
+				 * Penyegaran latar TIDAK boleh mengosongkan daftar. Gangguan
+				 * sesaat pada satu request latar bukan alasan menyatakan
+				 * "riwayat tidak dapat dimuat" — saldo di atasnya pun masih
+				 * menampilkan angka terakhir. Diamkan, biarkan poll berikutnya
+				 * mencoba lagi.
+				 */
+				if (silent) return
 				// Daftar halaman lain tidak boleh tertinggal di bawah nomor halaman
 				// yang gagal dimuat — kosongkan dan tampilkan error.
 				setRows([])
 				setError(errorMessage(e))
 			} finally {
-				setLoading(false)
+				if (!silent) setLoading(false)
 			}
 		},
 		[address, pageSize],
@@ -93,6 +134,17 @@ export const ActivityList = ({
 	useEffect(() => {
 		void load(1)
 	}, [load, version])
+
+	/**
+	 * Penyegaran latar: halaman yang sedang dibuka, tanpa spinner dan tanpa
+	 * memindahkan posisi baca. Dipicu `liveVersion` dari App saat saldo atau
+	 * pending berubah — satu-satunya cara riwayat ikut bergerak dari
+	 * "Tertunda" ke "Terkonfirmasi" tanpa pengguna menyegarkan halaman.
+	 */
+	useEffect(() => {
+		if (liveVersion === 0) return
+		void load(pageRef.current, { silent: true })
+	}, [liveVersion, load])
 
 	const goTo = (target: number): void => {
 		if (target < 1 || target > totalPages || target === page) return
@@ -123,6 +175,29 @@ export const ActivityList = ({
 	}
 
 	const confirmedShown = rows.filter((row) => !row.pending).length
+
+	/**
+	 * Baris detail DITURUNKAN dari daftar yang sedang tampil, bukan disimpan
+	 * sebagai salinan. Inilah yang membuat modal yang sedang terbuka ikut
+	 * berubah dari "Tertunda" ke "Terkonfirmasi" saat daftar disegarkan di
+	 * latar. `detailSnapshot` hanya jaring pengaman kalau barisnya keluar dari
+	 * halaman (mis. pengguna pindah halaman) — modal tidak boleh mengedip
+	 * kosong di tengah pembacaan.
+	 */
+	const detail =
+		detailKey === ''
+			? null
+			: (rows.find((row) => rowKey(row) === detailKey) ?? detailSnapshot)
+
+	const closeDetail = (): void => {
+		setDetailKey('')
+		setDetailSnapshot(null)
+	}
+
+	const openDetail = (row: HistoryRow): void => {
+		setDetailSnapshot(row)
+		setDetailKey(rowKey(row))
+	}
 
 	const detailOutgoing = detail !== null && detail.tx.from === address
 	const detailHash = detail?.tx.txHash ?? ''
@@ -183,13 +258,12 @@ export const ActivityList = ({
 					<ul className="tx-list">
 						{rows.map((row) => {
 							const outgoing = row.tx.from === address
-							const hash = row.tx.txHash ?? ''
 							return (
-								<li key={hash || `${row.tx.from}-${row.tx.nonce}`}>
+								<li key={rowKey(row)}>
 									<button
 										type="button"
 										className="tx-row"
-										onClick={() => setDetail(row)}
+										onClick={() => openDetail(row)}
 										aria-label={`${outgoing ? 'Dikirim' : 'Diterima'} ${formatNxcCompact(row.tx.amount)} NXC, buka detail`}
 									>
 										<span
@@ -266,7 +340,7 @@ export const ActivityList = ({
 
 			<Modal
 				open={detail !== null}
-				onClose={() => setDetail(null)}
+				onClose={closeDetail}
 				size="sm"
 				title="Detail transaksi"
 				actions={
@@ -274,7 +348,7 @@ export const ActivityList = ({
 						<button
 							type="button"
 							className="button button--ghost"
-							onClick={() => setDetail(null)}
+							onClick={closeDetail}
 						>
 							Tutup
 						</button>
@@ -285,7 +359,7 @@ export const ActivityList = ({
 								onClick={() => {
 									setBumpResult(null)
 									setBumpTarget(detail)
-									setDetail(null)
+									closeDetail()
 								}}
 							>
 								Percepat
@@ -332,21 +406,53 @@ export const ActivityList = ({
 										: '—'}
 							</strong>
 						</div>
+						{detail.tx.from ? (
+							<div>
+								<span>Pengirim</span>
+								<div className="review-value">
+									<strong className="mono tx-hash">{detail.tx.from}</strong>
+									<CopyButton
+										text={detail.tx.from}
+										ariaLabel="Salin alamat pengirim"
+										variant="plain"
+									/>
+								</div>
+							</div>
+						) : null}
 						{detail.tx.receiver ? (
 							<div>
 								<span>Penerima</span>
-								<strong className="mono tx-hash">{detail.tx.receiver}</strong>
+								<div className="review-value">
+									<strong className="mono tx-hash">{detail.tx.receiver}</strong>
+									<CopyButton
+										text={detail.tx.receiver}
+										ariaLabel="Salin alamat penerima"
+										variant="plain"
+									/>
+								</div>
 							</div>
 						) : null}
+						{/*
+						 * "ID Transaksi", bukan "Hash": hash-nya memang ID, tapi
+						 * label "Hash" membuat orang mengira itu checksum yang
+						 * tidak ada hubungannya dengan transaksi ini.
+						 * Nilainya dipotong di tengah — 43 karakter penuh terlipat
+						 * jadi tiga baris di modal selebar ini — sementara tombol
+						 * salin dan `title` tetap membawa nilai utuh.
+						 */}
 						{detailHash ? (
 							<div>
-								<span>Hash</span>
-								<strong className="mono tx-hash">{detailHash}</strong>
-								<CopyButton
-									text={detailHash}
-									ariaLabel="Salin hash transaksi"
-									variant="plain"
-								/>
+								<span>ID Transaksi</span>
+								<div className="review-value">
+									<strong className="mono" title={detailHash}>
+										{truncate(detailHash)}
+									</strong>
+									<CopyButton
+										text={detailHash}
+										ariaLabel="Salin ID transaksi"
+										variant="plain"
+									/>
+								</div>
 							</div>
 						) : null}
 					</div>

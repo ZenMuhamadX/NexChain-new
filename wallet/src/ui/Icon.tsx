@@ -21,6 +21,7 @@ export type IconName =
 	| 'arrowRight'
 	| 'activity'
 	| 'qr'
+	| 'user'
 
 const PATHS: Record<IconName, React.JSX.Element> = {
 	home: (
@@ -138,6 +139,12 @@ const PATHS: Record<IconName, React.JSX.Element> = {
 			<rect x="3.5" y="14.5" width="6" height="6" rx="1" />
 			<path d="M14.5 14.5h2.5v2.5h-2.5z" />
 			<path d="M20.5 14.5v6h-6" />
+		</>
+	),
+	user: (
+		<>
+			<circle cx="12" cy="8" r="3.75" />
+			<path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" />
 		</>
 	),
 }

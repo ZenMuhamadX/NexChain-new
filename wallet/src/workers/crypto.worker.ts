@@ -19,6 +19,7 @@ if (typeof g.Buffer === 'undefined') {
 }
 
 import { encryptSecret, decryptSecret } from 'src/client/wallet/vaultCrypto'
+import { genRandomMnemonic } from 'src/crypto/generateRandomMnemonic'
 import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
 import { signTransaction } from 'src/crypto/signTransaction'
 import type { TxInterface } from 'src/types/transaction'
@@ -33,7 +34,11 @@ interface WorkerRequest<T = any> {
 }
 
 type WorkerRequestType =
-	'ENCRYPT_SECRET' | 'DECRYPT_SECRET' | 'DERIVE_KEYS' | 'SIGN_TRANSACTION'
+	| 'ENCRYPT_SECRET'
+	| 'DECRYPT_SECRET'
+	| 'DERIVE_KEYS'
+	| 'PREPARE_WALLET'
+	| 'SIGN_TRANSACTION'
 
 interface WorkerResponse<T = any> {
 	id: string
@@ -113,6 +118,31 @@ const handleSignTransaction = async (
 	return signTransaction(payload.unsignedTx, payload.privateKey)
 }
 
+/**
+ * Siapkan wallet baru dalam satu perjalanan: entropi → 12 kata → alamat.
+ *
+ * KENAPA digabung, bukan tiga panggilan dari UI: layar penyiapan menampilkan
+ * tiga langkah, dan langkah ketiga harus benar-benar mengerjakan sesuatu.
+ * `generateKeysFromMnemonic` memvalidasi checksum frasa sebagai bagian dari
+ * penurunan kunci (lihat `validateMnemonic` di dalamnya), lalu alamatnya
+ * diturunkan dari public key — jadi "checksum + alamat" bukan centang kosong.
+ *
+ * Semua dijalankan di worker: `bip32` memuat `elliptic` murni JS dan bisa
+ * memakan puluhan milidetik di HP kelas bawah. Di main thread itu cukup untuk
+ * menjatuhkan frame tepat saat pengguna menekan tombol.
+ */
+const handlePrepareWallet = async (): Promise<{
+	mnemonic: string
+	address: string
+}> => {
+	const mnemonic = genRandomMnemonic()
+	const derived = generateKeysFromMnemonic(mnemonic)
+	const { generateAddressFromPublicKey } = await import(
+		'src/crypto/generateAddressFromPublicKey'
+	)
+	return { mnemonic, address: generateAddressFromPublicKey(derived.publicKey) }
+}
+
 // ---- Message Router ----
 
 const handlers: Record<
@@ -122,6 +152,7 @@ const handlers: Record<
 	ENCRYPT_SECRET: handleEncryptSecret,
 	DECRYPT_SECRET: handleDecryptSecret,
 	DERIVE_KEYS: handleDeriveKeys,
+	PREPARE_WALLET: handlePrepareWallet,
 	SIGN_TRANSACTION: handleSignTransaction,
 }
 

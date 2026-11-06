@@ -312,12 +312,26 @@ export const Send = ({
 				type="button"
 				className="button button--ghost button--lg"
 				onClick={() => {
+					if (busy) return
+					/*
+					 * "Batalkan" BUKAN "Kembali".
+					 *
+					 * "Kembali" hanya mundur satu langkah ke isian, sehingga
+					 * pengguna terjebak di dalam sheet tanpa jalan keluar selain
+					 * tombol × di sudut. "Batalkan" meninggalkan transaksi ini
+					 * dan menutup sheet — kembali ke beranda.
+					 *
+					 * Nilai formulir sengaja TIDAK dikosongkan: sama seperti
+					 * menutup sheet dari langkah isian, alamat yang baru
+					 * ditempel tidak hilang karena salah pencet.
+					 */
 					setPreview(null)
 					setStep('form')
+					onClose()
 				}}
 				disabled={busy}
 			>
-				Kembali
+				Batalkan
 			</button>
 			<button
 				type="button"
@@ -419,7 +433,7 @@ export const Send = ({
 						) : null}
 					</div>
 
-					<div className="field">
+					<div className="field field--line">
 						<label className="label" htmlFor="receiver">
 							Alamat penerima
 						</label>
@@ -464,7 +478,7 @@ export const Send = ({
 					</div>
 
 					{noteOpen || message ? (
-						<div className="field">
+						<div className="field field--line">
 							<label className="label" htmlFor="message">
 								Catatan publik (opsional)
 							</label>
@@ -472,7 +486,7 @@ export const Send = ({
 								id="message"
 								className="input"
 								maxLength={100}
-								placeholder="mis. Hadiah ulang tahun"
+								placeholder="mis. Invoice #0042"
 								value={message}
 								onChange={(event) => setMessage(event.target.value)}
 								autoFocus

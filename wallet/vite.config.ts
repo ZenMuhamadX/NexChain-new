@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
+import type { Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 /**
@@ -124,7 +125,11 @@ export default defineConfig(({ mode }) => {
 			// Dipakai kartu "Aplikasi" di Settings untuk menampilkan versi build.
 			__APP_VERSION__: JSON.stringify(walletVersion),
 		},
-		plugins: isWeb ? [createPwaPlugin()] : [],
+		plugins: isWeb
+			? [createPwaPlugin()]
+			: target === 'dev'
+				? [devShellGuard()]
+				: [],
 		resolve: {
 			alias: [
 				// 'buffer' DIPAKSA ke paket npm: Node builtin tidak ada di browser,
@@ -203,6 +208,83 @@ export default defineConfig(({ mode }) => {
  *     `virtual:pwa-register` di-resolve plugin menjadi no-op, jadi mengimpor
  *     modul itu aman. SW diuji lewat `vite preview`.
  */
+/**
+ * Jaring pengaman shell developer — HANYA untuk target `dev`.
+ *
+ * Dua masalah nyata yang sumbernya satu: `vite preview --mode web` memakai
+ * PORT YANG SAMA (5174) dengan dev server, jadi keduanya berbagi satu origin.
+ *
+ *   1. SERVICE WORKER TERTINGGAL. SW PWA yang pernah terdaftar di origin itu
+ *      tidak hilang saat dev server dijalankan. Ia tetap melayani `/index.html`
+ *      dari cache produksi, sehingga `bun dev` menampilkan UI LAMA, dan
+ *      navigasi apa pun yang tidak ada di precache jatuh ke fallback yang juga
+ *      tidak ada di dev server → "not found".
+ *
+ *      Solusinya bukan menyuruh orang membersihkan DevTools tiap kali:
+ *      dev server menyajikan `/sw.js` versi BUNUH DIRI. Browser memeriksa
+ *      ulang berkas itu pada setiap navigasi, jadi SW produksi yang tertinggal
+ *      akan menggantikan dirinya dengan versi ini, menghapus cache, melepas
+ *      registrasinya, lalu memuat ulang tab. Sekali, lalu bersih selamanya.
+ *
+ *   2. ROOT 404. Root Vite adalah `wallet/`, dan di situ tidak ada
+ *      `index.html` — entri dev shell ada di `shells/dev/`. Membuka
+ *      `localhost:5174` langsung karena itu selalu 404. Middleware ini
+ *      mengalihkannya ke `/shells/dev/`.
+ */
+const KILL_SW = `// Dihasilkan dev server NexChain: matikan service worker sisa build PWA.
+self.addEventListener('install', () => {
+	self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+	event.waitUntil(
+		(async () => {
+			try {
+				const keys = await caches.keys()
+				await Promise.all(keys.map((key) => caches.delete(key)))
+				await self.registration.unregister()
+				const windows = await self.clients.matchAll({ type: 'window' })
+				for (const client of windows) {
+					// Tab yang masih dikendalikan SW ini akan memuat ulang ke
+					// dev server tanpa SW. Gagal di satu tab tidak boleh
+					// menghentikan pembersihan tab lain.
+					client.navigate(client.url).catch(() => {})
+				}
+			} catch {
+				// Biarkan; registrasi tetap dilepas oleh unregister() di atas
+				// bila hanya penghapusan cache yang gagal.
+			}
+		})(),
+	)
+})
+`
+
+const devShellGuard = (): Plugin => ({
+	name: 'nex-dev-shell-guard',
+	apply: 'serve',
+	configureServer(server) {
+		server.middlewares.use((request, response, next) => {
+			const path = (request.url ?? '').split('?')[0]
+
+			if (path === '/sw.js') {
+				response.setHeader('Content-Type', 'text/javascript; charset=utf-8')
+				response.setHeader('Cache-Control', 'no-store')
+				response.end(KILL_SW)
+				return
+			}
+
+			if (path === '/' || path === '') {
+				response.statusCode = 302
+				response.setHeader('Location', '/shells/dev/')
+				response.end()
+				return
+			}
+
+			next()
+		})
+	},
+})
+
 const createPwaPlugin = () =>
 	VitePWA({
 		registerType: 'prompt',

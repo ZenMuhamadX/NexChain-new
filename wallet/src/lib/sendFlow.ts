@@ -95,6 +95,24 @@ export const validateSendForm = (
 	let nexu = 0
 	let parseError: string | undefined
 	try {
+		/*
+		 * Pagar pemisah ribuan.
+		 *
+		 * Saldo di beranda ditampilkan gaya Indonesia ("10.000"), sedangkan
+		 * `toNexu` membaca titik sebagai DESIMAL. Tanpa pagar ini, mengetik
+		 * "10.000" di kolom jumlah akan mengirim 10 NXC — salah seribu kali,
+		 * tanpa satu pun peringatan.
+		 *
+		 * Hanya bentuk yang benar-benar ambigu yang ditolak: angka bukan-nol
+		 * diikuti kelompok tiga digit ("10.000", "1.234.567"). Desimal di
+		 * bawah 1 seperti "0.125" tetap diterima karena tidak mungkin
+		 * pemisah ribuan.
+		 */
+		if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(form.amountNxc.trim())) {
+			throw new Error(
+				'jangan pakai pemisah ribuan di kolom ini — tulis 10000 atau 10000.5',
+			)
+		}
 		nexu = toNexu(form.amountNxc)
 	} catch (error) {
 		parseError = error instanceof Error ? error.message : String(error)

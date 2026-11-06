@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { Icon } from '../ui/Icon'
 import { AmountDisplay } from '../ui/AmountDisplay'
 import { ActivityList } from '../ui/ActivityList'
-import { truncate } from '../lib/format'
+import { getHideBalance, setHideBalance } from '../lib/privacy'
 
 interface HomeProps {
 	address: string
@@ -15,6 +16,11 @@ interface HomeProps {
 	refresh: () => void
 	/** Naik setiap transaksi terkirim → daftar aktivitas dimuat ulang. */
 	activityVersion: number
+	/** Naik saat saldo/pending berubah di latar → segarkan halaman yang dibaca. */
+	liveVersion: number
+	/** Label status jaringan untuk pil di pita saldo (dihitung App). */
+	networkLabel: string
+	networkState: 'connected' | 'connecting' | 'offline'
 	onSend: () => void
 	onReceive: () => void
 	onChanged: () => void
@@ -23,12 +29,15 @@ interface HomeProps {
 }
 
 /**
- * Satu-satunya layar wallet: saldo, dua aksi, lalu aktivitas.
+ * Beranda wallet: pita saldo, dua aksi, lalu aktivitas.
  *
- * Tidak ada tab. Kirim & Terima adalah sheet, dan daftar aktivitas tinggal di
- * layar yang sama — berpindah tab hanya untuk melihat transaksi berarti
- * memuat ulang data yang sama. Riwayat lengkap punya layarnya sendiri supaya
- * beranda tidak memanjang tanpa ujung.
+ * Bentuknya mengikuti pola dompet ponsel (pita saldo + aksi besar + daftar),
+ * TAPI tanpa etalase layanan dan tanpa kartu promo: wallet ini hanya punya
+ * dua aksi nyata, dan mengisi sisanya dengan ubin kosong berarti memajang
+ * sesuatu yang tidak bisa diklik.
+ *
+ * Tab bar TIDAK di sini — ia dipasang `App` supaya tetap di bawah layar mana
+ * pun yang sedang dibuka.
  */
 export const Home = ({
 	address,
@@ -39,6 +48,9 @@ export const Home = ({
 	refreshing,
 	refresh,
 	activityVersion,
+	liveVersion,
+	networkLabel,
+	networkState,
 	onSend,
 	onReceive,
 	onChanged,
@@ -47,75 +59,147 @@ export const Home = ({
 	/** `NaN` membuat `AmountDisplay` mencetak "—" (lihat `formatNxc`). */
 	const shown = (value: number): number => (loaded ? value : Number.NaN)
 
+	/**
+	 * Sembunyikan saldo — bertahan setelah aplikasi ditutup.
+	 *
+	 * Hanya angka besar di pita ini yang disembunyikan, bukan nominal di daftar
+	 * aktivitas: sama seperti dompet ponsel pada umumnya, dan menyembunyikan
+	 * semuanya membuat daftar tidak bisa dipakai sama sekali.
+	 */
+	const [hidden, setHidden] = useState(getHideBalance)
+
+	const toggleHidden = (): void => {
+		const next = !hidden
+		setHidden(next)
+		setHideBalance(next)
+	}
+
 	return (
 		<div className="page-stack">
-			<section className="card home-hero">
-				<div className="home-hero__head">
-					<p className="eyebrow">SALDO</p>
+			<section className="home-band">
+				<div className="home-band__top">
+					<div className="brand brand--on-band">
+						<span className="brand-mark" aria-hidden="true">
+							<Icon name="diamond" size={15} />
+						</span>
+						<span>NexChain</span>
+					</div>
+					<span
+						className={`home-band__net home-band__net--${networkState}`}
+						title={networkLabel}
+					>
+						<span className="network-dot" aria-hidden="true" />
+						<span>{networkLabel}</span>
+					</span>
+				</div>
+
+				<div className="home-band__main">
+					<div className="home-band__balance">
+						<p className="home-band__label">Saldo</p>
+						<div className="home-band__amount-row">
+							{/*
+							 * `key` membuat elemen ini dipasang ulang tiap toggle, jadi
+							 * animasi silang-pudar selalu diputar dari awal — angka dan
+							 * titik tidak pernah berganti mendadak.
+							 */}
+							<span
+								className="home-band__value-swap"
+								key={hidden ? 'mask' : 'value'}
+							>
+								{hidden ? (
+									<span
+										className="home-band__mask"
+										aria-label="Saldo disembunyikan"
+									>
+										••••••
+									</span>
+								) : (
+									<AmountDisplay
+										nexu={shown(balance)}
+										size="large"
+										showUnit={loaded}
+										wholeOnly
+										detailLabel="Presisi"
+										ariaLabel="Lihat saldo presisi"
+									/>
+								)}
+							</span>
+							<button
+								type="button"
+								className="home-band__eye"
+								onClick={toggleHidden}
+								aria-pressed={hidden}
+								aria-label={hidden ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
+								title={hidden ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
+							>
+								<Icon name={hidden ? 'eye' : 'eyeOff'} size={17} />
+							</button>
+						</div>
+
+						{!loaded ? (
+							<p className="home-band__note">
+								<span className="status-dot status-dot--warning" /> Saldo belum
+								diketahui — menunggu node
+							</p>
+						) : pending !== 0 ? (
+							<p className="home-band__note">
+								<Icon name="clock" size={13} aria-hidden="true" />
+								{hidden ? (
+									<span>Transaksi menunggu di mempool</span>
+								) : (
+									<>
+										<AmountDisplay
+											nexu={pending}
+											size="inline"
+											detailLabel="Rincian"
+											ariaLabel="Lihat detail saldo tertunda"
+										/>{' '}
+										menunggu di mempool
+									</>
+								)}
+							</p>
+						) : null}
+					</div>
+
+					<div className="home-band__actions">
+						<button type="button" className="home-action" onClick={onSend}>
+							<span className="home-action__icon" aria-hidden="true">
+								<Icon name="arrowUpRight" size={17} />
+							</span>
+							<span>Kirim</span>
+						</button>
+						<button type="button" className="home-action" onClick={onReceive}>
+							<span className="home-action__icon" aria-hidden="true">
+								<Icon name="arrowDownLeft" size={17} />
+							</span>
+							<span>Terima</span>
+						</button>
+					</div>
+				</div>
+
+				<div className="home-band__foot">
 					<button
 						type="button"
-						className="icon-button"
+						className="address-chip address-chip--on-band"
+						onClick={onReceive}
+						title={address}
+					>
+						{/* Alamat UTUH, bukan dipotong: di kartu ini ia berperan
+						    seperti nomor kartu — sesuatu yang perlu dibaca dan
+						    dicocokkan, bukan diringkas. */}
+						<code className="mono">{address}</code>
+						<Icon name="qr" size={14} aria-hidden="true" />
+						<span className="sr-only">Buka kode penerimaan</span>
+					</button>
+					<button
+						type="button"
+						className={`home-band__refresh ${refreshing ? 'home-band__refresh--busy' : ''}`}
 						onClick={refresh}
 						disabled={refreshing}
 						aria-label="Segarkan saldo"
 						title="Segarkan saldo"
 					>
-						<Icon name="refresh" size={16} aria-hidden="true" />
-					</button>
-				</div>
-
-				<div className="hero-amount">
-					<AmountDisplay
-						nexu={shown(balance)}
-						size="large"
-						showUnit={loaded}
-						ariaLabel="Lihat detail saldo"
-					/>
-				</div>
-
-				{!loaded ? (
-					<p className="hero-note">
-						<span className="status-dot status-dot--warning" /> Saldo belum
-						diketahui — menunggu node
-					</p>
-				) : pending !== 0 ? (
-					<p className="hero-note">
-						<Icon name="clock" size={13} aria-hidden="true" />
-						<AmountDisplay
-							nexu={pending}
-							size="inline"
-							detailLabel="Rincian"
-							ariaLabel="Lihat detail saldo tertunda"
-						/>{' '}
-						menunggu di mempool
-					</p>
-				) : null}
-
-				<button
-					type="button"
-					className="address-chip"
-					onClick={onReceive}
-					title={address}
-				>
-					<code className="mono">{truncate(address, 14, 8)}</code>
-					<Icon name="qr" size={14} aria-hidden="true" />
-					<span className="sr-only">Buka kode penerimaan</span>
-				</button>
-
-				<div className="hero-actions">
-					<button
-						type="button"
-						className="button button--primary button--lg"
-						onClick={onSend}
-					>
-						<Icon name="arrowUpRight" size={17} aria-hidden="true" /> Kirim
-					</button>
-					<button
-						type="button"
-						className="button button--secondary button--lg"
-						onClick={onReceive}
-					>
-						<Icon name="arrowDownLeft" size={17} aria-hidden="true" /> Terima
+						<Icon name="refresh" size={15} aria-hidden="true" />
 					</button>
 				</div>
 			</section>
@@ -133,6 +217,7 @@ export const Home = ({
 					address={address}
 					privateKey={privateKey}
 					version={activityVersion}
+					liveVersion={liveVersion}
 					onChanged={onChanged}
 					pageSize={5}
 					onViewAll={onViewAll}

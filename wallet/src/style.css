@@ -45,6 +45,23 @@
 	--overlay: rgba(20, 32, 51, 0.46);
 	--qr-bg: #ffffff;
 
+	/* Kartu saldo — warnanya SENGAJA sama di kedua tema, seperti kartu fisik:
+	   benda yang dipegang, bukan permukaan aplikasi. Karena itu nilainya
+	   diulang apa adanya di blok tema gelap, bukan diturunkan. */
+	--card-bg: #071a2b;
+	--card-bg-strong: #0b3151;
+	--card-text: #ffffff;
+	--card-muted: #c5d9e9;
+	--card-line: rgba(255, 255, 255, 0.12);
+	--card-line-soft: rgba(255, 255, 255, 0.1);
+	--card-border: rgba(255, 255, 255, 0.16);
+	--card-chip: rgba(255, 255, 255, 0.1);
+	--card-chip-hover: rgba(255, 255, 255, 0.18);
+	/* Status di atas navy: hijau/kuning/merah tema terang terlalu gelap. */
+	--card-ok: #7fe0a6;
+	--card-warn: #f5cf87;
+	--card-bad: #ff9d9d;
+
 	--radius-sm: 8px;
 	--radius-md: 12px;
 	--radius-lg: 16px;
@@ -98,6 +115,22 @@
 	--input-hover-border: #4a5a6d;
 	--overlay: rgba(3, 7, 12, 0.66);
 	--qr-bg: #ffffff;
+
+	/* Kartu saldo: nilai yang sama dengan tema terang — lihat alasannya di
+	   blok `:root`. Didaftarkan ulang supaya gate `styleAudit` (setiap token
+	   warna wajib punya padanan gelap) tetap bisa membuktikannya. */
+	--card-bg: #071a2b;
+	--card-bg-strong: #0b3151;
+	--card-text: #ffffff;
+	--card-muted: #c5d9e9;
+	--card-line: rgba(255, 255, 255, 0.12);
+	--card-line-soft: rgba(255, 255, 255, 0.1);
+	--card-border: rgba(255, 255, 255, 0.16);
+	--card-chip: rgba(255, 255, 255, 0.1);
+	--card-chip-hover: rgba(255, 255, 255, 0.18);
+	--card-ok: #7fe0a6;
+	--card-warn: #f5cf87;
+	--card-bad: #ff9d9d;
 }
 
 * {
@@ -342,7 +375,7 @@ button:disabled {
 	border: 0;
 	background: transparent;
 	color: var(--primary);
-	font-size: 0.82rem;
+	font-size: 0.78rem;
 	font-weight: 650;
 }
 
@@ -730,35 +763,326 @@ button:disabled {
 	gap: 0;
 }
 
-/* Beranda */
-.home-hero {
+/* Beranda — kartu saldo bergaya kartu debit */
+.home-band {
+	position: relative;
+	isolation: isolate;
 	display: flex;
 	flex-direction: column;
-	gap: 0.85rem;
-	padding: 1.35rem;
+	gap: 1.05rem;
+	padding: 1.15rem 1.2rem 1.05rem;
+	overflow: hidden;
+	border: 1px solid var(--card-border);
+	border-radius: var(--radius-lg);
+	background: linear-gradient(135deg, var(--card-bg), var(--card-bg-strong));
+	color: var(--card-text);
 }
 
-.home-hero__head {
+/*
+ * Kisi garis latar — dua diagonal bersilangan 30°/150°, teknik yang sama
+ * dengan hero explorer (`explorer/src/style.css`). Bukan heksagon sungguhan:
+ * yang terlihat sebagai sarang lebah itu hasil persilangan kedua garis ini.
+ *
+ * `z-index: -1` + `isolation: isolate` menaruhnya di atas latar gradien tapi
+ * di bawah seluruh isi kartu, jadi teks tidak pernah tertimpa.
+ */
+.home-band::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	opacity: 0.7;
+	background-image:
+		linear-gradient(
+			30deg,
+			transparent 48%,
+			var(--card-line) 49%,
+			transparent 51%
+		),
+		linear-gradient(
+			150deg,
+			transparent 48%,
+			var(--card-line-soft) 49%,
+			transparent 51%
+		);
+	background-size: 3.2rem 3.2rem;
+}
+
+.home-band__top {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 0.75rem;
 }
 
-.hero-amount {
-	color: var(--text-strong);
-	font-size: clamp(2.2rem, 8vw, 3rem);
-	font-weight: 750;
-	letter-spacing: -0.05em;
-	line-height: 1;
+/*
+ * Di desktop, brand dan status jaringan sudah ada di header — mengulanginya
+ * di pita membuat layar terbaca seperti dua aplikasi yang ditumpuk. Baris ini
+ * hanya untuk layar sempit, tempat header disembunyikan.
+ */
+@media (min-width: 701px) {
+	.home-band__top {
+		display: none;
+	}
 }
 
-.hero-note {
+.brand--on-band {
+	color: var(--card-text);
+	font-size: 0.86rem;
+	font-weight: 700;
+}
+
+.home-band__net {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.35rem;
+	max-width: 55%;
+	padding: 0.22rem 0.55rem;
+	border: 1px solid var(--card-border);
+	border-radius: 999px;
+	background: var(--card-chip);
+	color: var(--card-muted);
+	font-size: 0.68rem;
+	font-weight: 650;
+	white-space: nowrap;
+}
+
+.home-band__net span:last-child {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Status memakai titik berwarna + teks netral: hijau/kuning/merah tema
+   terang terlalu gelap untuk dibaca di atas navy. */
+.home-band__net--offline .network-dot {
+	background: var(--card-bad);
+}
+
+.home-band__net--connecting .network-dot {
+	background: var(--card-warn);
+}
+
+.home-band__net--connected .network-dot {
+	background: var(--card-ok);
+}
+
+.home-band__main {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.home-band__balance {
+	min-width: 0;
+}
+
+.home-band__label {
 	color: var(--text-muted);
-	font-size: 0.78rem;
+	font-size: 0.72rem;
+	font-weight: 650;
+	letter-spacing: 0.02em;
+}
+
+.home-band__amount-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	margin-top: 0.15rem;
+}
+
+.home-band .home-band__amount-row .amount-display__value {
+	color: var(--card-text);
+	font-size: clamp(2.2rem, 8.6vw, 3rem);
+	font-weight: 750;
+	letter-spacing: -0.045em;
+	line-height: 1.05;
+}
+
+/*
+ * Angka panjang dikecilkan bertingkat.
+ *
+ * Angka berbagi baris dengan dua ubin aksi; di 360 px ruangnya cuma ~179 px,
+ * dan "50.000.000,34" selebar ~248 px pada ukuran penuh. Tanpa ini angkanya
+ * menabrak tombol — dan `overflow: hidden` pada kartu memotongnya tanpa
+ * jejak. Batas 9 dan 12 karakter dipilih dari pengukuran, bukan kira-kira.
+ */
+.home-band__amount-row .amount-display[data-density='snug'] .amount-display__value {
+	font-size: clamp(1.75rem, 6.6vw, 2.3rem);
+}
+
+.home-band__amount-row .amount-display[data-density='tight'] .amount-display__value {
+	font-size: clamp(1.35rem, 5.2vw, 1.8rem);
+}
+
+/*
+ * Satuan NXC diberi ukuran SENDIRI, bukan `em` dari angka.
+ *
+ * Aturan bawaan `AmountDisplay` memakai `0.35em` yang dihitung dari font-size
+ * kontainer, bukan dari angka besar — hasilnya 10 px di samping angka 30 px,
+ * dan makin kecil proporsinya makin besar angkanya. Di sini satuannya 0,95rem
+ * tetap, jadi terbaca sebagai satuan mata uang, bukan noda.
+ */
+.home-band .home-band__amount-row .amount-display__unit {
+	margin-left: 0.4rem;
+	color: var(--card-muted);
+	font-size: 0.95rem;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+
+/* Tautan "Detail" bawaan AmountDisplay: biru tua tidak terbaca di atas navy. */
+.home-band .home-band__amount-row .amount-display__detail {
+	color: var(--card-muted);
+}
+
+.home-band .home-band__amount-row .amount-display__detail:hover {
+	background: var(--card-chip);
+	color: var(--card-text);
+}
+
+/* Saldo tersamar: lebar tetap supaya tata letak tidak melompat saat ditutup. */
+.home-band__mask {
+	color: var(--card-text);
+	font-size: clamp(2.2rem, 8.6vw, 3rem);
+	font-weight: 750;
+	letter-spacing: 0.05em;
+	line-height: 1.05;
+}
+
+/*
+ * Angka dan titik-titik berganti dengan silang-pudar singkat, bukan berganti
+ * mendadak. `key` di komponen memaksa elemen ini dipasang ulang tiap toggle,
+ * jadi animasinya selalu diputar dari awal.
+ */
+.home-band__value-swap {
+	display: inline-flex;
+	align-items: center;
+	animation: band-value-swap 180ms ease both;
+}
+
+@keyframes band-value-swap {
+	from {
+		opacity: 0;
+		transform: translateY(3px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.home-band__eye {
+	display: inline-grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	flex: 0 0 auto;
+	/* Sejajar dengan baris angka, bukan dengan tengah blok angka+rincian. */
+	margin-top: 0.1rem;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--card-muted);
+	transition:
+		background var(--transition),
+		color var(--transition),
+		transform 120ms ease;
+}
+
+.home-band__eye:hover {
+	background: var(--card-chip);
+	color: var(--card-text);
+}
+
+.home-band__eye:active {
+	transform: scale(0.9);
+}
+
+.home-band__note {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	margin-top: 0.4rem;
+	color: var(--card-muted);
+	font-size: 0.76rem;
+}
+
+.home-band__actions {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	flex: 0 0 auto;
+}
+
+.home-action {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	min-width: 104px;
+	padding: 0.5rem 0.7rem;
+	border: 1px solid var(--card-border);
+	border-radius: var(--radius-md);
+	background: var(--card-chip);
+	color: var(--card-text);
+	font-size: 0.8rem;
+	font-weight: 650;
+	transition:
+		background var(--transition),
+		border-color var(--transition);
+}
+
+.home-action:hover {
+	background: var(--card-chip-hover);
+	border-color: var(--card-text);
+}
+
+.home-action__icon {
+	display: inline-grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	flex: 0 0 auto;
+	border-radius: 8px;
+	background: var(--card-chip-hover);
+	color: var(--card-text);
+}
+
+.home-band__foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.6rem;
+}
+
+.home-band__refresh {
+	display: inline-grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	flex: 0 0 auto;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--card-muted);
+}
+
+/* Putaran hanya berjalan selama `refreshing` benar — ia menampilkan keadaan
+   yang sebenarnya, bukan hiasan yang berputar sendiri. */
+.home-band__refresh--busy svg {
+	animation: band-spin 900ms linear infinite;
+}
+
+@keyframes band-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.home-band__refresh:hover:not(:disabled) {
+	background: var(--card-chip);
+	color: var(--card-text);
 }
 
 .address-chip {
@@ -786,11 +1110,25 @@ button:disabled {
 	white-space: nowrap;
 }
 
-.hero-actions {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 0.6rem;
-	margin-top: 0.2rem;
+/* Di atas kartu navy, chip alamat memakai latar tembus pandang + teks terang. */
+.address-chip--on-band {
+	padding: 0.42rem 0.6rem;
+	border-color: var(--card-border);
+	background: var(--card-chip);
+	color: var(--card-muted);
+	font-size: 0.72rem;
+}
+
+.address-chip--on-band:hover {
+	border-color: var(--card-text);
+	background: var(--card-chip-hover);
+	color: var(--card-text);
+}
+
+/* Alamat penuh 43 karakter: sedikit renggang supaya terbaca seperti nomor
+   kartu, bukan seperti blok kode. */
+.address-chip--on-band code {
+	letter-spacing: 0.03em;
 }
 
 .address-panel {
@@ -1038,7 +1376,7 @@ button:disabled {
 .empty-state p {
 	max-width: 34ch;
 	color: var(--text-muted);
-	font-size: 0.82rem;
+	font-size: 0.78rem;
 }
 
 .empty-state__detail {
@@ -1266,6 +1604,208 @@ textarea.input {
 	color: var(--primary);
 }
 
+/* ---- Fase menyiapkan frasa (skeleton + langkah) ---- */
+
+.mnemonic-skeleton__cell {
+	/* Kerangka tidak boleh terlihat seperti input yang bisa diklik. */
+	pointer-events: none;
+}
+
+/*
+ * Input hantu: TIDAK terlihat, tapi tetap memakan ruang persis seperti input
+ * asli. Ini satu-satunya cara membuat tinggi kotak kerangka sama di semua
+ * breakpoint — tinggi input asli bergantung pada font-size efektifnya, dan
+ * media query sempit menaikkannya ke 16px (trik anti-zoom iOS), jadi angka
+ * px mati di CSS pasti meleset di salah satu ukuran layar.
+ */
+.mnemonic-skeleton__ghost {
+	visibility: hidden;
+}
+
+.mnemonic-skeleton__bar {
+	position: absolute;
+	top: 50%;
+	left: calc(0.55rem + 1rem + 0.4rem);
+	right: 0.55rem;
+	height: 0.72rem;
+	transform: translateY(-50%);
+	border-radius: 999px;
+	background: var(--surface-muted);
+	animation: skeleton-pulse 1.15s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+	0%,
+	100% {
+		opacity: 0.5;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+.mnemonic-steps {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	margin: 0.7rem 0 0;
+	padding: 0;
+	list-style: none;
+	font-size: 0.72rem;
+	color: var(--text-subtle);
+}
+
+.mnemonic-steps__item {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	transition: color var(--transition);
+}
+
+.mnemonic-steps__dot {
+	flex: 0 0 auto;
+	width: 8px;
+	height: 8px;
+	border: 1px solid var(--border-strong);
+	border-radius: 50%;
+}
+
+.mnemonic-steps__item--active {
+	color: var(--text);
+}
+
+.mnemonic-steps__item--active .mnemonic-steps__dot {
+	border-color: var(--primary);
+	box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+.mnemonic-steps__item--done {
+	color: var(--text-muted);
+}
+
+.mnemonic-steps__item--done .mnemonic-steps__dot {
+	border-color: var(--success);
+	background: var(--success);
+}
+
+/* Alamat hasil frasa: bukti bahwa langkah terakhir mengerjakan sesuatu. */
+.mnemonic-address {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	margin: 0.5rem 0 0;
+	font-size: 0.72rem;
+	color: var(--text-muted);
+}
+
+.mnemonic-address code {
+	color: var(--text-strong);
+	font-family: var(--mono);
+	font-size: 0.74rem;
+	word-break: break-all;
+}
+
+/* ---- Kata masuk setelah siap ---- */
+
+/*
+ * Nama kelas sengaja `mnemonic-enter`, BUKAN `mnemonic-reveal`: kelas terakhir
+ * sudah dipakai panel frasa di layar Pengaturan (punya latar --primary-soft),
+ * dan memakainya di sini membuat seluruh blok setup ikut berwarna biru.
+ */
+.mnemonic-enter {
+	--reveal-ms: 200ms;
+	--stagger-ms: 20ms;
+}
+
+.mnemonic-enter .mnemonic-grid__cell {
+	animation: mnemonic-enter var(--reveal-ms) ease both;
+}
+
+.mnemonic-enter .mnemonic-grid__cell:nth-child(1) {
+	animation-delay: calc(var(--stagger-ms) * 0);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(2) {
+	animation-delay: calc(var(--stagger-ms) * 1);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(3) {
+	animation-delay: calc(var(--stagger-ms) * 2);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(4) {
+	animation-delay: calc(var(--stagger-ms) * 3);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(5) {
+	animation-delay: calc(var(--stagger-ms) * 4);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(6) {
+	animation-delay: calc(var(--stagger-ms) * 5);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(7) {
+	animation-delay: calc(var(--stagger-ms) * 6);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(8) {
+	animation-delay: calc(var(--stagger-ms) * 7);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(9) {
+	animation-delay: calc(var(--stagger-ms) * 8);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(10) {
+	animation-delay: calc(var(--stagger-ms) * 9);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(11) {
+	animation-delay: calc(var(--stagger-ms) * 10);
+}
+.mnemonic-enter .mnemonic-grid__cell:nth-child(12) {
+	animation-delay: calc(var(--stagger-ms) * 11);
+}
+
+/* Alamat ikut mendarat bersama baris terakhir kata, supaya tidak ada lubang
+   kosong di bawah grid selama 400 ms. */
+.mnemonic-enter .mnemonic-address {
+	animation: mnemonic-enter var(--reveal-ms) ease both;
+	animation-delay: calc(var(--stagger-ms) * 11);
+}
+
+/* Checkbox baru muncul setelah kotak terakhir mendarat: kalau ikut muncul
+   bersamaan, ia bisa dicentang sebelum frasanya sempat dibaca. */
+.mnemonic-enter .check-card {
+	animation: mnemonic-enter var(--reveal-ms) ease both;
+	animation-delay: calc(var(--stagger-ms) * 11 + 80ms);
+}
+
+@keyframes mnemonic-enter {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* Hormati preferensi sistem: jeda baca tetap, gerak dihilangkan. */
+@media (prefers-reduced-motion: reduce) {
+	.mnemonic-skeleton__bar,
+	.mnemonic-enter .mnemonic-grid__cell,
+	.mnemonic-enter .check-card,
+	.mnemonic-enter .mnemonic-address {
+		animation: none;
+		opacity: 1;
+		transform: none;
+	}
+
+	/* Putaran refresh dan silang-pudar saldo: hilang, tapi keadaannya tetap
+	   terlihat (ikon redup saat memuat, angka tetap berganti). */
+	.home-band__refresh--busy svg,
+	.home-band__value-swap {
+		animation: none;
+	}
+
+	.home-band__eye:active {
+		transform: none;
+	}
+}
+
 .input-hint,
 .field-success {
 	color: var(--text-muted);
@@ -1286,6 +1826,14 @@ textarea.input {
 	align-items: center;
 	justify-content: space-between;
 	gap: 0.5rem;
+}
+
+/* Tombol salin di baris aksi frasa disamakan tingginya dengan tombol
+   "Sembunyikan frasa" — 30px vs 32px membuat keduanya tidak terbaca sebagai
+   satu baris, dan selisihnya terlihat jelas justru saat tombol menyala. */
+.field-actions .copy-button {
+	min-height: 32px;
+	padding: 0.4rem 0.65rem;
 }
 
 .form-actions {
@@ -1457,6 +2005,24 @@ textarea.input {
 	font-size: 0.78rem;
 	text-align: right;
 	overflow-wrap: anywhere;
+}
+
+/*
+ * Nilai + tombol salin sebagai SATU kesatuan.
+ * Tanpa pembungkus ini, `justify-content: space-between` pada baris detail
+ * mendorong label, nilai, dan tombol ke tiga tepi berbeda sehingga nilai
+ * panjang (alamat, ID) tampak melayang di tengah baris.
+ */
+.review-value {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 0.3rem;
+	min-width: 0;
+}
+
+.review-value strong {
+	min-width: 0;
 }
 
 .result-copy {
@@ -1639,7 +2205,7 @@ textarea.input {
 
 .danger-row strong {
 	color: var(--danger);
-	font-size: 0.82rem;
+	font-size: 0.78rem;
 }
 
 .danger-row span {
@@ -1679,7 +2245,7 @@ textarea.input {
 
 .app-row strong {
 	color: var(--text-strong);
-	font-size: 0.82rem;
+	font-size: 0.78rem;
 }
 
 .app-row span {
@@ -1726,7 +2292,7 @@ textarea.input {
 
 .pwa-update__text strong {
 	color: var(--text-strong);
-	font-size: 0.82rem;
+	font-size: 0.78rem;
 }
 
 .pwa-update__text span {
@@ -2186,6 +2752,18 @@ textarea.input {
 	overflow-wrap: anywhere;
 }
 
+/* Baris nilai + tombol salin: keduanya harus terbaca sebagai satu kesatuan. */
+.amount-detail__row {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	min-width: 0;
+}
+
+.amount-detail__row strong {
+	min-width: 0;
+}
+
 .amount-detail p {
 	margin-top: 0.55rem;
 	color: var(--text-muted);
@@ -2289,11 +2867,18 @@ textarea.input {
 	flex: 1;
 }
 
+/*
+ * Kolom jumlah di layar Kirim memakai bahan yang sama dengan kartu saldo.
+ *
+ * Form kirim sebelumnya hanya bidang putih dengan garis tipis — tidak ada
+ * apa pun yang menandai "ini bagian terpenting". Memberi blok jumlah latar
+ * kartu membuat mata langsung jatuh ke angka yang sedang diisi, tanpa
+ * mengecat seluruh sheet (yang akan mengganggu keterbacaan isian lain).
+ */
 .send-amount {
 	display: flex;
 	flex-direction: column;
 	gap: 0.45rem;
-	padding-bottom: 0.4rem;
 }
 
 .send-amount__row {
@@ -2302,6 +2887,10 @@ textarea.input {
 	gap: 0.5rem;
 	padding-bottom: 0.4rem;
 	border-bottom: 1px solid var(--border);
+}
+
+.send-amount__row:focus-within {
+	border-bottom-color: var(--primary);
 }
 
 .send-amount__input {
@@ -2329,6 +2918,70 @@ textarea.input {
 	color: var(--text-muted);
 	font-size: 0.9rem;
 	font-weight: 650;
+}
+
+/* ---- Isian bergaris bawah (sheet Kirim) ---- */
+
+/*
+ * Satu pola untuk Jumlah, Alamat penerima, dan Catatan publik.
+ *
+ * Kotak lonjong bawaan `.input` tetap dipakai di tempat lain (Pengaturan,
+ * buka kunci, eksplorasi) — di sana tiap isian berdiri sendiri. Di sheet
+ * Kirim ketiganya satu urutan, jadi bentuknya disamakan jadi garis bawah:
+ * lebih ringan, dan mata membaca "satu formulir", bukan tiga kotak berbeda.
+ */
+.field--line {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.field--line .input,
+.field--line .input-with-action {
+	border: 0;
+	border-bottom: 1px solid var(--border);
+	border-radius: 0;
+	background: transparent;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.field--line .input {
+	min-height: 40px;
+	padding-top: 0.2rem;
+	padding-bottom: 0.3rem;
+}
+
+/* Input di dalam pembungkus aksi: garisnya milik pembungkus, bukan input. */
+.field--line .input-with-action .input {
+	border-bottom: 0;
+}
+
+.field--line:focus-within .input,
+.field--line:focus-within .input-with-action {
+	border-bottom-color: var(--primary);
+}
+
+.field--line .input:focus {
+	box-shadow: none;
+}
+
+/* Di ponsel, pembungkus aksi biasanya menumpuk; di sini ikon tempel harus
+   tetap sebaris dengan isian supaya garis bawahnya tidak terputus. */
+.field--line .input-with-action {
+	flex-direction: row;
+	align-items: center;
+}
+
+/*
+ * Ikon tempel di pembungkus ini `position: absolute` (lihat
+ * `.input-with-action .icon-button`), dan ruangnya disediakan oleh
+ * `padding-right` bawaan. Aturan `.field--line .input` di atas menghapus
+ * padding itu, sehingga teks alamat berjalan menembus ikon — dikembalikan
+ * di sini, khusus untuk isian di dalam pembungkus aksi.
+ */
+.field--line .input-with-action .input {
+	padding-right: 2.75rem;
 }
 
 .send-done {
@@ -2460,7 +3113,7 @@ textarea.input {
 	border-radius: 6px;
 	background: transparent;
 	color: var(--text-muted);
-	font-size: 0.82rem;
+	font-size: 0.78rem;
 	font-weight: 650;
 }
 
@@ -2468,6 +3121,59 @@ textarea.input {
 	background: var(--surface);
 	color: var(--text-strong);
 	border: 1px solid var(--border);
+}
+
+/* ---- Tab bar bawah ---- */
+
+/*
+ * Disembunyikan secara default: tab bar bawah adalah bahasa ponsel, dan di
+ * desktop ia terbaca sebagai aplikasi ponsel yang dipasang di jendela lebar.
+ * Aturan `@media (max-width: 700px)` di bawah yang menampilkannya.
+ */
+.tab-bar {
+	display: none;
+}
+
+.tab-bar__item,
+.tab-bar__fab {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.15rem;
+	min-height: 48px;
+	padding: 0.35rem 0.2rem;
+	border: 0;
+	background: transparent;
+	color: var(--text-subtle);
+	font-size: 0.66rem;
+	font-weight: 650;
+	line-height: 1.1;
+}
+
+.tab-bar__item:hover,
+.tab-bar__fab:hover {
+	color: var(--text);
+}
+
+.tab-bar__item--active {
+	color: var(--primary);
+}
+
+/* Tombol tengah: aksi, bukan tab — tidak ada panel yang dijanjikan. */
+.tab-bar__fab {
+	margin-top: -1.15rem;
+}
+
+.tab-bar__fab-icon {
+	display: grid;
+	place-items: center;
+	width: 52px;
+	height: 52px;
+	border-radius: 50%;
+	/* Cincin, bukan bayangan: tetap datar dan benar di kedua tema. */
+	box-shadow: 0 0 0 4px var(--surface);
+	background: var(--primary);
+	color: var(--on-primary);
 }
 
 @media (max-width: 980px) {
@@ -2505,6 +3211,53 @@ textarea.input {
 		padding-right: calc(0.85rem + env(safe-area-inset-right, 0px));
 	}
 
+	/*
+	 * Di layar sempit, header lama diganti tab bar: brand dan status jaringan
+	 * sudah pindah ke pita saldo, jadi header hanya menyisakan baris kosong.
+	 * Kunci wallet tetap terjangkau lewat tab Profil → Pengaturan.
+	 */
+	.app-header {
+		display: none;
+	}
+
+	.tab-bar {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 30;
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		align-items: end;
+		padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+		border-top: 1px solid var(--border);
+		background: var(--surface);
+	}
+
+	/* Ruang untuk tab bar + notch: tanpa ini baris terakhir tertutup bar. */
+	.content {
+		padding-top: calc(1.1rem + env(safe-area-inset-top, 0px));
+		padding-bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px));
+	}
+
+	/*
+	 * Tombol "Kembali" di heading layar hilang saat tab bar tampil: kembali ke
+	 * beranda sudah jadi salah satu tab, dan tombol panah tanpa header di
+	 * atasnya terbaca seperti sisa dari tata letak lama.
+	 */
+	.page-back {
+		display: none;
+	}
+
+	/* Elemen mengambang ikut naik supaya tidak tertutup tab bar. */
+	.crypto-progress {
+		bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px));
+	}
+
+	.pwa-update {
+		bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px));
+	}
+
 	input:not([type='checkbox']):not([type='radio']),
 	textarea,
 	select {
@@ -2529,8 +3282,8 @@ textarea.input {
 		padding: 1rem;
 	}
 
-	.home-hero {
-		padding: 1.1rem;
+	.home-band {
+		padding: 1rem;
 	}
 
 	.danger-row {
@@ -2569,6 +3322,41 @@ textarea.input {
 	.auth-main {
 		align-items: flex-start;
 		padding-top: 1.25rem;
+	}
+
+	/*
+	 * Di ponsel sempit, dua ubin aksi di samping angka memakan ~110 px dari
+	 * ~179 px yang tersedia — angka panjang ("50.000.000,34") lalu menabrak
+	 * tombol, dan `overflow: hidden` pada kartu memotongnya tanpa jejak.
+	 * Ubin dipindah ke bawah angka: angka dapat lebar penuh, aksi tetap besar
+	 * dan mudah dijangkau.
+	 */
+	.home-band__main {
+		flex-direction: column;
+		gap: 0.9rem;
+	}
+
+	.home-band__actions {
+		flex-direction: row;
+	}
+
+	.home-action {
+		flex: 1;
+		justify-content: center;
+	}
+
+	/*
+	 * Alamat 43 karakter tidak muat di chip pada 360 px: 43 × 0,6 em pada
+	 * 0,72 rem ≈ 297 px, sedangkan ruangnya ~282 px. Huruf dikecilkan dan
+	 * ikon QR dilepas — chip-nya sendiri sudah membuka layar Terima, jadi
+	 * ikon itu hanya penanda, bukan satu-satunya jalan.
+	 */
+	.address-chip--on-band {
+		font-size: 0.66rem;
+	}
+
+	.address-chip--on-band svg {
+		display: none;
 	}
 
 	.auth-header .security-label {

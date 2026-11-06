@@ -50,6 +50,15 @@ const PAIRS: ReadonlyArray<{ fg: string; bg: string }> = [
 	{ fg: '--danger', bg: '--danger-soft' },
 	{ fg: '--danger', bg: '--surface' },
 	{ fg: '--info', bg: '--info-soft' },
+	/*
+	 * Kartu saldo: teks di atas gradien navy. Warnanya sama di kedua tema,
+	 * tapi tetap diperiksa dua kali — gate ini yang akan menangkap kalau
+	 * suatu saat palet kartu diubah tanpa mengukur ulang.
+	 */
+	{ fg: '--card-text', bg: '--card-bg' },
+	{ fg: '--card-text', bg: '--card-bg-strong' },
+	{ fg: '--card-muted', bg: '--card-bg' },
+	{ fg: '--card-muted', bg: '--card-bg-strong' },
 ]
 
 let passed = 0

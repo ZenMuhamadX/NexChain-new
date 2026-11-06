@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getVault } from './lib/vault'
+import { cryptoWorker } from './hooks/useCryptoWorker'
 import type { UnlockedWallet, WalletVault } from 'src/client/wallet/walletVault'
 import {
 	fetchAccount,
@@ -20,6 +21,8 @@ import { History } from './screens/History'
 import { Send } from './screens/Send'
 import { Receive } from './screens/Receive'
 import { Settings } from './screens/Settings'
+import { TabBar } from './ui/TabBar'
+import type { MainTab } from './ui/TabBar'
 import { errorMessage } from './lib/format'
 import { installTheme } from './lib/theme'
 
@@ -32,6 +35,16 @@ installTheme()
  * berubah. Muat ulang manual tetap tersedia lewat tombol Segarkan.
  */
 const POLL_MS = 30_000
+
+/**
+ * Poll saat ada transaksi menunggu. 10 detik, bukan 30.
+ *
+ * Kalau pengguna sedang menunggu konfirmasi, 30 detik terasa seperti macet —
+ * padahal tidak ada yang bisa dia lakukan selain menunggu. Interval ini hanya
+ * berjalan selama `pending > 0`, jadi biayanya terbatas pada jendela singkat
+ * ketika umpan balik benar-benar dibutuhkan.
+ */
+const PENDING_POLL_MS = 10_000
 
 /**
  * Chain ID PERTAMA yang pernah dilihat wallet ini.
@@ -53,6 +66,24 @@ export const App = (): React.JSX.Element => {
 	const [action, setAction] = useState<WalletAction>(null)
 	/** Naik setiap transaksi terkirim — memicu daftar aktivitas memuat ulang. */
 	const [activityVersion, setActivityVersion] = useState(0)
+	/**
+	 * Naik saat saldo atau pending berubah DI LATAR (bukan karena aksi kirim).
+	 *
+	 * KENAPA terpisah dari `activityVersion`: aksi kirim memang pantas
+	 * mengembalikan daftar ke halaman 1 (transaksi baru ada di paling atas),
+	 * sedangkan perubahan latar tidak boleh melempar pengguna keluar dari
+	 * halaman yang sedang dia baca. Lihat `ActivityList`.
+	 */
+	const [liveVersion, setLiveVersion] = useState(0)
+	/**
+	 * Saldo + pending terakhir yang BERHASIL dibaca.
+	 *
+	 * Dipakai sebagai pemicu penyegaran riwayat: angka yang berubah adalah
+	 * satu-satunya tanda bahwa ada tx masuk, terkirim, atau terkonfirmasi.
+	 * Karena memakai hasil poll yang sudah ada, harganya nol request tambahan —
+	 * dan riwayat tidak akan pernah lebih basi daripada saldo di atasnya.
+	 */
+	const lastTotalsRef = useRef<{ balance: number; pending: number } | null>(null)
 
 	const [balance, setBalance] = useState(0)
 	const [pending, setPending] = useState(0)
@@ -94,6 +125,21 @@ export const App = (): React.JSX.Element => {
 				setPending(pendingInfo?.pendingAmount ?? 0)
 				setSyncing(sync?.syncing === true)
 				setLoaded(true)
+
+				const nextBalance = account?.balance ?? 0
+				const nextPending = pendingInfo?.pendingAmount ?? 0
+				const previousTotals = lastTotalsRef.current
+				lastTotalsRef.current = { balance: nextBalance, pending: nextPending }
+				// Muat pertama tidak dihitung "berubah": daftar memang sedang
+				// dimuat oleh mount-nya sendiri, dan menaikkan versi di sini
+				// hanya akan membuat dua permintaan untuk data yang sama.
+				if (
+					previousTotals &&
+					(previousTotals.balance !== nextBalance ||
+						previousTotals.pending !== nextPending)
+				) {
+					setLiveVersion((value) => value + 1)
+				}
 
 				if (chainIdRef.current === undefined) {
 					const id = await fetchChainId()
@@ -142,6 +188,10 @@ export const App = (): React.JSX.Element => {
 				setVault(instance)
 				if (instance.isUnlocked()) setWallet(instance.getUnlocked())
 				else if (await instance.hasWallet()) setScreen('unlock')
+				// Worker kripto dipanaskan di latar: setiap langkah berikutnya
+				// (buat, impor, buka kunci) membutuhkannya, dan tanpa ini
+				// permintaan pertama menanggung seluruh biaya pemuatan chunk.
+				void cryptoWorker.warmup().catch(() => {})
 			} catch (error) {
 				if (alive) setBootError(errorMessage(error))
 			} finally {
@@ -165,7 +215,7 @@ export const App = (): React.JSX.Element => {
 		() => {
 			if (wallet) void refresh(wallet.address, { silent: loaded })
 		},
-		POLL_MS,
+		pending > 0 ? PENDING_POLL_MS : POLL_MS,
 		Boolean(wallet),
 	)
 
@@ -197,6 +247,9 @@ export const App = (): React.JSX.Element => {
 		setPending(0)
 		setLoaded(false)
 		setSyncing(false)
+		// Angka terakhir milik sesi ini — jangan dipakai membandingkan setelah
+		// wallet lain dibuka.
+		lastTotalsRef.current = null
 		setAction(null)
 		setView('beranda')
 		setScreen('unlock')
@@ -211,6 +264,7 @@ export const App = (): React.JSX.Element => {
 		setLoaded(false)
 		setSyncing(false)
 		setChainWarning('')
+		lastTotalsRef.current = null
 		// Wallet baru bisa memakai jaringan lain — cache chain harus dibuang.
 		chainIdRef.current = undefined
 		setChainId(undefined)
@@ -234,6 +288,21 @@ export const App = (): React.JSX.Element => {
 		setView('beranda')
 		setActivityVersion((value) => value + 1)
 		if (wallet) void refresh(wallet.address)
+	}
+
+	/**
+	 * Pindah tab bawah (hanya tampil di layar sempit).
+	 *
+	 * "Profil" memakai layar Pengaturan yang sudah ada — tidak ada layar baru,
+	 * hanya pintu masuk yang berbeda. Beranda memakai jalur yang sama dengan
+	 * tombol Kembali supaya saldo dan riwayat ikut disegarkan.
+	 */
+	const selectTab = (next: MainTab): void => {
+		if (next === 'beranda') {
+			handleBackHome()
+			return
+		}
+		setView(next === 'setelan' ? 'pengaturan' : 'riwayat')
 	}
 
 	/**
@@ -390,6 +459,9 @@ export const App = (): React.JSX.Element => {
 						refreshing={refreshing}
 						refresh={() => void refresh(wallet.address)}
 						activityVersion={activityVersion}
+						liveVersion={liveVersion}
+						networkLabel={networkLabel}
+						networkState={networkState}
 						onSend={() => setAction('kirim')}
 						onReceive={() => setAction('terima')}
 						onChanged={handleSent}
@@ -400,6 +472,7 @@ export const App = (): React.JSX.Element => {
 						address={wallet.address}
 						privateKey={wallet.privateKey}
 						activityVersion={activityVersion}
+						liveVersion={liveVersion}
 						onChanged={handleSent}
 						onBack={handleBackHome}
 					/>
@@ -412,6 +485,14 @@ export const App = (): React.JSX.Element => {
 					/>
 				)}
 			</main>
+
+			<TabBar
+				active={
+					view === 'beranda' ? 'beranda' : view === 'riwayat' ? 'riwayat' : 'setelan'
+				}
+				onSelect={selectTab}
+				onReceive={() => setAction('terima')}
+			/>
 
 			<Send
 				open={action === 'kirim'}
