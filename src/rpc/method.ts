@@ -325,4 +325,20 @@ rpc.addMethod('nex_submitWork', async (params?: unknown) => {
 	return await submitWork(params)
 })
 
+/**
+ * Uji kredensial method tulis — TIDAK mengerjakan apa pun.
+ *
+ * KENAPA ada: wallet perlu membuktikan kredensial RPC-nya benar SEBELUM
+ * transaksi pertama gagal. Method baca tidak bisa dipakai karena tidak pernah
+ * meminta auth, dan `nex_getWork` terlalu berat — ia menyusun template blok
+ * dan membuat job yang harus menunggu TTL untuk kedaluwarsa.
+ *
+ * Terdaftar di `WRITE_METHODS` (`src/rpc/authLogic.ts`) supaya middleware auth
+ * memperlakukannya sama persis dengan method tulis sungguhan. Efek sampingnya
+ * nol, jadi aman dipanggil berkali-kali; rate limiter global tetap berlaku.
+ */
+rpc.addMethod('nex_authCheck', () => {
+	return { status: true }
+})
+
 export { rpc }

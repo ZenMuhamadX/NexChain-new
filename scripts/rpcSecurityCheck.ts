@@ -59,15 +59,20 @@ const PASSWORD = 'rahasia-123'
 console.log('GROUP 1 — method tulis vs baca + ekstraksi body:')
 
 ok(
-	'daftar method tulis berisi 4 method (transaksi x2, mining x2)',
-	WRITE_METHODS.length === 4 &&
+	'daftar method tulis berisi 5 method (transaksi x2, mining x2, uji auth)',
+	WRITE_METHODS.length === 5 &&
 		[
 			'nex_sendTransaction',
 			'nex_sendRawTransaction',
 			'nex_getWork',
 			'nex_submitWork',
+			'nex_authCheck',
 		].every((method) => WRITE_METHODS.includes(method)),
 	WRITE_METHODS.join(','),
+)
+ok(
+	'nex_authCheck WAJIB method tulis — kalau tidak, ia jadi oracle kredensial tanpa auth',
+	isWriteMethod('nex_authCheck') === true,
 )
 ok(
 	'nex_getCurrentBlock BUKAN method tulis (baca = tanpa auth)',

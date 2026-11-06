@@ -32,6 +32,19 @@ export const WRITE_METHODS: readonly string[] = [
 	'nex_sendRawTransaction',
 	'nex_getWork',
 	'nex_submitWork',
+	/**
+	 * Tidak menulis state apa pun — sengaja ada di daftar ini.
+	 *
+	 * Satu-satunya gunanya adalah memberi klien cara MEMBUKTIKAN kredensial
+	 * method tulis sebelum transaksi pertama. Method baca tidak bisa dipakai
+	 * (tidak pernah meminta auth), sedangkan `nex_getWork` menyusun template
+	 * blok dan membuat job — terlalu berat untuk sekadar uji kredensial.
+	 *
+	 * Karena terdaftar di sini, middleware memperlakukannya persis seperti
+	 * method tulis lain: 401 bila kredensial salah, 403 bila node tidak
+	 * menyetel RPC_USER dan pemanggil bukan loopback, 200 bila lolos.
+	 */
+	'nex_authCheck',
 ]
 
 /** `true` bila `method` termasuk method tulis. */

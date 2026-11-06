@@ -25,6 +25,19 @@ interface ImportMetaEnv {
 	/** Base URL explorer untuk link transaction dari wallet. */
 	readonly VITE_EXPLORER_URL?: string
 	/**
+	 * Kredensial Basic Auth bawaan untuk method TULIS RPC.
+	 *
+	 * Dipakai sebagai nilai awal kolom RPC Username/Password di Pengaturan —
+	 * lihat `defaultRpcCredentials()` di `src/lib/rpcUrl.ts`. Kosong = pakai
+	 * pasangan bawaan di kode.
+	 *
+	 * ⚠️ Nilai ini DI-BAKE ke bundle publik. Jangan diisi dengan rahasia yang
+	 * benar-benar perlu dilindungi: siapa pun yang membuka JS wallet bisa
+	 * membacanya. Ia penyaring bot untuk node publik, bukan pembatas keamanan.
+	 */
+	readonly VITE_RPC_USER?: string
+	readonly VITE_RPC_PASS?: string
+	/**
 	 * Backend vault yang dipilih tanpa injeksi shell. Nilai yang dikenal:
 	 * `memory` (shell dev) dan `idb`. Shell desktop TIDAK memakai env ini —
 	 * ia menyuntikkan `installVaultKV()` dengan backend berkas (fail-closed).

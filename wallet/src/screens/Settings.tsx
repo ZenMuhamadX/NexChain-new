@@ -68,7 +68,7 @@ export const Settings = ({
 		try {
 			persistRpcUrl(rpcUrl)
 			persistRpcCredentials(rpcUser, rpcPassword)
-			setRpcMessage('URL RPC tersimpan; kredensial berlaku untuk sesi ini.')
+			setRpcMessage('URL RPC tersimpan; kredensial tersimpan di perangkat ini.')
 			setRpcError('')
 		} catch (error) {
 			setRpcError(errorMessage(error))
@@ -80,9 +80,27 @@ export const Settings = ({
 		setTestingRpc(true)
 		setRpcMessage('')
 		setRpcError('')
-		const result = await testRpcUrl(rpcUrl)
-		if (result.ok) setRpcMessage(`Terhubung · Chain ID ${result.chainId}`)
-		else setRpcError(result.error ?? 'Tidak dapat terhubung ke node ini.')
+		const result = await testRpcUrl(rpcUrl, {
+			user: rpcUser,
+			password: rpcPassword,
+		})
+		if (result.ok) {
+			/*
+			 * Kredensial ikut dilaporkan, bukan cuma "Terhubung": probe chain ID
+			 * memakai method BACA yang tidak pernah minta auth, jadi tanpa
+			 * keterangan ini password salah tetap tampak baik-baik saja sampai
+			 * transaksi pertama ditolak 401.
+			 */
+			const auth =
+				result.auth === 'ok'
+					? 'kredensial diterima'
+					: result.auth === 'not-needed'
+						? 'node tanpa auth'
+						: result.auth === 'skipped'
+							? 'tanpa kredensial'
+							: 'kredensial belum terverifikasi'
+			setRpcMessage(`Terhubung · Chain ID ${result.chainId} · ${auth}`)
+		} else setRpcError(result.error ?? 'Tidak dapat terhubung ke node ini.')
 		setTestingRpc(false)
 	}
 
@@ -138,7 +156,7 @@ export const Settings = ({
 				</div>
 				<button
 					type="button"
-					className="button button--secondary"
+					className="button button--secondary page-back"
 					onClick={onBack}
 				>
 					<Icon name="arrowLeft" size={15} aria-hidden="true" /> Kembali
@@ -228,15 +246,14 @@ export const Settings = ({
 							className="input mono"
 							value={rpcUser}
 							onChange={(event) => setRpcUser(event.target.value)}
-							placeholder="(opsional)"
+							placeholder="nexchain"
 							autoComplete="off"
 							spellCheck={false}
 						/>
 						<p className="input-hint">
 							Dipakai untuk method tulis (kirim transaksi) bila node menyetel
-							RPC_USER/RPC_PASSWORD. Kosongkan untuk node lokal tanpa auth —
-							hanya disimpan selama sesi ini, jadi ketik ulang setelah wallet
-							ditutup.
+							RPC_USER/RPC_PASSWORD. Sudah terisi bawaan build dan tersimpan di
+							perangkat ini — kosongkan keduanya untuk kembali ke bawaan.
 						</p>
 					</div>
 
@@ -250,7 +267,7 @@ export const Settings = ({
 							className="input mono"
 							value={rpcPassword}
 							onChange={(event) => setRpcPassword(event.target.value)}
-							placeholder="(opsional)"
+							placeholder="nexchain"
 							autoComplete="off"
 						/>
 					</div>
