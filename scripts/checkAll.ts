@@ -166,6 +166,7 @@ const OFFLINE_GATES: ReadonlyArray<{ label: string; script: string }> = [
 	{ label: 'difficulty retarget', script: 'check:difficulty' },
 	{ label: 'aturan konsensus', script: 'check:consensus' },
 	{ label: 'keamanan RPC', script: 'check:rpc' },
+	{ label: 'gateway MetaMask', script: 'check:metamask' },
 	{ label: 'P2P (framing/protokol)', script: 'check:p2p' },
 	{ label: 'kebijakan tx', script: 'check:txpolicy' },
 	{ label: 'storage', script: 'check:storage' },

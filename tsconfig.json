@@ -48,6 +48,7 @@
 		"dist/**/*",
 		"explorer",
 		"wallet",
+		"wallet-new",
 		"testlvl.ts"
 	]
 }
