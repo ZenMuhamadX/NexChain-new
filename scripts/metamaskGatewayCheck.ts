@@ -123,6 +123,12 @@ ok(
 			`0x${(123456789n * 10n ** 10n).toString(16)}`,
 )
 ok(
+	'wei → NXC 8 desimal eksak',
+	bridge.formatWeiAsNxc(bridge.nexuToWeiHex(1)) === '0.00000001' &&
+		bridge.formatWeiAsNxc(bridge.nexuToWeiHex(123456789)) === '1.23456789' &&
+		bridge.formatWeiAsNxc('0x0') === '0.00000000',
+)
+ok(
 	'gas price iklan = 1 nexu/gas',
 	bridge.GAS_PRICE_WEI === 10n ** 10n &&
 		bridge.GAS_PRICE_HEX === `0x${(10n ** 10n).toString(16)}`,

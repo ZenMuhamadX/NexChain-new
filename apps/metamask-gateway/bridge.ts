@@ -133,6 +133,16 @@ export const nexuToWeiHex = (nexu: number): string => {
 	return `0x${(BigInt(nexu) * WEI_PER_NEXU).toString(16)}`
 }
 
+/**
+ * wei (18 desimal) → string NXC 8 desimal, eksak tanpa float.
+ * Sengaja tidak merujuk konstanta modul: fungsi ini disuntikkan juga ke
+ * halaman onboarding lewat `toString()`.
+ */
+export const formatWeiAsNxc = (weiHex: string): string => {
+	const nexu = BigInt(weiHex) / 10n ** 10n
+	return `${nexu / 10n ** 8n}.${(nexu % 10n ** 8n).toString().padStart(8, '0')}`
+}
+
 // ---------------------------------------------------------------------------
 // Mapping 0xA… ↔ NxB…
 // ---------------------------------------------------------------------------

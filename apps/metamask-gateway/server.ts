@@ -13,6 +13,7 @@ import { rateLimit } from 'express-rate-limit'
 import {
 	CHAIN_ID_HEX,
 	consumeNonce,
+	formatWeiAsNxc,
 	GAS_PRICE_HEX,
 	getNexForEth,
 	issueNonce,
@@ -324,6 +325,7 @@ button{font-size:1rem;padding:.7rem 1rem;margin:.3rem .3rem .3rem 0;border:0;bor
 const status = document.getElementById('status')
 const expectedChain = '${CHAIN_ID_HEX}'
 const normalizeChainId = ${normalizeChainId.toString()}
+const formatWeiAsNxc = ${formatWeiAsNxc.toString()}
 const rpc = (method, params) => fetch('/rpc', {
   method:'POST', headers:{'content-type':'application/json'},
   body: JSON.stringify({jsonrpc:'2.0',id:1,method,params})
@@ -356,8 +358,9 @@ document.getElementById('connect').onclick = async () => {
       body: JSON.stringify({account,nonce,signature})
     }).then(r => r.json())
     if (result.error) throw new Error(result.error)
-    const balance = await rpc('eth_getBalance',[account,'latest'])
-    status.textContent = 'Terdaftar\\nMetaMask: '+result.eth+'\\nNexChain: '+result.nex+'\\nSaldo (wei): '+balance.result+'\\n\\nKirim transaksi belum aktif di tahap ini.'
+    const balance = await rpc('eth_getBalance',[result.eth,'latest'])
+    const saldo = balance.result ? formatWeiAsNxc(balance.result) : '?'
+    status.textContent = 'Terdaftar\\nMetaMask: '+result.eth+'\\nNexChain: '+result.nex+'\\nSaldo (NXC): '+saldo+'\\n\\nKalau saldo di MetaMask masih 0, pindah network ke Ethereum lalu balik ke NexChain untuk menyegarkan cache.\\nKirim transaksi belum aktif di tahap ini.'
   } catch (error) {
     status.textContent = 'Gagal: ' + (error.message || error)
   }

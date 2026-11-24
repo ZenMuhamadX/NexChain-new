@@ -41,6 +41,11 @@ Ethereum-nya cocok dengan akun MetaMask, lalu menyimpan pasangan
 Gasprice iklan 10 gwei = 1 nexu/gas (8 desimal NXC); saldo dikonversi ke wei
 dengan BigInt faktor `10^10`, tanpa pembulatan.
 
+Form _Add a network_ MetaMask tidak punya kolom decimals — EVM memakai 18
+secara default (juga diset eksplisit lewat `wallet_addEthereumChain`).
+Saldo `latest` bisa tertahan cache MetaMask setelah registrasi; pindah network
+bolak-balik atau lock/unlock ekstensi untuk menyegarkannya.
+
 ## Batas Stage 1
 
 `eth_sendRawTransaction` **tidak tersedia**. MetaMask bisa melihat saldo,
