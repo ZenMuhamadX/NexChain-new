@@ -62,8 +62,16 @@ export interface WalletVault {
 	isUnlocked(): boolean
 	/** Buat wallet baru (mnemonic acak) — vault langsung terbuka. */
 	create(passphrase: string): Promise<WalletInfo>
-	/** Simpan mnemonic yang sudah dimiliki user — vault langsung terbuka. */
-	importMnemonic(mnemonic: string, passphrase: string): Promise<WalletInfo>
+	/**
+	 * Simpan mnemonic yang sudah dimiliki user — vault langsung terbuka.
+	 * `replace` menimpa wallet yang sudah tersimpan (ganti wallet); tanpa itu
+	 * vault yang terisi ditolak supaya wallet lama tidak hilang tanpa sengaja.
+	 */
+	importMnemonic(
+		mnemonic: string,
+		passphrase: string,
+		options?: { replace?: boolean },
+	): Promise<WalletInfo>
 	unlock(passphrase: string): Promise<WalletInfo>
 	lock(): void
 	getUnlocked(): UnlockedWallet
@@ -195,12 +203,16 @@ export const createWalletVault = (
 		importMnemonic: async (
 			mnemonic: string,
 			passphrase: string,
+			options?: { replace?: boolean },
 		): Promise<WalletInfo> => {
 			// Normalisasi spasi dulu: salinan/tempel sering membawa spasi ganda
 			// atau newline, yang membuat checksum BIP39 gagal padahal benar.
 			const normalized = mnemonic.trim().replace(/\s+/g, ' ')
 			ops.validateMnemonic(normalized)
-			await assertEmpty()
+			// `replace` tetap memvalidasi dan mengenkripsi dulu; record lama baru
+			// ditimpa oleh satu `kv.set` di `persist`, jadi tidak ada jendela
+			// waktu vault kosong bila enkripsi gagal.
+			if (!options?.replace) await assertEmpty()
 			return persist(normalized, passphrase)
 		},
 

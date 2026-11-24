@@ -11,6 +11,7 @@ package-lock.json
 bun.lock
 !explorer/bun.lock
 !wallet/bun.lock
+!wallet-new/bun.lock
 # Artefak build cargo miner Rust (Cargo.lock TETAP di-commit)
 apps/miner-rs/target/
 
@@ -47,6 +48,10 @@ src/core/base/
 !/wallet/src/
 !/wallet/scripts/
 !/wallet/shells/
+# `build/` diabaikan global (artefak), tetapi folder ini adalah
+# `buildResources` electron-builder yang berisi ikon installer yang di-commit.
+!/wallet/shells/desktop/build/
+!/wallet/shells/desktop/build/icon.png
 !/wallet/README.md
 # File wallet node sudah dihapus bersama seluruh layer wallet node;
 # baris ini dibiarkan sebagai dokumentasi historis.

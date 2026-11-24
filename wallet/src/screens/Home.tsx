@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Icon } from '../ui/Icon'
 import { AmountDisplay } from '../ui/AmountDisplay'
 import { ActivityList } from '../ui/ActivityList'
+import { BrandMark } from '../ui/BrandMark'
 import { getHideBalance, setHideBalance } from '../lib/privacy'
 
 interface HomeProps {
@@ -80,7 +81,7 @@ export const Home = ({
 				<div className="home-band__top">
 					<div className="brand brand--on-band">
 						<span className="brand-mark" aria-hidden="true">
-							<Icon name="diamond" size={15} />
+							<BrandMark size={18} />
 						</span>
 						<span>NexChain</span>
 					</div>
@@ -145,7 +146,7 @@ export const Home = ({
 							<p className="home-band__note">
 								<Icon name="clock" size={13} aria-hidden="true" />
 								{hidden ? (
-									<span>Transaksi menunggu di mempool</span>
+									<span>Ada transaksi menunggu konfirmasi</span>
 								) : (
 									<>
 										<AmountDisplay
@@ -154,7 +155,7 @@ export const Home = ({
 											detailLabel="Rincian"
 											ariaLabel="Lihat detail saldo tertunda"
 										/>{' '}
-										menunggu di mempool
+										menunggu konfirmasi
 									</>
 								)}
 							</p>

@@ -281,6 +281,10 @@ button:disabled {
 	transform: translateY(-1px);
 }
 
+.button:active:not(:disabled) {
+	transform: translateY(0) scale(0.98);
+}
+
 .button--primary {
 	background: var(--primary);
 	color: var(--on-primary);
@@ -432,26 +436,13 @@ button:disabled {
 	padding: 2rem;
 }
 
-.auth-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	max-width: 1120px;
-	margin: 0 auto;
-	padding: 1.25rem 1.5rem;
-	/* `viewport-fit=cover` membuat konten naik ke bawah status bar/notch.
-	   Inset atas bernilai 0 di sebagian besar konteks, jadi aman. */
-	padding-top: calc(1.25rem + env(safe-area-inset-top, 0px));
-	padding-left: calc(1.5rem + env(safe-area-inset-left, 0px));
-	padding-right: calc(1.5rem + env(safe-area-inset-right, 0px));
-}
-
 .auth-main {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	min-height: calc(100vh - 76px);
-	min-height: calc(100dvh - 76px);
+	/* Tanpa header luar, kartu memusat di seluruh tinggi viewport. */
+	min-height: 100vh;
+	min-height: 100dvh;
 	padding: 2rem 1rem 4rem;
 }
 
@@ -471,15 +462,38 @@ button:disabled {
 	text-align: left;
 }
 
+.auth-card__brand {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+
+/*
+ * Tile logo. Dulu 54px berisi gembok, dan brand-nya ada di header luar layar.
+ * Sekarang tile ini + wordmark di sebelahnya adalah SATU-satunya identitas.
+ */
 .auth-card__mark {
 	display: grid;
 	place-items: center;
-	width: 54px;
-	height: 54px;
-	margin-bottom: 1.25rem;
-	border-radius: 16px;
+	width: 46px;
+	height: 46px;
+	flex: 0 0 auto;
+	border-radius: 14px;
 	background: var(--primary-soft);
 	color: var(--primary);
+}
+
+.auth-card__brand-text {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	min-width: 0;
+}
+
+.auth-card__brand-text strong {
+	font-size: 0.98rem;
+	letter-spacing: 0.01em;
 }
 
 .auth-card h1 {
@@ -645,13 +659,31 @@ button:disabled {
 }
 
 .brand-mark {
-	display: inline-grid;
-	place-items: center;
-	width: 30px;
-	height: 30px;
-	border-radius: 9px;
-	background: var(--primary);
-	color: var(--on-primary);
+	display: inline-flex;
+}
+
+/* Mark dua varian: bracket ink hilang di latar gelap, jadi tema gelap
+   memakai mark-inverse. `installTheme()` selalu menulis `data-theme`. */
+.brand-mark__inverse {
+	display: none;
+}
+
+:root[data-theme='dark'] .brand-mark__light {
+	display: none;
+}
+
+:root[data-theme='dark'] .brand-mark__inverse {
+	display: block;
+}
+
+/* Pita saldo selalu gelap di kedua tema, jadi mark inverse dipakai tanpa
+   melihat `data-theme`. */
+.brand--on-band .brand-mark__light {
+	display: none;
+}
+
+.brand--on-band .brand-mark__inverse {
+	display: block;
 }
 
 .brand > span:last-child {
@@ -1030,12 +1062,17 @@ button:disabled {
 	font-weight: 650;
 	transition:
 		background var(--transition),
-		border-color var(--transition);
+		border-color var(--transition),
+		transform 120ms ease;
 }
 
 .home-action:hover {
 	background: var(--card-chip-hover);
 	border-color: var(--card-text);
+}
+
+.home-action:active {
+	transform: scale(0.97);
 }
 
 .home-action__icon {
@@ -1175,6 +1212,24 @@ button:disabled {
 	list-style: none;
 }
 
+/*
+ * Judul kelompok hari. Baris pertama tiap kelompok tidak perlu garis atas —
+ * judulnya sendiri sudah jadi pemisah — jadi garis antarbaris hanya berlaku
+ * di dalam satu <ul>.
+ */
+.tx-group__head {
+	padding: 0.9rem 1.1rem 0.4rem;
+	color: var(--text-muted);
+	font-size: 0.7rem;
+	font-weight: 750;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.tx-row__status {
+	align-self: flex-start;
+}
+
 .tx-list li + li .tx-row {
 	border-top: 1px solid var(--border);
 }
@@ -1202,6 +1257,15 @@ button:disabled {
 	height: 34px;
 	flex: 0 0 auto;
 	border-radius: 50%;
+	transition: transform 120ms ease;
+}
+
+/*
+ * Umpan balik tekan untuk baris riwayat: ikonnya yang mengecil, bukan barisnya.
+ * Baris selebar kartu yang menyusut terbaca goyah, bukan "tertekan".
+ */
+.tx-row:active .tx-row__icon {
+	transform: scale(0.9);
 }
 
 .tx-row__icon--in {
@@ -2071,8 +2135,11 @@ textarea.input {
 .qr-loading {
 	display: grid;
 	place-items: center;
+	gap: 0.6rem;
+	padding: 1rem;
 	width: 100%;
 	height: 100%;
+	text-align: center;
 	background: var(--surface-subtle);
 }
 
@@ -2782,6 +2849,33 @@ textarea.input {
 	margin-inline: auto;
 }
 
+/*
+ * Rincian teknis (pengirim, nonce) yang sengaja dilipat: baris utama layar
+ * tinjau hanya memuat yang dibutuhkan untuk memutuskan. <details> dipakai apa
+ * adanya supaya tetap bisa dioperasikan keyboard dan pembaca layar tanpa JS.
+ */
+.review-advanced > summary {
+	width: fit-content;
+	color: var(--text-muted);
+	font-size: 0.76rem;
+	font-weight: 650;
+	cursor: pointer;
+}
+
+.review-advanced > summary:hover {
+	color: var(--text);
+}
+
+.review-advanced[open] > summary {
+	margin-bottom: 0.8rem;
+}
+
+.sheet-balance-block {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
 .sheet-balance {
 	display: flex;
 	align-items: center;
@@ -3123,19 +3217,21 @@ textarea.input {
 	border: 1px solid var(--border);
 }
 
-/* ---- Tab bar bawah ---- */
+/* ---- Navigasi utama (tab bar) ---- */
 
 /*
- * Disembunyikan secara default: tab bar bawah adalah bahasa ponsel, dan di
- * desktop ia terbaca sebagai aplikasi ponsel yang dipasang di jendela lebar.
- * Aturan `@media (max-width: 700px)` di bawah yang menampilkannya.
+ * SATU elemen, dua tata letak: bar bawah yang menempel di layar sempit, dan
+ * empat tab sejajar di dalam header pada desktop. Sebelumnya nav hanya ada di
+ * ponsel sementara header punya tombol Riwayat/Pengaturan sendiri — dua sistem
+ * navigasi dengan perilaku berbeda yang tidak pernah tampil bersamaan.
  */
 .tab-bar {
-	display: none;
+	display: flex;
+	align-items: center;
+	gap: 0.15rem;
 }
 
-.tab-bar__item,
-.tab-bar__fab {
+.tab-bar__item {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -3143,15 +3239,19 @@ textarea.input {
 	min-height: 48px;
 	padding: 0.35rem 0.2rem;
 	border: 0;
+	border-radius: 999px;
 	background: transparent;
 	color: var(--text-subtle);
 	font-size: 0.66rem;
 	font-weight: 650;
 	line-height: 1.1;
+	transition:
+		background var(--transition),
+		color var(--transition),
+		transform 120ms ease;
 }
 
-.tab-bar__item:hover,
-.tab-bar__fab:hover {
+.tab-bar__item:hover {
 	color: var(--text);
 }
 
@@ -3159,21 +3259,86 @@ textarea.input {
 	color: var(--primary);
 }
 
-/* Tombol tengah: aksi, bukan tab — tidak ada panel yang dijanjikan. */
-.tab-bar__fab {
-	margin-top: -1.15rem;
-}
-
-.tab-bar__fab-icon {
+/*
+ * Kapsul ikon: penanda tab aktif BUKAN hanya warna.
+ *
+ * Sebelumnya tab aktif hanya dibedakan `--primary` vs `--text-subtle` — tidak
+ * terbaca oleh pengguna buta warna dan nyaris hilang di layar redup. Bentuk
+ * yang berubah menutup celah itu, dan hanya `transform` + `background` yang
+ * dianimasikan, jadi tata letak tab lain tidak bergeser sedetik pun.
+ */
+.tab-bar__icon {
 	display: grid;
 	place-items: center;
-	width: 52px;
-	height: 52px;
-	border-radius: 50%;
-	/* Cincin, bukan bayangan: tetap datar dan benar di kedua tema. */
-	box-shadow: 0 0 0 4px var(--surface);
-	background: var(--primary);
-	color: var(--on-primary);
+	width: 40px;
+	height: 26px;
+	border-radius: 999px;
+	transition:
+		background var(--transition),
+		transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.tab-bar__item--active .tab-bar__icon {
+	background: var(--primary-soft);
+	transform: translateY(-1px) scale(1.06);
+	animation: tab-pop 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Awal dan akhir keyframe sama dengan aturan kelas di atas → tanpa lompatan. */
+@keyframes tab-pop {
+	from {
+		transform: translateY(-1px) scale(0.9);
+	}
+	to {
+		transform: translateY(-1px) scale(1.06);
+	}
+}
+
+/* Tekan tab yang sedang aktif tetap terasa: mengecil dulu, lalu balik 1.06. */
+.tab-bar__item:active .tab-bar__icon {
+	transform: scale(0.94);
+}
+
+/*
+ * Desktop: nav duduk di baris header. Ikon + label sebaris, dan penanda aktif
+ * pindah ke pil di belakang SELURUH item — kapsul di dalam pil menandai hal
+ * yang sama dua kali. Animasi pop dimatikan: itu isyarat sentuh, di header
+ * hanya jadi gemetar.
+ */
+@media (min-width: 701px) {
+	.tab-bar__item {
+		flex-direction: row;
+		gap: 0.3rem;
+		min-height: 36px;
+		padding: 0.3rem 0.5rem;
+		font-size: 0.75rem;
+	}
+
+	.tab-bar__item--active,
+	.tab-bar__item--active:hover {
+		background: var(--primary-soft);
+	}
+
+	.tab-bar__item:hover {
+		background: var(--row-hover);
+	}
+
+	.tab-bar__icon,
+	.tab-bar__item--active .tab-bar__icon {
+		width: auto;
+		height: auto;
+		background: none;
+		transform: none;
+		animation: none;
+	}
+
+	.tab-bar__item:active {
+		transform: scale(0.97);
+	}
+
+	.tab-bar__item:active .tab-bar__icon {
+		transform: none;
+	}
 }
 
 @media (max-width: 980px) {
@@ -3188,36 +3353,34 @@ textarea.input {
 }
 
 @media (max-width: 700px) {
+	/*
+	 * Header di layar sempit hanya tinggal jadi wadah nav: brand dan aksi
+	 * (status jaringan, kunci) sudah tidak relevan di sini — status ada di pita
+	 * saldo, dan kunci tetap terjangkau lewat tab Setelan.
+	 */
+	.app-header {
+		position: static;
+		padding: 0;
+		border: 0;
+		background: none;
+	}
+
 	.app-header__inner {
-		min-height: 56px;
-		padding: 0.6rem 0.85rem;
-		padding-left: calc(0.85rem + env(safe-area-inset-left, 0px));
-		padding-right: calc(0.85rem + env(safe-area-inset-right, 0px));
+		display: block;
+		width: 100%;
+		min-height: 0;
+		padding: 0;
 	}
 
-	.network-pill span:last-child {
+	.app-header__inner > .brand,
+	.app-header__inner > .header-actions {
 		display: none;
-	}
-
-	.network-pill {
-		min-width: 28px;
-		justify-content: center;
-		padding: 0.3rem;
 	}
 
 	.content {
 		padding: 1.1rem 0.85rem calc(2.5rem + env(safe-area-inset-bottom, 0px));
 		padding-left: calc(0.85rem + env(safe-area-inset-left, 0px));
 		padding-right: calc(0.85rem + env(safe-area-inset-right, 0px));
-	}
-
-	/*
-	 * Di layar sempit, header lama diganti tab bar: brand dan status jaringan
-	 * sudah pindah ke pita saldo, jadi header hanya menyisakan baris kosong.
-	 * Kunci wallet tetap terjangkau lewat tab Profil → Pengaturan.
-	 */
-	.app-header {
-		display: none;
 	}
 
 	.tab-bar {
@@ -3228,7 +3391,7 @@ textarea.input {
 		z-index: 30;
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
-		align-items: end;
+		align-items: center;
 		padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
 		border-top: 1px solid var(--border);
 		background: var(--surface);

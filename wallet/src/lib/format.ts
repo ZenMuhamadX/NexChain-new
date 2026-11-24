@@ -144,6 +144,13 @@ export const formatTime = (ms: number): string =>
 		timeStyle: 'short',
 	})
 
+/**
+ * Jam saja ("21.03"), untuk baris yang harinya sudah tertulis di judul
+ * kelompoknya. Tanpa ini setiap baris mengulang tanggal yang sama.
+ */
+export const formatClock = (ms: number): string =>
+	new Date(ms).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+
 export const shortHash = (hash: string): string => truncate(hash, 12, 6)
 
 /** Bilangan bulat dengan pemisah ribuan gaya Indonesia (1.180). */

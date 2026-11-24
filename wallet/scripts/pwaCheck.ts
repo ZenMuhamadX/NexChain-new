@@ -170,7 +170,7 @@ const main = (): void => {
 		/apple-touch-icon-180x180\.png/.test(html),
 		'apple-touch-icon 180 ditautkan',
 	)
-	ok(/name="theme-color"[^>]*#2f6fab/i.test(html), 'theme-color #2f6fab')
+	ok(/name="theme-color"[^>]*#008ff6/i.test(html), 'theme-color #008ff6')
 	ok(
 		/Content-Security-Policy/.test(html) &&
 			/worker-src 'self' blob:/.test(html),
@@ -199,7 +199,7 @@ const main = (): void => {
 			'manifest.display = standalone',
 			manifest.display,
 		)
-		ok(manifest.theme_color === '#2f6fab', 'manifest.theme_color')
+		ok(manifest.theme_color === '#008ff6', 'manifest.theme_color')
 		ok(manifest.background_color === '#f5f7fa', 'manifest.background_color')
 
 		const icons = manifest.icons ?? []
@@ -242,7 +242,27 @@ const main = (): void => {
 		ok(false, 'apple-touch-icon-180x180.png ada')
 	}
 
-	// ── 4. Service worker ──────────────────────────────────────────────────
+	// ── 4. Sumber ikon ─────────────────────────────────────────────────────
+	/**
+	 * Dua SVG di `public/` adalah SALINAN dari kit identitas `brand/`
+	 * (generator menulis output di sebelah sumbernya, jadi tidak bisa
+	 * menunjuk `brand/` langsung tanpa mengotori kit). Byte-compare mencegah
+	 * salinan itu menyimpang diam-diam saat kit diperbarui.
+	 */
+	for (const [publicName, brandName] of [
+		['favicon.svg', 'favicon.svg'],
+		['maskable.svg', 'app-icon-maskable.svg'],
+	] as const) {
+		const publicPath = join(WALLET_DIR, 'shells', 'web', 'public', publicName)
+		const brandPath = join(WALLET_DIR, '..', 'brand', brandName)
+		ok(
+			existsSync(brandPath) &&
+				readFileSync(publicPath, 'utf8') === readFileSync(brandPath, 'utf8'),
+			`${publicName} = brand/${brandName}`,
+		)
+	}
+
+	// ── 5. Service worker ──────────────────────────────────────────────────
 	if (!files.includes('sw.js')) {
 		console.log(`\n${passed} OK / ${failed} FAIL`)
 		process.exit(1)

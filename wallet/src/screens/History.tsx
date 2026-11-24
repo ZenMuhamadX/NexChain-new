@@ -29,7 +29,7 @@ export const History = ({
 			<div>
 				<p className="eyebrow">RIWAYAT</p>
 				<h1>Semua aktivitas</h1>
-				<p>Transaksi terkonfirmasi dan yang masih menunggu di mempool.</p>
+				<p>Transaksi yang sudah masuk blok dan yang masih menunggu konfirmasi.</p>
 			</div>
 			<button
 				type="button"

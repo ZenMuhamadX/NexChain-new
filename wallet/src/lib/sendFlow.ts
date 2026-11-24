@@ -9,6 +9,7 @@ import { validateTransactionFees } from 'src/core/validation/module/isValidTxFee
 import type { comTxInterface } from 'src/types/compositeTransaction'
 import type { TxInterface } from 'src/types/transaction'
 import { sendRawTransaction } from './rpc'
+import { formatNxcCompact } from './format'
 import { cryptoWorker } from '@/hooks/useCryptoWorker'
 
 /**
@@ -43,7 +44,6 @@ export interface SendForm {
 export interface SendErrors {
 	receiver?: string
 	amount?: string
-	fee?: string
 }
 
 export const hasSendErrors = (errors: SendErrors): boolean =>
@@ -75,6 +75,12 @@ export const hasSendErrors = (errors: SendErrors): boolean =>
 export const validateSendForm = (
 	form: SendForm,
 	sender: string,
+	/**
+	 * Saldo yang bisa dipakai (nexu). Kosong = lewati pemeriksaan saldo,
+	 * untuk pemanggil yang tidak punya angka saldo (mis. validasi susunan
+	 * di `composeSignedTransaction`).
+	 */
+	availableNexu?: number,
 ): SendErrors => {
 	const errors: SendErrors = {}
 
@@ -126,6 +132,20 @@ export const validateSendForm = (
 		// isNexu sudah mencakup: bilangan bulat aman, ≥ 0, dan
 		// ≤ MAX_SUPPLY_NEXU (50.000.000 NXC).
 		errors.amount = 'Jumlah di luar rentang aman (maksimal 50.000.000 NXC).'
+	} else if (
+		availableNexu !== undefined &&
+		Number.isSafeInteger(availableNexu) &&
+		nexu > availableNexu - MIN_WIRE_FEE_NEXU
+	) {
+		/*
+		 * Diperiksa SEBELUM layar tinjau: di sana transaksi sudah
+		 * ditandatangani, jadi menolaknya di tombol kirim berarti user
+		 * meninjau angka yang sejak awal mustahil. `MIN_WIRE_FEE_NEXU` adalah
+		 * biaya MINIMUM, jadi batas ini tidak pernah menolak jumlah yang
+		 * sebenarnya cukup (fee asli >= lantai itu).
+		 */
+		errors.amount =
+			`Melebihi saldo tersedia (${formatNxcCompact(availableNexu)} NXC, sudah dikurangi biaya jaringan minimum).`
 	}
 
 	return errors

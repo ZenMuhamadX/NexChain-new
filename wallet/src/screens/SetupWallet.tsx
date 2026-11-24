@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { validateMnemonic } from 'src/crypto/validateMnemonic'
 import { errorMessage } from '../lib/format'
 import { cryptoWorker } from '../hooks/useCryptoWorker'
+import { AuthBrand } from '../ui/AuthBrand'
 import { Icon } from '../ui/Icon'
 import { CopyButton } from '../ui/CopyButton'
 import { MnemonicGrid } from '../ui/MnemonicGrid'
@@ -13,6 +14,8 @@ interface SetupProps {
 	mode: 'create' | 'import'
 	onDone: (mnemonic: string, passphrase: string) => Promise<void>
 	go: (screen: Screen) => void
+	/** Vault sudah berisi wallet: menyelesaikan layar ini MENGGANTIKANNYA. */
+	replacing: boolean
 }
 
 /** Fase layar. Mode `import` tidak pernah menyentuh `preparing`. */
@@ -64,6 +67,7 @@ export const SetupWallet = ({
 	mode,
 	onDone,
 	go,
+	replacing,
 }: SetupProps): React.JSX.Element => {
 	const [phase, setPhase] = useState<PreparePhase>(
 		mode === 'create' ? 'preparing' : 'ready',
@@ -169,11 +173,11 @@ export const SetupWallet = ({
 		try {
 			validateMnemonic(phrase)
 		} catch {
-			setError('Mnemonic tidak valid — periksa urutan dan ejaan kata.')
+			setError('Frasa pemulihan tidak valid — periksa urutan dan ejaan kata.')
 			return
 		}
 		if (mode === 'create' && !backedUp) {
-			setError('Konfirmasi bahwa mnemonic sudah dicatat sebelum melanjutkan.')
+			setError('Centang bahwa frasa pemulihan sudah dicatat sebelum melanjutkan.')
 			return
 		}
 		if (passphrase.length < 8) {
@@ -211,7 +215,20 @@ export const SetupWallet = ({
 				value="nexchain-wallet"
 				readOnly
 			/>
-			<div className="stepper" aria-label="Wallet setup progress">
+			<AuthBrand />
+			{/*
+			 * Peringatan tepat di titik masuk, bukan di dialog sebelumnya:
+			 * sampai layar ini ditutup tidak ada yang hilang, tetapi tombol
+			 * "Buat wallet" di bawah MENIMPA wallet yang sudah tersimpan.
+			 */}
+			{replacing ? (
+				<Notice variant="warn">
+					Wallet yang tersimpan di perangkat ini akan diganti setelah
+					wallet baru selesai dibuat. Simpan frasa pemulihan wallet lama
+					dulu — tanpa itu, dananya tidak bisa dipulihkan.
+				</Notice>
+			) : null}
+			<div className="stepper" aria-label="Langkah pembuatan wallet">
 				<div className="stepper__step stepper__step--active">
 					<span>1</span> Frasa pemulihan
 				</div>
@@ -335,6 +352,10 @@ export const SetupWallet = ({
 			{ready ? (
 				<>
 					<div className="form-divider" />
+					<p className="input-hint">
+						Passphrase membuka wallet ini di perangkat Anda — bukan kata sandi
+						server.
+					</p>
 					<div className="form-grid form-grid--two">
 						<div className="field">
 							<label className="label" htmlFor="passphrase">

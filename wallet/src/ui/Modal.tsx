@@ -17,6 +17,14 @@ interface ModalProps {
 	onConfirm?: () => void | Promise<void>
 	confirmLoading?: boolean
 	size?: 'sm' | 'md' | 'lg' | 'sheet'
+	/**
+	 * Sembunyikan tombol × di sudut.
+	 *
+	 * Dipakai dialog yang hanya boleh ditinggalkan lewat satu tombol eksplisit
+	 * (mis. tinjau transaksi yang sudah ditandatangani). Escape dan klik latar
+	 * tetap menutup — dialog tanpa jalan keluar keyboard melanggar a11y.
+	 */
+	hideClose?: boolean
 }
 
 const sizeClass = {
@@ -50,6 +58,7 @@ export const Modal = ({
 	onConfirm,
 	confirmLoading = false,
 	size = 'md',
+	hideClose = false,
 }: ModalProps): React.JSX.Element | null => {
 	const titleId = useId()
 	const dialogRef = useRef<HTMLDivElement>(null)
@@ -201,14 +210,16 @@ export const Modal = ({
 						{eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
 						<h2 id={titleId}>{title}</h2>
 					</div>
-					<button
-						type="button"
-						className="icon-button"
-						onClick={onClose}
-						aria-label="Tutup dialog"
-					>
-						<span aria-hidden="true">×</span>
-					</button>
+					{hideClose ? null : (
+						<button
+							type="button"
+							className="icon-button"
+							onClick={onClose}
+							aria-label="Tutup dialog"
+						>
+							<span aria-hidden="true">×</span>
+						</button>
+					)}
 				</header>
 				<div className="modal-body">
 					{children}

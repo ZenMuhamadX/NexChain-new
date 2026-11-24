@@ -3,6 +3,7 @@ import { ACTIVITY_PAGE_SIZE, fetchActivityPage } from '../lib/rpc'
 import type { HistoryRow } from '../lib/rpc'
 import {
 	errorMessage,
+	formatClock,
 	formatNxcCompact,
 	formatNxcExact,
 	formatTime,
@@ -49,11 +50,57 @@ interface ActivityListProps {
  *
  * Dipakai untuk `key` daftar DAN untuk melacak baris mana yang sedang dibuka
  * di modal detail. Sebelumnya modal menyimpan OBJEK baris, jadi saat daftar
- * dimuat ulang modal tetap menampilkan salinan lama — "Tertunda" bertahan
+ * dimuat ulang modal tetap menampilkan salinan lama — "Menunggu konfirmasi" bertahan
  * walau transaksinya sudah masuk blok.
  */
 const rowKey = (row: HistoryRow): string =>
 	row.tx.txHash || `${row.tx.from ?? ''}-${row.tx.nonce}`
+
+/**
+ * Kunci kelompok per HARI LOKAL — bukan per 24 jam bergulir, supaya transaksi
+ * pukul 00.10 masuk ke "Hari ini" dan bukan ke kelompok kemarin.
+ */
+const dayKey = (ms: number): string => {
+	const date = new Date(ms)
+	return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
+}
+
+/** Diekspor untuk smoke: batas tengah malam tidak bisa diuji lewat UI. */
+export const dayLabel = (ms: number): string => {
+	const now = Date.now()
+	if (dayKey(ms) === dayKey(now)) return 'Hari ini'
+	// shortcut: "kemarin" = 24 jam ke belakang; cukup untuk zona waktu tanpa DST.
+	if (dayKey(ms) === dayKey(now - 86_400_000)) return 'Kemarin'
+	return new Date(ms).toLocaleDateString('id-ID', {
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric',
+	})
+}
+
+/**
+ * Kelompokkan baris yang berurutan menurut harinya; baris yang masih di
+ * mempool jadi kelompok tersendiri di atas — ia belum punya tanggal blok, dan
+ * "Menunggu konfirmasi" adalah status, bukan hari.
+ *
+ * Diekspor untuk smoke (lihat `wallet/scripts/sendFlowSmoke.ts`).
+ */
+export const groupRows = (
+	rows: HistoryRow[],
+): { key: string; label: string; rows: HistoryRow[] }[] => {
+	const groups: { key: string; label: string; rows: HistoryRow[] }[] = []
+	const push = (key: string, label: string, row: HistoryRow): void => {
+		const last = groups[groups.length - 1]
+		if (last?.key === key) last.rows.push(row)
+		else groups.push({ key, label, rows: [row] })
+	}
+	for (const row of rows) {
+		const ts = row.tx.metadata?.blockTimestamp
+		if (row.pending || !ts) push('pending', 'Menunggu konfirmasi', row)
+		else push(dayKey(ts), dayLabel(ts), row)
+	}
+	return groups
+}
 
 /**
  * Daftar aktivitas, dua mode dalam satu komponen:
@@ -139,7 +186,7 @@ export const ActivityList = ({
 	 * Penyegaran latar: halaman yang sedang dibuka, tanpa spinner dan tanpa
 	 * memindahkan posisi baca. Dipicu `liveVersion` dari App saat saldo atau
 	 * pending berubah — satu-satunya cara riwayat ikut bergerak dari
-	 * "Tertunda" ke "Terkonfirmasi" tanpa pengguna menyegarkan halaman.
+	 * "Menunggu konfirmasi" ke "Terkonfirmasi" tanpa pengguna menyegarkan halaman.
 	 */
 	useEffect(() => {
 		if (liveVersion === 0) return
@@ -179,7 +226,7 @@ export const ActivityList = ({
 	/**
 	 * Baris detail DITURUNKAN dari daftar yang sedang tampil, bukan disimpan
 	 * sebagai salinan. Inilah yang membuat modal yang sedang terbuka ikut
-	 * berubah dari "Tertunda" ke "Terkonfirmasi" saat daftar disegarkan di
+	 * berubah dari "Menunggu konfirmasi" ke "Terkonfirmasi" saat daftar disegarkan di
 	 * latar. `detailSnapshot` hanya jaring pengaman kalau barisnya keluar dari
 	 * halaman (mis. pengguna pindah halaman) — modal tidak boleh mengedip
 	 * kosong di tengah pembacaan.
@@ -255,49 +302,69 @@ export const ActivityList = ({
 				</div>
 			) : (
 				<>
-					<ul className="tx-list">
-						{rows.map((row) => {
-							const outgoing = row.tx.from === address
-							return (
-								<li key={rowKey(row)}>
-									<button
-										type="button"
-										className="tx-row"
-										onClick={() => openDetail(row)}
-										aria-label={`${outgoing ? 'Dikirim' : 'Diterima'} ${formatNxcCompact(row.tx.amount)} NXC, buka detail`}
-									>
-										<span
-											className={`tx-row__icon tx-row__icon--${outgoing ? 'out' : 'in'}`}
-											aria-hidden="true"
-										>
-											<Icon
-												name={outgoing ? 'arrowUpRight' : 'arrowDownLeft'}
-												size={16}
-											/>
-										</span>
-										<span className="tx-row__main">
-											<strong>{outgoing ? 'Dikirim' : 'Diterima'}</strong>
-											<span className="tx-row__meta">
-												{row.pending
-													? 'Tertunda'
-													: row.tx.metadata?.blockTimestamp
-														? formatTime(row.tx.metadata.blockTimestamp)
-														: '—'}
-											</span>
-										</span>
-										<span
-											className={`tx-row__amount ${outgoing ? 'is-out' : 'is-in'}`}
-										>
-											{outgoing ? '−' : '+'}
-											{formatNxcCompact(row.tx.amount)}
-											<span className="tx-row__unit"> NXC</span>
-										</span>
-										<Icon name="arrowRight" size={14} aria-hidden="true" />
-									</button>
-								</li>
-							)
-						})}
-					</ul>
+					{groupRows(rows).map((group) => (
+						<div key={`${group.key}-${group.rows[0] ? rowKey(group.rows[0]) : ''}`}>
+							<h3 className="tx-group__head">{group.label}</h3>
+							<ul className="tx-list">
+								{group.rows.map((row) => {
+									const outgoing = row.tx.from === address
+									return (
+										<li key={rowKey(row)}>
+											<button
+												type="button"
+												className="tx-row"
+												onClick={() => openDetail(row)}
+												aria-label={`${outgoing ? 'Dikirim' : 'Diterima'} ${formatNxcCompact(row.tx.amount)} NXC${row.pending ? ', menunggu konfirmasi' : ''}, buka detail`}
+											>
+												<span
+													className={`tx-row__icon tx-row__icon--${outgoing ? 'out' : 'in'}`}
+													aria-hidden="true"
+												>
+													<Icon
+														name={outgoing ? 'arrowUpRight' : 'arrowDownLeft'}
+														size={16}
+													/>
+												</span>
+												<span className="tx-row__main">
+													<strong>{outgoing ? 'Dikirim' : 'Diterima'}</strong>
+													{row.pending ? (
+														/*
+														 * Status menunggu konfirmasi dulu hanya teks abu-abu di baris
+														 * yang sama dengan tanggal — mudah terlewat justru
+														 * pada transaksi yang paling perlu diperhatikan.
+														 */
+														<span className="tx-row__status">
+															<span className="status-pill status-pill--waiting">
+																<span
+																	className="status-pill__dot"
+																	aria-hidden="true"
+																/>
+																Menunggu
+															</span>
+														</span>
+													) : (
+														<span className="tx-row__meta">
+															{row.tx.metadata?.blockTimestamp
+																? formatClock(row.tx.metadata.blockTimestamp)
+																: '—'}
+														</span>
+													)}
+												</span>
+												<span
+													className={`tx-row__amount ${outgoing ? 'is-out' : 'is-in'}`}
+												>
+													{outgoing ? '−' : '+'}
+													{formatNxcCompact(row.tx.amount)}
+													<span className="tx-row__unit"> NXC</span>
+												</span>
+												<Icon name="arrowRight" size={14} aria-hidden="true" />
+											</button>
+										</li>
+									)
+								})}
+							</ul>
+						</div>
+					))}
 
 					{onViewAll ? (
 						confirmedShown < total ? (
@@ -373,7 +440,7 @@ export const ActivityList = ({
 						<div>
 							<span>Status</span>
 							<strong>
-								{detail.pending ? 'Tertunda di mempool' : 'Terkonfirmasi'}
+								{detail.pending ? 'Menunggu konfirmasi' : 'Terkonfirmasi'}
 							</strong>
 						</div>
 						<div>

@@ -317,11 +317,6 @@ h2 {
 	text-decoration: none;
 }
 
-.brand-mark {
-	display: inline-flex;
-	color: var(--accent);
-}
-
 .brand-sub {
 	color: var(--muted);
 	font-weight: 500;
@@ -1927,8 +1922,24 @@ tr.is-new>td {
 	color: var(--text);
 }
 
-.brand-mark {
-	color: var(--accent);
+.brand-logo {
+	display: block;
+	height: 30px;
+	width: auto;
+}
+
+/* Mark tersedia dua varian: bracket ink (#000) tidak terbaca di latar
+   gelap, jadi tema gelap memakai mark-inverse. */
+.brand-logo--inverse {
+	display: none;
+}
+
+[data-theme='dark'] .brand-logo {
+	display: none;
+}
+
+[data-theme='dark'] .brand-logo--inverse {
+	display: block;
 }
 
 .brand-wordmark {
@@ -3028,8 +3039,8 @@ tr.is-new>td {
 
 @media (max-width: 1024px) {
 
-	/* Brand cukup "NexChain" + gap nav dirapatkan supaya input search di
-	   header tidak memotong placeholder-nya. */
+	/* Label "Explorer" disembunyikan supaya input search di header tidak
+	   memotong placeholder-nya. */
 	.brand-wordmark span {
 		display: none;
 	}

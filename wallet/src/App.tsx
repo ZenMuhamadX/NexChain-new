@@ -9,6 +9,7 @@ import {
 	fetchSyncStatus,
 } from './lib/rpc'
 import type { Screen, View, WalletAction } from './types'
+import { BrandMark } from './ui/BrandMark'
 import { Icon } from './ui/Icon'
 import { Notice } from './ui/Notice'
 import { useAutoLock } from './hooks/useAutoLock'
@@ -57,6 +58,13 @@ const CHAIN_KEY = 'nex_chain_id'
 
 export const App = (): React.JSX.Element => {
 	const [vault, setVault] = useState<WalletVault | undefined>()
+	/**
+	 * Apakah vault berisi wallet tersimpan. Bukan `Boolean(wallet)`: setelah
+	 * dikunci, wallet masih tersimpan — dan itu yang menentukan apakah layar
+	 * Welcome boleh menawarkan "Kembali ke buka kunci" dan apakah pembuatan
+	 * wallet baru berarti mengganti wallet lama.
+	 */
+	const [hasWallet, setHasWallet] = useState(false)
 	const [wallet, setWallet] = useState<UnlockedWallet | undefined>()
 	const [screen, setScreen] = useState<Screen>('welcome')
 	const [booting, setBooting] = useState(true)
@@ -186,8 +194,10 @@ export const App = (): React.JSX.Element => {
 				const instance = await getVault()
 				if (!alive) return
 				setVault(instance)
+				const stored = await instance.hasWallet()
 				if (instance.isUnlocked()) setWallet(instance.getUnlocked())
-				else if (await instance.hasWallet()) setScreen('unlock')
+				else if (stored) setScreen('unlock')
+				setHasWallet(stored)
 				// Worker kripto dipanaskan di latar: setiap langkah berikutnya
 				// (buat, impor, buka kunci) membutuhkannya, dan tanpa ini
 				// permintaan pertama menanggung seluruh biaya pemuatan chunk.
@@ -229,13 +239,17 @@ export const App = (): React.JSX.Element => {
 		mnemonic: string,
 		passphrase: string,
 	): Promise<void> => {
-		if (!vault) throw new Error('Vault belum siap.')
-		await vault.importMnemonic(mnemonic, passphrase)
+		if (!vault) throw new Error('Wallet belum siap.')
+		// Wallet baru MENGGANTIKAN yang lama bila vault sudah terisi — vault
+		// menolak wallet kedua, dan `replace` yang menimpanya. Layar setup sudah
+		// memperingatkan sebelum langkah ini.
+		await vault.importMnemonic(mnemonic, passphrase, { replace: hasWallet })
+		setHasWallet(true)
 		enterWallet(vault)
 	}
 
 	const handleUnlock = async (passphrase: string): Promise<void> => {
-		if (!vault) throw new Error('Vault belum siap.')
+		if (!vault) throw new Error('Wallet belum siap.')
 		await vault.unlock(passphrase)
 		enterWallet(vault)
 	}
@@ -255,10 +269,23 @@ export const App = (): React.JSX.Element => {
 		setScreen('unlock')
 	}
 
+	/**
+	 * Buka layar Welcome dari sesi yang sedang terbuka (Pengaturan → "Buat atau
+	 * pulihkan wallet lain").
+	 *
+	 * Dikunci dulu: kunci privat wallet lama tidak boleh tertinggal di memori
+	 * saat wallet baru disiapkan, dan Welcome hanya menawarkan Buat/Impor.
+	 */
+	const handleSwitchWallet = (): void => {
+		handleLock()
+		setScreen('welcome')
+	}
+
 	const handleWipe = async (): Promise<void> => {
 		if (!vault) return
 		await vault.wipe()
 		setWallet(undefined)
+		setHasWallet(false)
 		setBalance(0)
 		setPending(0)
 		setLoaded(false)
@@ -317,7 +344,7 @@ export const App = (): React.JSX.Element => {
 			<div className="auth-shell auth-shell--center">
 				<div className="loading-state">
 					<span className="spinner" aria-hidden="true" />
-					<p>Menyiapkan vault lokal…</p>
+					<p>Menyiapkan wallet lokal…</p>
 				</div>
 			</div>
 		)
@@ -334,24 +361,18 @@ export const App = (): React.JSX.Element => {
 	if (!wallet) {
 		return (
 			<div className="auth-shell">
-				<header className="auth-header">
-					<div className="brand brand--dark">
-						<span className="brand-mark" aria-hidden="true">
-							<Icon name="diamond" size={15} />
-						</span>
-						<span>NexChain Wallet</span>
-					</div>
-					<span className="security-label">
-						<Icon name="lock" size={13} aria-hidden="true" /> Vault lokal
-					</span>
-				</header>
 				<main className="auth-main">
 					{screen === 'unlock' && vault ? (
 						<Unlock onUnlock={handleUnlock} go={setScreen} />
 					) : screen === 'create' || screen === 'import' ? (
-						<SetupWallet mode={screen} onDone={handleSetup} go={setScreen} />
+						<SetupWallet
+							mode={screen}
+							onDone={handleSetup}
+							go={setScreen}
+							replacing={hasWallet}
+						/>
 					) : (
-						<Welcome go={setScreen} />
+						<Welcome go={setScreen} hasWallet={hasWallet} />
 					)}
 				</main>
 			</div>
@@ -377,13 +398,24 @@ export const App = (): React.JSX.Element => {
 				<div className="app-header__inner">
 					<div className="brand brand--dark">
 						<span className="brand-mark" aria-hidden="true">
-							<Icon name="diamond" size={16} />
+							<BrandMark />
 						</span>
 						<span>
 							<strong>NexChain</strong>
 							<small>Wallet</small>
 						</span>
 					</div>
+					<TabBar
+						active={
+							view === 'beranda'
+								? 'beranda'
+								: view === 'riwayat'
+									? 'riwayat'
+									: 'setelan'
+						}
+						onSelect={selectTab}
+						onSend={() => setAction('kirim')}
+					/>
 					<div className="header-actions">
 						<span
 							className={`network-pill network-pill--${networkState}`}
@@ -400,20 +432,6 @@ export const App = (): React.JSX.Element => {
 							title="Kunci wallet"
 						>
 							<Icon name="lock" size={16} aria-hidden="true" />
-						</button>
-						<button
-							type="button"
-							className={`icon-button ${view === 'pengaturan' ? 'icon-button--active' : ''}`}
-							onClick={() =>
-								setView(view === 'pengaturan' ? 'beranda' : 'pengaturan')
-							}
-							aria-label={
-								view === 'pengaturan' ? 'Tutup pengaturan' : 'Buka pengaturan'
-							}
-							aria-pressed={view === 'pengaturan'}
-							title="Pengaturan"
-						>
-							<Icon name="sliders" size={16} aria-hidden="true" />
 						</button>
 					</div>
 				</div>
@@ -481,18 +499,11 @@ export const App = (): React.JSX.Element => {
 						mnemonic={wallet.mnemonic}
 						onLock={handleLock}
 						onWipe={handleWipe}
+						onSwitchWallet={handleSwitchWallet}
 						onBack={handleBackHome}
 					/>
 				)}
 			</main>
-
-			<TabBar
-				active={
-					view === 'beranda' ? 'beranda' : view === 'riwayat' ? 'riwayat' : 'setelan'
-				}
-				onSelect={selectTab}
-				onReceive={() => setAction('terima')}
-			/>
 
 			<Send
 				open={action === 'kirim'}
@@ -500,8 +511,13 @@ export const App = (): React.JSX.Element => {
 				balance={balance}
 				pending={pending}
 				privateKey={wallet.privateKey}
+				networkState={networkState}
 				onClose={() => setAction(null)}
 				onSent={handleSent}
+				onViewActivity={() => {
+					setAction(null)
+					setView('riwayat')
+				}}
 			/>
 			<Receive
 				open={action === 'terima'}

@@ -1,0 +1,30 @@
+{
+	"name": "nexchain-wallet-new",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"description": "NexChain MV3 popup wallet: canonical root core and a new React UI.",
+	"scripts": {
+		"check": "bun scripts/coreCheck.ts && bun scripts/uiCheck.ts && bun run typecheck && bun run build && bun scripts/shellCheck.ts",
+		"check:core": "bun scripts/coreCheck.ts",
+		"check:ui": "bun scripts/uiCheck.ts",
+		"check:shell": "bun scripts/shellCheck.ts",
+		"typecheck": "bunx tsc -p tsconfig.json",
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"qrcode": "^1.5.4",
+		"react": "^19.3.1",
+		"react-dom": "^19.3.1"
+	},
+	"devDependencies": {
+		"@types/node": "^26.6.6",
+		"@types/qrcode": "^1.5.6",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
+		"typescript": "^7.0.2",
+		"vite": "^8.3.8"
+	}
+}

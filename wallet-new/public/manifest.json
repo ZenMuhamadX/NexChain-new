@@ -1,0 +1,16 @@
+{
+	"manifest_version": 3,
+	"name": "NexChain Wallet",
+	"short_name": "NexChain",
+	"version": "0.1.0",
+	"description": "An NXC wallet with an encrypted vault on your device.",
+	"action": {
+		"default_popup": "index.html",
+		"default_title": "NexChain Wallet"
+	},
+	"host_permissions": ["http://localhost:8000/*", "http://127.0.0.1:8000/*"],
+	"optional_host_permissions": ["http://*/*", "https://*/*"],
+	"content_security_policy": {
+		"extension_pages": "script-src 'self'; object-src 'self'"
+	}
+}

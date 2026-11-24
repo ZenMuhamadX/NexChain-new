@@ -53,6 +53,8 @@ import {
 	MIN_WIRE_FEE_NEXU,
 } from '../src/lib/sendFlow'
 import type { SendForm } from '../src/lib/sendFlow'
+import { dayLabel, groupRows } from '../src/ui/ActivityList'
+import type { HistoryRow } from '../src/lib/rpc'
 import type { TxInterface } from 'src/types/transaction'
 
 let passed = 0
@@ -179,8 +181,35 @@ const main = async (): Promise<void> => {
 			info.address,
 		)
 		ok(
-			tinyForm.amount === undefined && tinyForm.fee === undefined,
+			tinyForm.amount === undefined,
 			'sendFlow: jumlah 1 nexu DITERIMA (fee boleh melebihi amount)',
+		)
+
+		/*
+		 * Pemeriksaan saldo di form memakai batas `saldo - MIN_WIRE_FEE_NEXU`
+		 * (fee asli >= lantai itu), jadi jumlah TEPAT di batas masih diterima
+		 * dan tidak ada penolakan palsu.
+		 */
+		const boundary = MIN_WIRE_FEE_NEXU + 1_000_000
+		ok(
+			validateSendForm(
+				{ ...form, amountNxc: nxcOf(1_000_000) },
+				info.address,
+				boundary,
+			).amount === undefined,
+			'sendFlow: jumlah tepat di batas saldo tersedia diterima',
+		)
+		ok(
+			validateSendForm(
+				{ ...form, amountNxc: nxcOf(1_000_001) },
+				info.address,
+				boundary,
+			).amount !== undefined,
+			'sendFlow: jumlah melebihi saldo tersedia ditolak sebelum tinjau',
+		)
+		ok(
+			validateSendForm(form, info.address).amount === undefined,
+			'sendFlow: tanpa angka saldo, pemeriksaan saldo dilewati',
 		)
 		const tinyBuilt = await buildSignedTransaction(
 			{ ...form, amountNxc: nxcOf(1) },
@@ -481,6 +510,54 @@ const main = async (): Promise<void> => {
 			'mnemonic: tempelan pendek dipotong di ujung grid',
 		)
 
+		// Kelompok hari di riwayat: batas tengah malam hanya bisa diuji di sini.
+		const now = Date.now()
+		ok(dayLabel(now) === 'Hari ini', 'riwayat: hari ini berlabel "Hari ini"')
+		ok(
+			dayLabel(now - 86_400_000) === 'Kemarin',
+			'riwayat: kemarin berlabel "Kemarin"',
+		)
+		ok(
+			dayLabel(Date.UTC(2020, 0, 1, 12)).includes('2020'),
+			'riwayat: hari lain memakai tanggal panjang',
+		)
+		const rowAt = (ms: number | undefined, pending = false): HistoryRow =>
+			({
+				pending,
+				tx: {
+					amount: 1,
+					from: 'NxC' + '0'.repeat(40),
+					nonce: ms ?? 0,
+					txHash: `TxC${ms ?? 0}`,
+					metadata: ms === undefined ? undefined : { blockTimestamp: ms },
+				},
+			}) as unknown as HistoryRow
+		const old = now - 5 * 86_400_000
+		const groups = groupRows([
+			rowAt(undefined, true),
+			rowAt(now - 1_000),
+			rowAt(now - 2_000),
+			rowAt(old),
+			rowAt(undefined, true),
+			rowAt(old - 1_000),
+		])
+		ok(
+			groups.map((group) => group.label).join('|') ===
+				'Menunggu konfirmasi|Hari ini|' +
+					dayLabel(old) +
+					'|Menunggu konfirmasi|' +
+					dayLabel(old),
+			'riwayat: kelompok mengikuti urutan baris, tertunda tidak digabung',
+		)
+		ok(
+			groups[1]?.rows.length === 2 && groups[0]?.rows.length === 1,
+			'riwayat: baris satu hari digabung, baris tertunda terpisah',
+		)
+		ok(
+			groupRows([]).length === 0,
+			'riwayat: daftar kosong tidak menghasilkan kelompok',
+		)
+
 		// Guard: nol default-import bip39 di seluruh root module yang di-alias UI.
 		const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
 		const scanDirs = ['src', 'scripts', 'wallet/src', 'wallet/scripts']
@@ -504,6 +581,34 @@ const main = async (): Promise<void> => {
 				? `default-import bip39 di ${offender} (akan crash di Vite)`
 				: 'guard: nol default-import bip39 di seluruh root module',
 		)
+
+		/*
+		 * Copy deck: istilah internal ("mempool", "vault", "on-chain") dan nama
+		 * layar yang salah tidak boleh muncul di teks yang dibaca pengguna.
+		 * Komentar boleh menyebutnya, jadi baris komentar dilewati.
+		 */
+		const bannedPhrases = [
+			'menunggu di mempool',
+			'vault terenkripsi',
+			'on-chain',
+			'Private key',
+			'di Settings',
+		]
+		let leak = ''
+		const uiDir = join(repoRoot, 'wallet/src')
+		for (const rel of readdirSync(uiDir, { recursive: true }) as string[]) {
+			if (typeof rel !== 'string' || !/\.tsx?$/.test(rel)) continue
+			const text = readFileSync(join(uiDir, rel), 'utf8')
+			for (const line of text.split(/\r?\n/)) {
+				const trimmed = line.trim()
+				if (/^(\*|\/\/|\/\*)/.test(trimmed)) continue
+				const hit = bannedPhrases.find((phrase) => trimmed.includes(phrase))
+				if (hit) leak = `${rel}: "${hit}"`
+				if (leak) break
+			}
+			if (leak) break
+		}
+		ok(leak === '', leak ? `copy deck: ${leak}` : 'copy deck: nol istilah internal di teks UI')
 	} finally {
 		g.Buffer = nativeBuffer
 	}

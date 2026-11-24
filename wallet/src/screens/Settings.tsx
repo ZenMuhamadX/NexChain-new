@@ -20,6 +20,8 @@ import { Notice } from '../ui/Notice'
 interface SettingsProps {
 	onLock: () => void
 	onWipe: () => void | Promise<void>
+	/** Kunci sesi lalu buka layar Welcome (buat/impor wallet lain). */
+	onSwitchWallet: () => void
 	onBack: () => void
 	mnemonic?: string
 }
@@ -43,6 +45,7 @@ const persistenceText: Record<PersistenceState, string> = {
 export const Settings = ({
 	onLock,
 	onWipe,
+	onSwitchWallet,
 	onBack,
 	mnemonic,
 }: SettingsProps): React.JSX.Element => {
@@ -239,7 +242,7 @@ export const Settings = ({
 
 					<div className="field">
 						<label className="label" htmlFor="rpcUser">
-							RPC Username
+							Nama pengguna RPC
 						</label>
 						<input
 							id="rpcUser"
@@ -259,7 +262,7 @@ export const Settings = ({
 
 					<div className="field">
 						<label className="label" htmlFor="rpcPassword">
-							RPC Password
+							Kata sandi RPC
 						</label>
 						<input
 							id="rpcPassword"
@@ -374,6 +377,19 @@ export const Settings = ({
 						<Icon name="lock" size={15} aria-hidden="true" /> Kunci wallet
 						sekarang
 					</button>
+					{/*
+					 * Satu-satunya jalan membuat/memulihkan wallet LAIN dari sesi
+					 * yang terbuka. Mengunci dulu, jadi layar berikutnya adalah
+					 * Welcome dengan pintu kembali ke buka kunci.
+					 */}
+					<button
+						type="button"
+						className="button button--secondary"
+						onClick={onSwitchWallet}
+					>
+						<Icon name="arrowUpRight" size={15} aria-hidden="true" /> Buat
+						atau pulihkan wallet lain
+					</button>
 				</div>
 			</section>
 
@@ -473,8 +489,8 @@ export const Settings = ({
 					<div>
 						<strong>Hapus wallet lokal</strong>
 						<span>
-							Menghapus vault terenkripsi dari perangkat ini. Tindakan ini tidak
-							dapat dibatalkan.
+							Menghapus data wallet terenkripsi dari perangkat ini. Tindakan
+							ini tidak dapat dibatalkan.
 						</span>
 					</div>
 					<button
@@ -522,8 +538,9 @@ export const Settings = ({
 			>
 				<div className="field">
 					<p>
-						Ini menghapus vault terenkripsi dari browser ini. Tanpa frasa
-						pemulihan cadangan, dana dalam wallet ini tidak dapat dipulihkan.
+						Ini menghapus data wallet terenkripsi dari browser ini. Tanpa
+						frasa pemulihan cadangan, dana dalam wallet ini tidak dapat
+						dipulihkan.
 					</p>
 					<label
 						className={`check-card ${wipeAcknowledged ? 'check-card--checked' : ''}`}

@@ -308,9 +308,11 @@ const createPwaPlugin = () =>
 			start_url: '/',
 			scope: '/',
 			display: 'standalone',
-			// Selaras dengan `--bg` dan `--primary` di `src/style.css`.
+			// Nex Blue dari kit identitas (`brand/tokens.css`). Warna permukaan
+			// browser/PWA, bukan warna teks — `--primary` tetap dipakai untuk
+			// teks karena Nex Blue gagal kontras AA di atas putih.
 			background_color: '#f5f7fa',
-			theme_color: '#2f6fab',
+			theme_color: '#008ff6',
 			categories: ['finance'],
 			icons: [
 				{

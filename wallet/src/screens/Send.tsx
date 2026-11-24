@@ -5,10 +5,11 @@ import {
 	sendSignedTransaction,
 	hasSendErrors,
 } from '../lib/sendFlow'
-import type { SendErrors, SendForm } from '../lib/sendFlow'
+import type { SendForm } from '../lib/sendFlow'
 import {
 	errorMessage,
 	formatNxc,
+	formatNxcCompact,
 	formatNxcExact,
 	truncate,
 } from '../lib/format'
@@ -26,8 +27,12 @@ interface SendSheetProps {
 	balance: number
 	pending: number
 	privateKey: string
+	/** Status koneksi dari App: kirim tidak boleh dilanjutkan tanpa node. */
+	networkState: 'connected' | 'connecting' | 'offline'
 	onClose: () => void
 	onSent: () => void
+	/** Tutup sheet lalu buka tab Riwayat — transaksi baru ada di sana. */
+	onViewActivity: () => void
 }
 
 /** Langkah di dalam SATU sheet — bukan tiga modal terpisah. */
@@ -62,8 +67,10 @@ export const Send = ({
 	balance,
 	pending,
 	privateKey,
+	networkState,
 	onClose,
 	onSent,
+	onViewActivity,
 }: SendSheetProps): React.JSX.Element => {
 	const [step, setStep] = useState<Step>('form')
 	const [form, setForm] = useState<SendForm>({
@@ -72,7 +79,6 @@ export const Send = ({
 	})
 	const [message, setMessage] = useState('')
 	const [noteOpen, setNoteOpen] = useState(false)
-	const [errors, setErrors] = useState<SendErrors>({})
 	const [touched, setTouched] = useState(false)
 	const [busy, setBusy] = useState(false)
 	/** true saat nonce + ukuran wire sedang diambil sebelum langkah tinjau. */
@@ -102,6 +108,20 @@ export const Send = ({
 	// dikurangi reserve turunan dari mempool. Node menolak send yang melampaui
 	// angka ini (`clientHasSufficientBalance`).
 	const available = balance - pending
+	const offline = networkState !== 'connected'
+	/**
+	 * Validasi dijalankan tiap render, bukan disimpan di state: satu sumber
+	 * kebenaran untuk pesan error, status hijau alamat, dan tombol Lanjut.
+	 * `available` hanya dipakai bila memang bilangan sah, supaya sheet yang
+	 * dibuka sebelum saldo termuat tidak menuduh jumlahnya kebesaran.
+	 */
+	const liveErrors = validateSendForm(
+		form,
+		sender,
+		Number.isSafeInteger(available) ? available : undefined,
+	)
+	const receiverValid =
+		form.receiver.trim().length > 0 && !liveErrors.receiver
 
 	/**
 	 * Setiap kali sheet dibuka, kembali ke langkah isian dan buang hasil
@@ -115,13 +135,14 @@ export const Send = ({
 		setSent(null)
 		setResult(null)
 		setPasteError('')
+		// `touched` ikut direset: nilai formulir sengaja bertahan, jadi tanpa
+		// ini sheet yang baru dibuka langsung menampilkan merah untuk isian lama.
+		setTouched(false)
 	}, [open])
 
 	const update = (patch: Partial<SendForm>): void => {
-		const next = { ...form, ...patch }
-		setForm(next)
+		setForm((current) => ({ ...current, ...patch }))
 		setPasteError('')
-		if (touched) setErrors(validateSendForm(next, sender))
 	}
 
 	const pasteReceiver = async (): Promise<void> => {
@@ -184,9 +205,7 @@ export const Send = ({
 		event?.preventDefault()
 		if (busy || previewing) return
 		setTouched(true)
-		const found = validateSendForm(form, sender)
-		setErrors(found)
-		if (hasSendErrors(found)) return
+		if (hasSendErrors(liveErrors)) return
 
 		// Tidak ada input fee: biaya = floor dari ukuran wire transaksi, jadi
 		// angkanya hanya diketahui setelah transaksi punya nonce dan ukuran.
@@ -262,7 +281,6 @@ export const Send = ({
 				setMessage('')
 				setNoteOpen(false)
 				setTouched(false)
-				setErrors({})
 				setPreview(null)
 				setStep('done')
 				onSent()
@@ -285,6 +303,11 @@ export const Send = ({
 		}
 	}
 
+	/**
+	 * Reset langkah dilakukan oleh efek `open` di atas — bukan di sini, supaya
+	 * layar "Transaksi terkirim" tidak berubah menjadi formulir kosong selama
+	 * animasi keluar sheet.
+	 */
 	const close = (): void => {
 		if (busy || previewing) return
 		onClose()
@@ -299,9 +322,13 @@ export const Send = ({
 				type="submit"
 				form="send-sheet-form"
 				className="button button--primary button--lg"
-				disabled={busy || previewing}
+				disabled={busy || previewing || offline}
 			>
-				{previewing ? 'Menghitung…' : 'Lanjut'}
+				{offline
+					? 'Tidak terhubung'
+					: previewing
+						? 'Menghitung…'
+						: 'Lanjut'}
 			</button>
 		</div>
 	)
@@ -314,16 +341,15 @@ export const Send = ({
 				onClick={() => {
 					if (busy) return
 					/*
-					 * "Batalkan" BUKAN "Kembali".
+					 * "Batalkan", bukan "Ubah".
 					 *
-					 * "Kembali" hanya mundur satu langkah ke isian, sehingga
-					 * pengguna terjebak di dalam sheet tanpa jalan keluar selain
-					 * tombol × di sudut. "Batalkan" meninggalkan transaksi ini
-					 * dan menutup sheet — kembali ke beranda.
-					 *
-					 * Nilai formulir sengaja TIDAK dikosongkan: sama seperti
-					 * menutup sheet dari langkah isian, alamat yang baru
-					 * ditempel tidak hilang karena salah pencet.
+					 * Kembali ke isian TIDAK membatalkan apa pun — transaksi
+					 * sudah ditandatangani, dan menekan Lanjut lagi akan
+					 * menandatangani ulang lalu mendarat di layar tinjau yang
+					 * sama. Kata "Ubah" menjanjikan perubahan yang langsung
+					 * berlaku, dan yang didapat hanya satu putaran ekstra ke
+					 * layar yang sama. Satu tombol, satu arti: keluar dari
+					 * transaksi ini dan tutup sheet.
 					 */
 					setPreview(null)
 					setStep('form')
@@ -349,13 +375,9 @@ export const Send = ({
 			<button
 				type="button"
 				className="button button--ghost button--lg"
-				onClick={() => {
-					setStep('form')
-					setSent(null)
-					setResult(null)
-				}}
+				onClick={onViewActivity}
 			>
-				Kirim lagi
+				Lihat di Aktivitas
 			</button>
 			<button
 				type="button"
@@ -373,6 +395,11 @@ export const Send = ({
 			open={open}
 			onClose={close}
 			size="sheet"
+			/*
+			 * Di layar tinjau tidak ada ×: transaksi sudah ditandatangani, jadi
+			 * satu-satunya jalan keluar yang jelas adalah "Batalkan".
+			 */
+			hideClose={step === 'review'}
 			title={
 				step === 'review'
 					? 'Tinjau transaksi'
@@ -398,6 +425,27 @@ export const Send = ({
 						<Notice variant="error">{result.text}</Notice>
 					) : null}
 
+					{offline ? (
+						<Notice variant="warn">
+							Tidak terhubung ke node. Kirim belum bisa dihitung — periksa
+							koneksi atau URL node di Pengaturan.
+						</Notice>
+					) : null}
+
+					<div className="sheet-balance-block">
+						<div className="sheet-balance">
+							<span>Tersedia</span>
+							<strong>
+								{offline ? '—' : `${formatNxcCompact(available)} NXC`}
+							</strong>
+						</div>
+						{pending > 0 ? (
+							<p className="input-hint">
+								{formatNxcCompact(pending)} NXC tertunda — belum bisa dipakai.
+							</p>
+						) : null}
+					</div>
+
 					<div className="send-amount">
 						<label className="label" htmlFor="amount">
 							Jumlah
@@ -417,7 +465,10 @@ export const Send = ({
 								className="button button--secondary button--sm"
 								onClick={() => void fillMax()}
 								disabled={
-									previewing || busy || !Number.isSafeInteger(available)
+									offline ||
+									previewing ||
+									busy ||
+									!Number.isSafeInteger(available)
 								}
 								title={`Isi seluruh saldo tersedia: ${formatNxc(available)} NXC`}
 								aria-label={`Isi seluruh saldo tersedia: ${formatNxc(available)} NXC`}
@@ -425,11 +476,8 @@ export const Send = ({
 								Maks
 							</button>
 						</div>
-						{touched && errors.amount ? (
-							<p className="input-error">{errors.amount}</p>
-						) : null}
-						{touched && errors.fee ? (
-							<p className="input-error">{errors.fee}</p>
+						{touched && liveErrors.amount ? (
+							<p className="input-error">{liveErrors.amount}</p>
 						) : null}
 					</div>
 
@@ -461,19 +509,23 @@ export const Send = ({
 								aria-label="Tempel alamat dari clipboard"
 								title="Tempel dari clipboard"
 							>
-								<Icon name="copy" size={15} aria-hidden="true" />
+								<Icon name="paste" size={15} aria-hidden="true" />
 							</button>
 						</div>
-						{errors.receiver ? (
-							<p className="input-error">{errors.receiver}</p>
+						{(touched || form.receiver.trim().length >= 43) &&
+						liveErrors.receiver ? (
+							<p className="input-error">{liveErrors.receiver}</p>
 						) : null}
 						{pasteError ? <p className="input-error">{pasteError}</p> : null}
-						{!errors.receiver &&
+						{!liveErrors.receiver &&
 						form.receiver.length > 0 &&
 						form.receiver.length < 43 ? (
 							<p className="input-hint">
 								Alamat diawali NxC dan terdiri dari 43 karakter.
 							</p>
+						) : null}
+						{receiverValid ? (
+							<p className="field-success">Alamat valid.</p>
 						) : null}
 					</div>
 
@@ -508,12 +560,18 @@ export const Send = ({
 				<div className="sheet-form">
 					<div className="review-list">
 						<div>
-							<span>Dari</span>
-							<strong className="mono tx-hash">{sender}</strong>
-						</div>
-						<div>
 							<span>Ke</span>
-							<strong className="mono tx-hash">{preview.tx.receiver}</strong>
+							<span className="send-done__receiver">
+								<strong className="mono">
+									{truncate(preview.tx.receiver, 12, 8)}
+								</strong>
+								<CopyButton
+									text={preview.tx.receiver}
+									ariaLabel="Salin alamat penerima"
+									variant="plain"
+									size={13}
+								/>
+							</span>
 						</div>
 						<div>
 							<span>Jumlah</span>
@@ -524,7 +582,7 @@ export const Send = ({
 						<div>
 							<span>Biaya jaringan</span>
 							<strong className="mono">
-								{formatNxcExact(preview.fee)} NXC
+								{formatNxcCompact(preview.fee)} NXC
 							</strong>
 						</div>
 						<div>
@@ -537,17 +595,45 @@ export const Send = ({
 							<span>Sisa saldo</span>
 							<strong className="mono">{formatNxcExact(remaining)} NXC</strong>
 						</div>
-						<div>
-							<span>Nonce</span>
-							<strong>#{preview.tx.nonce}</strong>
-						</div>
-						{message.trim() ? (
-							<div>
-								<span>Catatan</span>
-								<strong>{message}</strong>
-							</div>
-						) : null}
 					</div>
+					{/*
+					 * Alamat pengirim dan nonce tidak ikut daftar utama: yang
+					 * pertama selalu wallet ini sendiri (43 karakter mono yang
+					 * menghabiskan dua baris), yang kedua urusan internal. Keduanya
+					 * tetap ada — untuk membandingkan dengan riwayat, atau saat
+					 * transaksi pengganti perlu nonce yang sama.
+					 */}
+					<details className="review-advanced">
+						<summary>Rincian teknis</summary>
+						<div className="review-list">
+							<div>
+								<span>Dari</span>
+								<span className="send-done__receiver">
+									<strong className="mono">{truncate(sender, 12, 8)}</strong>
+									<CopyButton
+										text={sender}
+										ariaLabel="Salin alamat pengirim"
+										variant="plain"
+										size={13}
+									/>
+								</span>
+							</div>
+							<div>
+								<span>Nonce</span>
+								<strong>#{preview.tx.nonce}</strong>
+							</div>
+							{message.trim() ? (
+								<div>
+									<span>Catatan</span>
+									<strong>{message}</strong>
+								</div>
+							) : null}
+						</div>
+					</details>
+					<p className="input-hint">
+						Biaya dihitung otomatis dari ukuran transaksi, bukan tingkat
+						prioritas. Membayar lebih tidak mempercepat transaksi ini.
+					</p>
 					<Notice variant="warn">
 						Transaksi sudah ditandatangani di perangkat ini. Setelah dikirim,
 						isinya tidak bisa dibatalkan atau diubah.
@@ -598,7 +684,9 @@ export const Send = ({
 							</div>
 							<div>
 								<span>Biaya jaringan</span>
-								<strong className="mono">{formatNxcExact(sent.fee)} NXC</strong>
+								<strong className="mono">
+									{formatNxcCompact(sent.fee)} NXC
+								</strong>
 							</div>
 							<div>
 								<span>Sisa saldo</span>
@@ -624,7 +712,9 @@ export const Send = ({
 					) : null}
 
 					{result?.text ? (
-						<p className="send-done__note">{result.text}</p>
+						<p className="send-done__note" role="status">
+							{result.text}
+						</p>
 					) : null}
 
 					{trackUrl ? (

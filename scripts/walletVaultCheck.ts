@@ -385,6 +385,19 @@ ok(
 	).includes('sudah berisi'),
 )
 
+// Ganti wallet (Pengaturan → "Buat atau pulihkan wallet lain"): `replace`
+// melewati guard di atas dan menimpa record lama.
+const second = genRandomMnemonic()
+const replaced = await vault2.importMnemonic(second, IMPORT_PASS, {
+	replace: true,
+})
+ok(
+	'import: replace MENGGANTI wallet tersimpan',
+	replaced.address !== imported.address &&
+		vault2.getUnlocked().mnemonic === second &&
+		(await vault2.hasWallet()),
+)
+
 // ============ 5. address anchor ke jalur Node ============
 console.log('\n--- anchor: jalur vault == jalur Node ---')
 try {

@@ -302,7 +302,7 @@ export const testRpcUrl = async (
 				chainId: body.result,
 				auth,
 				error:
-					'Node menolak kredensial RPC (HTTP 401). Periksa RPC Username/Password — tanpa ini transaksi tidak bisa dikirim.',
+					'Node menolak kredensial RPC (HTTP 401). Periksa Nama pengguna/Kata sandi RPC — tanpa ini transaksi tidak bisa dikirim.',
 			}
 		}
 		return { ok: true, chainId: body.result, auth }

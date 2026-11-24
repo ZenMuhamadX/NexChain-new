@@ -1,5 +1,8 @@
 # Diskusi: Sumber Wallet NexChain — Desktop GUI + Ekstensi
 
+> **USANG.** Dokumen ini draf lama; untuk kontrak data wallet saat ini baca
+> `docs/WALLET_DATA_CONTRACT.md` dan `AGENTS.md`.
+
 > **Status: DRAF DISKUSI.** Belum ada keputusan implementasi dan belum ada kode.
 > Dokumen ini mencatat lingkup, struktur target, nasib `wallet-ext`, dampak
 > arsitektur, risiko, dan keputusan terbuka.

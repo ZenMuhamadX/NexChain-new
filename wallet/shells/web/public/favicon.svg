@@ -1,17 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NexChain">
-	<defs>
-		<linearGradient id="nx" x1="8" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
-			<stop offset="0" stop-color="#2b9fd8" />
-			<stop offset="1" stop-color="#0f766e" />
-		</linearGradient>
-	</defs>
-	<rect width="64" height="64" rx="15" fill="url(#nx)" />
-	<path d="M21 20v24M21 20l22 24M43 20v24" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
-	<g fill="#ffffff">
-		<circle cx="21" cy="20" r="3.6" />
-		<circle cx="21" cy="44" r="3.6" />
-		<circle cx="43" cy="20" r="3.6" />
-		<circle cx="43" cy="44" r="3.6" />
-		<circle cx="32" cy="32" r="4.8" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="NexChain">
+	<rect width="32" height="32" rx="7" fill="#008FF6" />
+	<g transform="translate(4.80 5.37) scale(0.06687)">
+		<path fill="#FFFFFF" d="M73 47L0 92L0 225L73 270L73 189L120 158L73 128Z" />
+		<path fill="#FFFFFF" d="M262 47L335 92L335 225L262 270L262 189L215 158L262 128Z" />
+		<path fill="#FFFFFF" d="M167.5 0L240 46L175.5 92L175.5 249L239.5 208L239.5 275L167.5 318L105 275L105 188L159.5 158L159.5 92L95 46Z" />
 	</g>
 </svg>

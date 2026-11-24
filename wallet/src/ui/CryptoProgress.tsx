@@ -18,7 +18,7 @@ import { subscribeCryptoProgress } from '@/lib/cryptoProgress'
 /** Label per operasi worker; fallback untuk tipe tak dikenal. */
 const LABELS: Record<string, string> = {
 	DECRYPT_SECRET: 'Membuka kunci…',
-	ENCRYPT_SECRET: 'Mengunci vault…',
+	ENCRYPT_SECRET: 'Mengunci wallet…',
 }
 
 /** Tidak ada event baru sekian lama → anggap operasi bermasalah, sembunyi. */

@@ -49,6 +49,10 @@ module.exports = {
 	asar: true,
 	compression: 'maximum',
 	win: {
+		// Tanpa `icon`, electron-builder memakai ikon Electron bawaan di
+		// installer, Start Menu, dan taskbar. 512 px dari kit `brand/`
+		// (minimum 256) — electron-builder membuat ulang ukuran yang dibutuhkan.
+		icon: 'shells/desktop/build/icon.png',
 		/**
 		 * Dua bentuk distribusi dari build yang sama:
 		 *

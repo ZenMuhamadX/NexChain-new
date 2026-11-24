@@ -3,6 +3,8 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { TimeDisplayProvider } from '../../hooks/useTimeDisplay'
 import { useChain } from '../../hooks/useChainState'
 import { useScrollRestoration } from '../../hooks/useScrollRestoration'
+import markLight from '../../../../brand/mark.svg'
+import markInverse from '../../../../brand/mark-inverse.svg'
 import { SearchBar } from '../SearchBar'
 import { ThemeToggle } from '../ThemeToggle'
 import { NodeStatus } from './NodeStatus'
@@ -55,20 +57,12 @@ export function ExplorerLayout() {
 								className="brand"
 								aria-label="NexChain Explorer home"
 							>
-								<span className="brand-mark" aria-hidden="true">
-									<svg
-										width="28"
-										height="28"
-										viewBox="0 0 32 32"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2.1"
-										strokeLinejoin="round"
-									>
-										<path d="M16 4l9.53 5.5v11L16 26l-9.53-5.5v-11z" />
-										<circle cx="16" cy="15" r="3.2" />
-									</svg>
-								</span>
+								<img className="brand-logo" src={markLight} alt="" />
+								<img
+									className="brand-logo brand-logo--inverse"
+									src={markInverse}
+									alt=""
+								/>
 								<span className="brand-wordmark">
 									<strong>NexChain</strong>
 									<span>Explorer</span>

@@ -236,7 +236,7 @@ const writeRequest = async <T>(method: string, params: unknown): Promise<T> => {
 	if (!response.ok) {
 		throw new Error(
 			response.status === 401 || response.status === 403
-				? `Node menolak transaksi (HTTP ${response.status}) — periksa RPC Username/Password di Settings.`
+				? `Node menolak transaksi (HTTP ${response.status}) — periksa Nama pengguna/Kata sandi RPC di Pengaturan.`
 				: `HTTP ${response.status} ${response.statusText}`,
 		)
 	}

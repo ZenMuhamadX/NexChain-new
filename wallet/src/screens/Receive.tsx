@@ -24,12 +24,17 @@ export const Receive = ({
 	onClose: () => void
 }): React.JSX.Element => {
 	const [qrDataUrl, setQrDataUrl] = useState('')
+	/** Kosong = tidak ada kegagalan. Diisi = QR gagal, alamat tetap bisa disalin. */
+	const [qrError, setQrError] = useState('')
+	/** Dinaikkan tombol "Coba lagi" untuk menjalankan ulang efek. */
+	const [attempt, setAttempt] = useState(0)
 	const canShare =
 		typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
 	useEffect(() => {
 		if (!open) return
 		let active = true
+		setQrError('')
 		void import('qrcode')
 			.then((module) =>
 				module.default.toDataURL(address, {
@@ -42,12 +47,20 @@ export const Receive = ({
 				if (active) setQrDataUrl(url)
 			})
 			.catch(() => {
-				if (active) setQrDataUrl('')
+				/*
+				 * Tanpa pesan ini, kegagalan pustaka QR hanya meninggalkan
+				 * spinner yang berputar selamanya — dan Terima adalah satu-satunya
+				 * jalan menerima dana.
+				 */
+				if (active) {
+					setQrDataUrl('')
+					setQrError('Kode QR gagal dibuat. Salin alamat di bawah.')
+				}
 			})
 		return () => {
 			active = false
 		}
-	}, [address, open])
+	}, [address, open, attempt])
 
 	const share = async (): Promise<void> => {
 		try {
@@ -95,6 +108,17 @@ export const Receive = ({
 				<div className="qr-frame">
 					{qrDataUrl ? (
 						<img src={qrDataUrl} alt={`QR code alamat ${address}`} />
+					) : qrError ? (
+						<div className="qr-loading">
+							<p className="input-hint">{qrError}</p>
+							<button
+								type="button"
+								className="button button--secondary button--sm"
+								onClick={() => setAttempt((value) => value + 1)}
+							>
+								Coba lagi
+							</button>
+						</div>
 					) : (
 						<div className="qr-loading">
 							<span className="spinner spinner--sm" />
