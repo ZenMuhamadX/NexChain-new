@@ -83,6 +83,8 @@ for (const method of [
 	'eth_sendRawTransaction',
 	'eth_sign',
 	'personal_sign',
+	'wallet_switchEthereumChain',
+	'wallet_addEthereumChain',
 ])
 	ok(`${method} DITOLAK`, !bridge.ALLOWED_METHODS.has(method))
 
@@ -91,6 +93,17 @@ ok(
 	'chainId hex sesuai konstanta',
 	bridge.CHAIN_ID_HEX === `0x${CHAIN_ID.toString(16)}`,
 	bridge.CHAIN_ID_HEX,
+)
+ok(
+	'chainId dinormalisasi (hex / angka / kapital)',
+	bridge.normalizeChainId(CHAIN_ID) === bridge.CHAIN_ID_HEX &&
+		bridge.normalizeChainId(String(CHAIN_ID)) === bridge.CHAIN_ID_HEX &&
+		bridge.normalizeChainId(bridge.CHAIN_ID_HEX.toUpperCase()) ===
+			bridge.CHAIN_ID_HEX &&
+		bridge.normalizeChainId(` ${bridge.CHAIN_ID_HEX} `) ===
+			bridge.CHAIN_ID_HEX &&
+		bridge.normalizeChainId('0x1') !== bridge.CHAIN_ID_HEX &&
+		bridge.normalizeChainId('bukan-chain-id') === null,
 )
 const HEX40 = 'ab'.repeat(20)
 const HEX64 = 'ab'.repeat(32)

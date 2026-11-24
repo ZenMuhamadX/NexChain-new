@@ -18,6 +18,23 @@ const ec = new EC('secp256k1')
 
 export const CHAIN_ID_HEX = `0x${CHAIN_ID.toString(16)}`
 
+/**
+ * MetaMask bisa mengembalikan chainId sebagai `"0x1a"`, `"0X1A"`, `"26"`,
+ * atau angka 26. Semua dinormalisasi supaya perbandingan tidak gagal hanya
+ * karena format.
+ */
+export const normalizeChainId = (value: unknown): string | null => {
+	if (typeof value === 'number')
+		return Number.isSafeInteger(value) && value >= 0
+			? `0x${value.toString(16)}`
+			: null
+	if (typeof value !== 'string') return null
+	const text = value.trim().toLowerCase()
+	if (/^(0x[0-9a-f]+|[0-9]+)$/.test(text))
+		return `0x${BigInt(text).toString(16)}`
+	return null
+}
+
 /** 10 gwei — dengan 8 desimal NXC, 1 gas = 1 nexu. */
 export const GAS_PRICE_WEI = 10_000_000_000n
 export const GAS_PRICE_HEX = `0x${GAS_PRICE_WEI.toString(16)}`

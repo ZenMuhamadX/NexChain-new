@@ -17,6 +17,7 @@ import {
 	getNexForEth,
 	issueNonce,
 	nexToEthAddress,
+	normalizeChainId,
 	nodeRpc,
 	nexuToWeiHex,
 	setMapping,
@@ -318,19 +319,35 @@ button{font-size:1rem;padding:.7rem 1rem;margin:.3rem .3rem .3rem 0;border:0;bor
 <p>Impor seed <b>tidak</b> memindahkan saldo. Saldo baru muncul setelah kamu tanda tangan gratis di bawah — <b>tanpa gas, tanpa transaksi, tanpa dana pindah</b>.</p>
 <div class="warn">Alamat MetaMask (<code>0x…</code>) berbeda dengan alamat wallet NexChain lama (<code>NxC…</code>), walaupun seed-nya sama. Tanda tangan ini memberi tahu gateway mana alamat NexChain milik akun MetaMask ini.</div>
 <button id="connect">Hubungkan &amp; daftarkan</button>
-<pre id="status">Buka halaman ini dari tab Browser di dalam aplikasi MetaMask iOS.</pre>
+<pre id="status">Buka halaman ini dari ekstensi MetaMask di Chrome/Edge, atau tab Browser di MetaMask iOS.</pre>
 <script>
 const status = document.getElementById('status')
+const expectedChain = '${CHAIN_ID_HEX}'
+const normalizeChainId = ${normalizeChainId.toString()}
 const rpc = (method, params) => fetch('/rpc', {
   method:'POST', headers:{'content-type':'application/json'},
   body: JSON.stringify({jsonrpc:'2.0',id:1,method,params})
 }).then(r => r.json())
 document.getElementById('connect').onclick = async () => {
   try {
-    if (!window.ethereum) throw new Error('window.ethereum tidak ada — buka dari MetaMask Browser')
+    if (!window.ethereum) throw new Error('window.ethereum tidak ada — pasang ekstensi MetaMask')
     const [account] = await window.ethereum.request({method:'eth_requestAccounts'})
-    const chainId = await window.ethereum.request({method:'eth_chainId'})
-    if (chainId !== '${CHAIN_ID_HEX}') throw new Error('Pindah ke jaringan NexChain (chainId ${CHAIN_ID_HEX}) dulu')
+    let chainId = normalizeChainId(await window.ethereum.request({method:'eth_chainId'}))
+    if (chainId !== expectedChain) {
+      try {
+        await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:expectedChain}]})
+      } catch (switchError) {
+        if (switchError && switchError.code === 4902) {
+          await window.ethereum.request({method:'wallet_addEthereumChain',params:[{
+            chainId: expectedChain,
+            rpcUrls: [location.origin + '/rpc'],
+            nativeCurrency: {name:'NexChain', symbol:'NXC', decimals:18}
+          }]})
+        } else throw switchError
+      }
+      chainId = normalizeChainId(await window.ethereum.request({method:'eth_chainId'}))
+    }
+    if (chainId !== expectedChain) throw new Error('MetaMask melaporkan chainId '+String(chainId)+', harus '+expectedChain)
     const {nonce} = await fetch('/bridge/nonce').then(r => r.json())
     const message = ['NexChain wallet registration','chainId: ${Number(CHAIN_ID_HEX)}','nonce: '+nonce].join('\\n')
     const signature = await window.ethereum.request({method:'personal_sign',params:[message,account]})
