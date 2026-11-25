@@ -305,6 +305,34 @@ try {
 		tip1.block.header.hash === H1 && tip1.block.height === 1,
 	)
 
+	const rawNew = await rocksBlock.get(`blockHash:${H1}`)
+	ok(
+		'badan blok baru = JSON padat ber-awalan j: (tanpa base58 BigInt)',
+		typeof rawNew === 'string' && rawNew.startsWith('j:'),
+	)
+
+	// Blok dari data dir lama tetap terbaca walau format baru sudah j:.
+	const { stringToBase58 } =
+		await import('src/core/encoding/hex/base58/stringToBase58')
+	const { getBlockByHash } =
+		await import('src/core/block/query/onChain/block/getBlockByHash')
+	const LEGACY = 'HashLegacyBase58'
+	await origBlockPut(
+		`blockHash:${LEGACY}` as never,
+		stringToBase58(
+			JSON.stringify(fixtureBlock(LEGACY, 2, H1), null, 2),
+		) as never,
+	)
+	const legacy = await getBlockByHash(LEGACY)
+	ok(
+		'getBlockByHash: badan base58 lama tetap terbaca',
+		legacy?.block.header.hash === LEGACY && legacy?.block.height === 2,
+	)
+	ok(
+		'getBlockByHash: hash tidak ada → undefined (bukan error)',
+		(await getBlockByHash('HashTidakAda')) === undefined,
+	)
+
 	// ---- guard plafon: tolak SEBELUM satu pun tulis ----
 	const callsBefore = calls.length
 	const poisoned = fixtureBlock('HashBlokX', 99, H1)

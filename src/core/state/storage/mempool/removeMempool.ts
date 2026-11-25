@@ -23,6 +23,31 @@ const senderOf = (stored: unknown): string | undefined => {
 }
 
 /**
+ * Buang banyak tx dalam SATU batch sinkron. Dipakai `commitBlock` setelah
+ * penanda commit ditulis: tanpa ini, 1.000 tx = 1.000 fsync dan mempool
+ * kehilangan tx yang state-nya belum tersimpan bila node mati di tengah jalan.
+ */
+export const removeMemPoolBatch = async (txHashes: string[]): Promise<void> => {
+	if (txHashes.length === 0 || isSimulation()) return
+	try {
+		await runMempoolOp(async () => {
+			const ops: RemoveOp[] = []
+			for (const txHash of txHashes) {
+				if (!txHash) continue
+				const key = mempoolTxKey(txHash)
+				const stored = await rocksMempool.get(key).catch(() => null)
+				ops.push({ type: 'del', key })
+				const from = senderOf(stored)
+				if (from) ops.push({ type: 'del', key: senderIndexKey(from, txHash) })
+			}
+			if (ops.length > 0) await rocksMempool.batch(ops, { sync: true })
+		})
+	} catch (error) {
+		console.error('Error removing transaction batch:', error)
+	}
+}
+
+/**
  * Buang transaksi dari mempool BERSAMA indeks per-pengirimnya — SATU batch
  * atomik (lihat catatan atomic di `mempoolIndex.ts`).
  *

@@ -1,6 +1,5 @@
 import { TxInterface } from 'src/types/transaction'
 import { processSender } from './sender/processSender'
-import { removeMemPool } from 'src/core/state/storage/mempool/removeMempool'
 import { saveTxHistory } from './saveTxHistory'
 import { processReceiver } from './receiver/processReceiver'
 import { saveTxByAddress } from 'src/core/transaction/saveTransactionByAddress'
@@ -80,23 +79,28 @@ const applyBlockReward = async (block: blockStruct): Promise<void> => {
  *
  * Blok TANPA transaksi pengguna adalah hal yang normal (hadiah tetap
  * dibayarkan), jadi kosongnya `txData` bukan kondisi error.
+ *
+ * Mengembalikan txHash yang dieksekusi. Pemanggilan nyata (`commitBlock`)
+ * membersihkan mempoolnya SETELAH blok permanen — lihat `removeMemPoolBatch`.
+ * Simulasi/replay mengabaikan daftar ini, jadi tidak menyentuh mempool.
  */
 export const processTransact = async (
 	txData: TxInterface[],
 	block: blockStruct,
-): Promise<void> => {
+): Promise<string[]> => {
 	// 1. Hadiah blok — selalu, termasuk blok tanpa transaksi.
 	await applyBlockReward(block)
 
 	// 2. Transaksi pengguna.
-	if (txData.length === 0) return
+	const executed: string[] = []
+	if (txData.length === 0) return executed
 
 	for (const tx of txData) {
 		// Penjaga idempotensi: transaksi yang sudah pernah dieksekusi
-		// (crash/sisa race di antara `saveTxHistory` dan `removeMemPool`)
-		// tidak dijalankan dua kali — cukup dibersihkan dari mempool.
+		// (crash/sisa race di antara `saveTxHistory` dan pembersihan mempool)
+		// tidak dijalankan dua kali — cukup ikut dibersihkan setelah commit.
 		if (tx.txHash && (await isTxExecuted(tx.txHash))) {
-			await removeMemPool(tx.txHash)
+			executed.push(tx.txHash)
 			continue
 		}
 
@@ -114,8 +118,7 @@ export const processTransact = async (
 		await processReceiver(tx.receiver, tx.amount, block.header.timestamp)
 		await saveTxByAddress(tx.from!, tx.receiver, tx.txHash!, block.height)
 		await saveTxHistory(tx.txHash!, withBlockMetadata(tx, block))
-		// Ditunggu: penghapusan kini menyertakan indeks per-pengirim
-		// (satu batch atomik) — lihat `removeMemPool`.
-		await removeMemPool(tx.txHash!)
+		if (tx.txHash) executed.push(tx.txHash)
 	}
+	return executed
 }

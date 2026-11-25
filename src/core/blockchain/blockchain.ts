@@ -16,6 +16,7 @@ import {
 import { expectedDifficulty } from 'src/core/consensus/difficulty'
 import { getBlockByHeight } from '../block/query/onChain/block/getBlockByHeight'
 import { processTransact } from 'src/core/transaction/processTransaction'
+import { removeMemPoolBatch } from 'src/core/state/storage/mempool/removeMempool'
 import { logToConsole } from 'src/logging/logging'
 import { loggingDebug } from 'src/logging/debug'
 import { projectTotalIssued } from 'src/core/state/storage/state/setState'
@@ -180,7 +181,10 @@ export class BlockChains {
 			// (tinggi/hash/timestamp) ke riwayat tiap transaksi — itulah
 			// sumber waktu transaksi, karena transaksi sendiri tidak lagi
 			// menyimpan timestamp.
-			await processTransact(block.block.transactions, block.block)
+			const executedTxHashes = await processTransact(
+				block.block.transactions,
+				block.block,
+			)
 
 			// ---- stateRoot: BANDINGKAN dengan hasil eksekusi sendiri -------
 			// Eksekusi di buffer adalah kebenaran; `header.stateRoot` hanya
@@ -215,6 +219,11 @@ export class BlockChains {
 			await flushWriteBuffer()
 			await writeCommittedMarker(record.height)
 			discardWriteBuffer()
+
+			// Mempool dibersihkan SETELAH blok permanen, dalam satu batch.
+			// Kalau node mati sebelum titik ini, tx masih pending dengan nonce
+			// yang benar — bukan hilang dari pool sementara state tetap lama.
+			await removeMemPoolBatch(executedTxHashes)
 
 			// Journal blok ini kini "terpakai"; pangkas yang lebih tua dari
 			// MAX_REORG_DEPTH supaya store tidak tumbuh tanpa batas.

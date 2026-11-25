@@ -233,7 +233,7 @@ const { getPendingReserve } =
 	await import('src/core/transaction/getPendingReserve')
 const { sumCostBySender } =
 	await import('src/core/state/storage/mempool/mempoolIndex')
-const { removeMemPool } =
+const { removeMemPool, removeMemPoolBatch } =
 	await import('src/core/state/storage/mempool/removeMempool')
 const { MemPool } = await import('src/core/transaction/memPool')
 const { processSender } =
@@ -358,6 +358,33 @@ ok(
 ok(
 	'nonce = 160 DITOLAK (B — bukan gabungan A+B)',
 	(await validateTransactionNonce(nonceTx(SENDER_B, 160))) === false,
+)
+
+// ---------------------------------------------------------------------------
+// 2b. Pembersihan mempool SATU batch per commit (bukan per tx)
+// ---------------------------------------------------------------------------
+
+console.log('\nGROUP 2b — removeMemPoolBatch (satu commit = satu batch):')
+
+const tailHashes = [N_A - 3, N_A - 2, N_A - 1].map(
+	(i) => fakeTx(SENDER_A, i).txHash!,
+)
+await removeMemPoolBatch(tailHashes)
+ok(
+	'batch removal: tiga tx keluar dari indeks per-pengirim',
+	(await countPendingBySender(SENDER_A)) === N_A - 3,
+)
+ok(
+	'batch removal: ekspektasi nonce turun mengikuti sisa pending',
+	(await validateTransactionNonce(nonceTx(SENDER_A, 154))) === true &&
+		(await validateTransactionNonce(nonceTx(SENDER_A, 157))) === false,
+)
+ok(
+	'batch kosong tidak mengubah apa pun',
+	await (async () => {
+		await removeMemPoolBatch([])
+		return (await countPendingBySender(SENDER_A)) === N_A - 3
+	})(),
 )
 
 // ---------------------------------------------------------------------------
