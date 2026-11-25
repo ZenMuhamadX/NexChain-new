@@ -56,6 +56,7 @@ import { signTransaction } from 'src/crypto/signTransaction'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { loadP2PConfig } from 'src/p2p/config'
 import { createPeerManager } from 'src/p2p/peers/peerManager'
+import { CHAIN_ID } from 'src/crypto/chainId'
 import {
 	check,
 	delay,
@@ -387,7 +388,7 @@ try {
 			pingIntervalMs: 60_000,
 		},
 		getLocalStatus: async () => ({
-			chainId: 26,
+			chainId: CHAIN_ID,
 			genesisHash: '0'.repeat(64),
 			bestHeight: 0,
 			bestHash: '0'.repeat(64),

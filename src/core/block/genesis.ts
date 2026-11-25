@@ -55,7 +55,7 @@ export const GENESIS_COINBASE_MESSAGE = 'Genesis Block Reward'
 export const GENESIS_MESSAGE = 'NexChain Devnet Genesis — Bitcoin-style PoW'
 
 /**
- * Nonce & hash hasil solve (chain id 26). Jangan diubah tanpa re-solve.
+ * Nonce & hash hasil solve (chain id 2010). Jangan diubah tanpa re-solve.
  *
  * Riwayat re-solve:
  *   - rombak satuan 1e18 → 1e8: `prepareBlockForHashing` memuat `blockReward`,
@@ -74,10 +74,11 @@ export const GENESIS_MESSAGE = 'NexChain Devnet Genesis — Bitcoin-style PoW'
  *     Commitment": alamat jadi 20 byte, `NxS` hilang, protokol P2P wire 0) →
  *     nonce & hash di-re-solve. Genesis baru membuat node yang lupa wipe data
  *     lama tidak bisa bertukar blok dengan jaringan baru (identitas jaringan).
+ *   - chainId 26 → 2010: chainId ikut preimage → nonce & hash di-re-solve.
  */
-export const GENESIS_NONCE = 809755
+export const GENESIS_NONCE = 1019443
 export const GENESIS_HASH =
-	'000005f6b2c6eeea04dad86eae57794cf95c8a8f4b46eb5d3503d2cd224df08f'
+	'000004ee01185c8ea128bc168336b34c9610a09e1be1afea9aa3d1e6d5580b05'
 
 /**
  * Susun blok genesis sesuai konstanta. Murni & deterministik — tidak

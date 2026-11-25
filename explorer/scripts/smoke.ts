@@ -45,7 +45,11 @@ check(
 
 // 2) chainId tanpa params
 const cid = await rpc.getChainId()
-check('getChainId → 26', cid === 26, `got=${cid}`)
+check(
+	'getChainId → angka valid',
+	Number.isInteger(cid) && cid > 0,
+	`got=${cid}`,
+)
 
 // 3) recentBlocks scalar
 const recent = await rpc.getRecentBlocks(5)

@@ -67,7 +67,8 @@ setelah registrasi; pindah network bolak-balik atau lock/unlock ekstensi.
 
 ## Kirim
 
-`eth_sendRawTransaction` menerima legacy EIP-155 (chainId 26, `v` 87/88) dan
+`eth_sendRawTransaction` menerima legacy EIP-155 (`v = recovery + 2×chainId + 35`,
+default chainId 2010 → `v` 4055/4056) dan
 membungkusnya sebagai payload tipe `0x03` sebelum masuk node. Node memulihkan
 `from` dari `ecrecover`, memakai 20 byte `to` apa adanya sebagai `NxC…`, dan
 mengubah `value` serta `gasPrice × gasLimit` dari wei ke nexu eksak — wei yang

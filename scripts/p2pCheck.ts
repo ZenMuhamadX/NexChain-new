@@ -100,6 +100,7 @@ import { signTransaction } from 'src/crypto/signTransaction'
 import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
 import { encodeTx } from 'src/core/encoding/hex/tx/encodeTx'
 import { decodeTx } from 'src/core/encoding/hex/tx/decodeTx'
+import { CHAIN_ID } from 'src/crypto/chainId'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import type { blockStruct } from 'src/types/block'
 import type { comTxInterface } from 'src/types/compositeTransaction'
@@ -293,7 +294,7 @@ await run('terima: version lengkap (semua field wajib)', () => {
 	const parsed = parseMessage({
 		type: 'version',
 		protocolVersion: P2P_PROTOCOL_VERSION,
-		chainId: 26,
+		chainId: CHAIN_ID,
 		genesisHash: 'a'.repeat(64),
 		bestHeight: 0,
 		bestHash: 'b'.repeat(64),
@@ -617,7 +618,7 @@ await run(
 console.log('GROUP 5 — checkVersionMessage / buildVersionMessage:')
 
 const EXPECTED = {
-	chainId: 26,
+	chainId: CHAIN_ID,
 	genesisHash: 'e'.repeat(64),
 	protocolVersion: P2P_PROTOCOL_VERSION,
 }
@@ -945,7 +946,7 @@ await run('updatePeers mencatat count + maxPeers + updatedAt', () => {
 		connectedAt: 1000,
 		lastSeenAt: 2000,
 		status: {
-			chainId: 26,
+			chainId: CHAIN_ID,
 			genesisHash: 'a'.repeat(64),
 			bestHeight: 7,
 			bestHash: 'b'.repeat(64),

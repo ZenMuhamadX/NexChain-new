@@ -6,7 +6,7 @@
  * method baca plus `eth_sendRawTransaction` ke node lewat `nex_*`. Method tulis
  * lain (`nex_getWork`, `nex_submitWork`, `eth_sign`, …) tidak pernah diteruskan.
  */
-import { config } from 'dotenv'
+import './env'
 import express, { ErrorRequestHandler } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -34,10 +34,6 @@ import {
 	verifyRegistration,
 } from './bridge'
 import { uint8ToBase64 } from 'src/core/encoding/hex/base64/uint8ToBase64'
-
-// Env gateway lebih dulu agar NEX_RPC_URL port 2008 menang atas root .env.
-config({ path: `${import.meta.dir}/.env` })
-config({ path: `${process.cwd()}/.env` })
 
 const PORT = Number(process.env.METAMASK_GATEWAY_PORT ?? 8545)
 const GAS_LIMIT_HEX = '0x5208' // 21000 — prototype, belum ada EVM

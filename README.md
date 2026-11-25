@@ -21,12 +21,12 @@ Arsitektur mining mengikuti standar Bitcoin: **blok tidak ditandatangani siapa p
 
 ### Genesis (hardcoded, tanpa premine)
 
-Blok genesis dikunci di kode (`src/core/block/genesis.ts`), deterministik, dan **tidak terhubung wallet mana pun** — coinbase 500 NXC dibayar ke **burned address** (tidak ada private key, dana terkunci selamanya seperti BTC genesis):
+Blok genesis dikunci di kode (`src/core/block/genesis.ts`), deterministik, dan **tidak terhubung wallet mana pun** — reward 0 NXC dibayar ke **burned address** (tidak ada private key, seperti BTC genesis):
 
-- Nama jaringan: devnet · Chain ID: 26 (`NEX_CHAIN_ID`)
-- Genesis hash: `0000043b0bc286f26da2957e750d8a2303c492fac66ca56c6f9ba1a99a71be57` · Nonce: 48369
+- Nama jaringan: devnet · Chain ID: 2010 (`NEX_CHAIN_ID`, fallback bila env tidak diset)
+- Genesis hash: `000004ee01185c8ea128bc168336b34c9610a09e1be1afea9aa3d1e6d5580b05` · Nonce: 1019443
 - Burned address: `NxC0000000000000000000000000000000000000000`
-- Reward: 500 NXC · Timestamp: `2024-09-28T12:00:00Z` · Difficulty awal: 20 bits
+- Reward: 0 NXC · Timestamp: `2024-09-28T12:00:00Z` · Difficulty awal: 20 bits
 
 Verifikasi konstanta: `bun run genesis:check`. Pada boot, node menulis genesis dari kode bila DB kosong, dan **menolak start** bila genesis di DB berbeda hash dari konstanta (anti-fork/tamper).
 

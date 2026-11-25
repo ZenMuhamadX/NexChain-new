@@ -106,6 +106,10 @@ const bridgeSource = fs.readFileSync(
 	path.join(import.meta.dir, '../apps/metamask-gateway/bridge.ts'),
 	'utf8',
 )
+const envSource = fs.readFileSync(
+	path.join(import.meta.dir, '../apps/metamask-gateway/env.ts'),
+	'utf8',
+)
 ok(
 	'env RPC gateway dibaca saat request, bukan saat modul dimuat',
 	bridgeSource.indexOf('export const nodeRpc') <
@@ -117,8 +121,12 @@ ok(
 )
 ok(
 	'.env gateway dimuat sebelum root .env',
-	serverSource.indexOf('import.meta.dir}/.env') <
-		serverSource.indexOf('process.cwd()}/.env'),
+	envSource.indexOf('import.meta.dir}/.env') <
+		envSource.indexOf('process.cwd()}/.env'),
+)
+ok(
+	'env gateway diimpor sebelum bridge (chainId memakai env)',
+	serverSource.indexOf("import './env'") < serverSource.indexOf("from './bridge'"),
 )
 ok(
 	'trust proxy loopback dipasang sebelum rateLimit',

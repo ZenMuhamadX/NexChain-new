@@ -45,6 +45,7 @@ import {
 	type TxInterface,
 	type VaultCrypto,
 } from '../src/index'
+import { encodeV } from '../../src/crypto/chainId'
 
 let pass = 0
 let fail = 0
@@ -159,7 +160,10 @@ ok(
 	'txHash: TxC plus 64 hex (not bare 64)',
 	isTxHash(`TxC${'a'.repeat(64)}`) && !isTxHash('a'.repeat(64)),
 )
-ok('chainId defaults to 26', CHAIN_ID === 26)
+ok(
+	'chainId dari env/fallback',
+	Number.isSafeInteger(CHAIN_ID) && CHAIN_ID > 0,
+)
 
 // ---------- 3 and 4. Wire tx, automatic fee, RBF ----------
 console.log('\n--- transactions ---')
@@ -185,7 +189,10 @@ ok(
 	'tx: txHash is recomputed from the payload',
 	decoded.txHash === tx.txHash && isTxHash(decoded.txHash ?? ''),
 )
-ok('tx: EIP-155 v for chainId 26', tx.sign.v === 87 || tx.sign.v === 88)
+ok(
+	'tx: EIP-155 v mengikuti CHAIN_ID',
+	tx.sign.v === encodeV(0) || tx.sign.v === encodeV(1),
+)
 ok(
 	'tx: 6 unsigned items / 8 signed items / type 0x02',
 	UNSIGNED_ITEM_COUNT === 6 && SIGNED_ITEM_COUNT === 8 && TX_TYPE === 0x02,

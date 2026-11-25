@@ -86,7 +86,7 @@ export const recoverPublicKey = (
 	// Aturan konsensus: tolak signature high-S (EIP-2) sebelum pemulihan.
 	assertCanonicalS(sign.s)
 
-	// EIP-155: decode v (87/88) ke recovery param (0/1)
+	// EIP-155: decode v ke recovery param (0/1) memakai CHAIN_ID
 	const recoveryParam = decodeV(sign.v)
 
 	const publicKey = ec

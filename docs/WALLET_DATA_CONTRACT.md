@@ -28,7 +28,7 @@ kebenaran; path sumber tercantum di tiap bagian.
 | Alamat | `NxC` + 40 hex lowercase = 43 char → 20 byte | `src/core/encoding/rlp/codecScalars.ts` |
 | txHash | `TxC` + 64 hex lowercase = 67 char | `src/core/encoding/rlp/txHash.ts` |
 | Hash blok | 64 hex tanpa prefix | `src/types/block.ts` |
-| Chain ID | default `26` (`NEX_CHAIN_ID`) | `src/crypto/chainId.ts` |
+| Chain ID | `NEX_CHAIN_ID`, fallback `2010` | `src/crypto/chainId.ts` |
 | Satuan | `1 NXC = 100_000_000 nexu` (8 desimal) | `src/core/token/constants.ts` |
 | Plafon suplai | `50_000_000 NXC = 5×10^15 nexu` | `src/core/token/constants.ts` |
 
@@ -123,8 +123,8 @@ RPC param = base64(payload)
 
 - `encodeTx()` → base64 payload; `decodeTx()` menghitung ulang `from` dan
   `txHash`, tidak mempercayai nilai dari luar.
-- `v = recoveryParam + chainId*2 + 35` (EIP-155; chainId 26 → 87/88).
-  `decodeV` juga menerima legacy `v = recovery + 26`.
+- `v = recoveryParam + chainId*2 + 35` (EIP-155; chainId 2010 → 4055/4056).
+  `decodeV` memakai `CHAIN_ID` yang sama, tanpa angka chain hardcoded.
 - ECDSA secp256k1 dengan `canonical: true` (low-s) → anti-malleability.
   `r`/`s` di-pad 64 hex lowercase.
 - Integer RLP = big-endian minimal kanonik (nol depan ditolak); `0 → empty`.
