@@ -64,29 +64,34 @@ export const ALLOWED_METHODS: ReadonlySet<string> = new Set([
 ])
 
 // ---------------------------------------------------------------------------
-// RPC ke node (server-side, memakai kredensial jika ada)
+// RPC ke node (server-side, memakai kredensial jika ada). Env dibaca per
+// request karena `config()` gateway dipanggil setelah modul ini dievaluasi.
 // ---------------------------------------------------------------------------
-
-const NODE_RPC_URL = process.env.NEX_RPC_URL || 'http://127.0.0.1:8000/rpc'
-const NODE_USER = process.env.RPC_USER
-const NODE_PASSWORD = process.env.RPC_PASSWORD
 
 export const nodeRpc = async (
 	method: string,
 	params: unknown[] = [],
 ): Promise<any> => {
+	const url = process.env.NEX_RPC_URL || 'http://127.0.0.1:8000/rpc'
+	const user = process.env.RPC_USER
+	const password = process.env.RPC_PASSWORD
 	const headers: Record<string, string> = { 'content-type': 'application/json' }
-	if (NODE_USER && NODE_PASSWORD)
+	if (user && password)
 		headers.authorization =
-			'Basic ' + Buffer.from(`${NODE_USER}:${NODE_PASSWORD}`).toString('base64')
+			'Basic ' + Buffer.from(`${user}:${password}`).toString('base64')
 
-	const response = await fetch(NODE_RPC_URL, {
+	const response = await fetch(url, {
 		method: 'POST',
 		headers,
 		body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
 	})
-	if (!response.ok)
-		throw new Error(`node RPC ${method} HTTP ${response.status}`)
+	if (!response.ok) {
+		const hint =
+			response.status === 401 || response.status === 403
+				? ' — cek NEX_RPC_URL gateway (jangan ke proxy/Envoy) dan RPC_USER/RPC_PASSWORD'
+				: ''
+		throw new Error(`node RPC ${method} HTTP ${response.status}${hint}`)
+	}
 
 	const body = (await response.json()) as {
 		result?: any

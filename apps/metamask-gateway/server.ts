@@ -35,13 +35,21 @@ import {
 } from './bridge'
 import { uint8ToBase64 } from 'src/core/encoding/hex/base64/uint8ToBase64'
 
+// Env gateway lebih dulu agar NEX_RPC_URL port 2008 menang atas root .env.
+config({ path: `${import.meta.dir}/.env` })
 config({ path: `${process.cwd()}/.env` })
 
 const PORT = Number(process.env.METAMASK_GATEWAY_PORT ?? 8545)
 const GAS_LIMIT_HEX = '0x5208' // 21000 — prototype, belum ada EVM
+console.log(
+	`Gateway → node: ${process.env.NEX_RPC_URL ?? '(default 127.0.0.1:8000)'} ` +
+		`(auth: ${process.env.RPC_USER && process.env.RPC_PASSWORD ? 'Basic' : 'none'})`,
+)
 
 const app = express()
 app.disable('x-powered-by')
+// cloudflared konek dari loopback dan menyisipkan X-Forwarded-For.
+app.set('trust proxy', 'loopback')
 app.use(helmet({ contentSecurityPolicy: false }))
 app.use(
 	cors({

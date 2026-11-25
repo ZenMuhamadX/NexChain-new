@@ -7,7 +7,7 @@ lewat `nex_*`; satu-satunya method tulis yang diteruskan adalah
 `personal_sign` tidak pernah diteruskan.
 
 ```
-MetaMask iOS ──HTTPS──> gateway (:8545) ──loopback + Basic Auth──> node (:8000)
+MetaMask iOS ──HTTPS──> gateway (:8545) ──loopback + Basic Auth──> node (:2008)
 ```
 
 ## Jalankan
@@ -19,15 +19,23 @@ bun run metamask:start
 Env (semua opsional):
 
 - `METAMASK_GATEWAY_PORT` — default `8545`
-- `NEX_RPC_URL` — default `http://127.0.0.1:8000/rpc`
+- `NEX_RPC_URL` — default `http://127.0.0.1:8000/rpc`. Set ke endpoint node yang
+  dipakai lewat `.env` folder ini; arahkan langsung ke node, bukan ke proxy yang
+  meminta autentikasi terpisah
 - `RPC_USER` / `RPC_PASSWORD` — kredensial node, dipakai server-side
 - `METAMASK_BRIDGE_MAPPING` — default `<NEX_DATA_DIR>/bridge/mappings.json`
+
+Gateway memuat `.env` folder ini lebih dulu, lalu root `.env`; jadi nilai di
+`.env` gateway menang. Salin `.env.example` ke `.env` di folder ini (file `.env`
+diabaikan git).
 
 iOS mewajibkan HTTPS: pasang reverse proxy dengan sertifikat valid di depan
 gateway, lalu pakai URL itu sebagai RPC URL di MetaMask. Buka halaman `/`
 dari **tab Browser di dalam aplikasi MetaMask** supaya `window.ethereum` ada.
 Di Windows/Chrome pakai `http://127.0.0.1:8545` (bukan `localhost`, yang bisa
-resolve ke `::1` lebih dulu).
+resolve ke `::1` lebih dulu). Cloudflare Tunnel menyisipkan `X-Forwarded-For`;
+gateway memakai `trust proxy = loopback` supaya rate-limit memakai IP asli dan
+tidak mencetak `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`.
 
 ## Identitas akun
 

@@ -102,6 +102,29 @@ ok(
 	!serverSource.includes('baseFeePerGas'),
 )
 ok('RPC dicatat ke konsol', serverSource.includes('handleRpcLogged'))
+const bridgeSource = fs.readFileSync(
+	path.join(import.meta.dir, '../apps/metamask-gateway/bridge.ts'),
+	'utf8',
+)
+ok(
+	'env RPC gateway dibaca saat request, bukan saat modul dimuat',
+	bridgeSource.indexOf('export const nodeRpc') <
+		bridgeSource.indexOf('process.env.NEX_RPC_URL'),
+)
+ok(
+	'error 401/403 menyebut NEX_RPC_URL & kredensial',
+	bridgeSource.includes('cek NEX_RPC_URL gateway'),
+)
+ok(
+	'.env gateway dimuat sebelum root .env',
+	serverSource.indexOf('import.meta.dir}/.env') <
+		serverSource.indexOf('process.cwd()}/.env'),
+)
+ok(
+	'trust proxy loopback dipasang sebelum rateLimit',
+	serverSource.indexOf("app.set('trust proxy', 'loopback')") <
+		serverSource.indexOf('rateLimit('),
+)
 const directAddressLookups =
 	serverSource.match(/ethToNexAddress\(asString\(params, 0\)\)/g) ?? []
 ok(
