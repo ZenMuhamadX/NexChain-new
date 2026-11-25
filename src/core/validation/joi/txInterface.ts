@@ -1,5 +1,7 @@
 ﻿import Joi from 'joi'
 import { MAX_SUPPLY_NEXU } from 'src/core/token/constants'
+import { TX_TYPE } from 'src/core/encoding/rlp/txCodec'
+import { ETH_TX_TYPE } from 'src/core/encoding/rlp/ethTxCodec'
 
 // Validator for memPoolInterface to ensure valid transaction data
 //
@@ -54,4 +56,15 @@ export const txInterfaceValidator = Joi.object({
 	// di lapisan berikutnya.
 	fee: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
 	nonce: Joi.number().required().integer().min(0),
+	// Tx lama `0x02` tidak membawa field ini. Tx Ethereum `0x03` wajib
+	// membawa `raw` — dipakai ulang untuk txHash, fee, dan verifikasi tanda
+	// tangan, jadi tidak boleh diisi sembarangan.
+	type: Joi.number().integer().valid(TX_TYPE, ETH_TX_TYPE).optional(),
+	raw: Joi.string()
+		.pattern(/^0x([0-9a-f]{2})+$/)
+		.when('type', {
+			is: ETH_TX_TYPE,
+			then: Joi.required(),
+			otherwise: Joi.forbidden(),
+		}),
 })

@@ -55,6 +55,13 @@ import { sha256 } from 'src/core/encoding/sha256'
 import { rlpEncode, type RlpInput } from './rlpEncode'
 import { rlpDecode } from './rlpDecode'
 import { TX_HASH_PREFIX } from './txHash'
+import {
+	ETH_TX_TYPE,
+	decodeEthTxPayload,
+	encodeEthTxPayload,
+	ethTxFrom,
+	ethTxSighash,
+} from './ethTxCodec'
 // Primitive byte <-> skalar hidup di satu modul bersama codec blok; lihat
 // catatan di `codecScalars.ts` soal alasan pemisahannya.
 import {
@@ -182,9 +189,11 @@ export const rlpListToTx = (list: RlpInput): TxInterface => {
 // Hash & payload
 // ---------------------------------------------------------------------------
 
-/** Hash yang DITANDATANGANI — 32 byte. */
+/** Hash yang DITANDATANGANI — 32 byte (EIP-155 keccak untuk tipe `0x03`). */
 export const txSighash = (tx: TxInterface): Uint8Array =>
-	sha256(rlpEncode(txUnsignedRlpList(tx)), 'buffer') as Uint8Array
+	tx.type === ETH_TX_TYPE
+		? ethTxSighash(hexToBytes(tx.raw ?? ''))
+		: (sha256(rlpEncode(txUnsignedRlpList(tx)), 'buffer') as Uint8Array)
 
 /**
  * Pengirim — TURUNAN, bukan field yang dikirim.
@@ -200,10 +209,13 @@ export const txSighash = (tx: TxInterface): Uint8Array =>
  * untuk dibandingkan.
  */
 export const txFrom = (tx: TxInterface): string | undefined =>
-	recoverSignerAddress(txSighash(tx), tx.sign)
+	tx.type === ETH_TX_TYPE
+		? ethTxFrom(hexToBytes(tx.raw ?? ''))
+		: recoverSignerAddress(txSighash(tx), tx.sign)
 
-/** Payload wire: `0x02 ‖ rlp(signed)`. */
+/** Payload wire: `0x02 ‖ rlp(signed)` atau `0x03 ‖ raw Ethereum`. */
 export const encodeTxPayload = (tx: TxInterface): Uint8Array => {
+	if (tx.type === ETH_TX_TYPE) return encodeEthTxPayload(tx)
 	const body = rlpEncode(txToRlpList(tx))
 	const out = new Uint8Array(body.length + 1)
 	out[0] = TX_TYPE
@@ -229,6 +241,7 @@ export const txHashOf = (tx: TxInterface): string =>
  */
 export const decodeTxPayload = (data: Uint8Array): TxInterface => {
 	if (data.length === 0) throw new Error('txCodec: payload kosong')
+	if (data[0] === ETH_TX_TYPE) return decodeEthTxPayload(data)
 	if (data[0] !== TX_TYPE) {
 		throw new Error(
 			`txCodec: tipe transaksi tidak dikenal: 0x${data[0]

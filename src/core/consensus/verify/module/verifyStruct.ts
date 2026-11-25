@@ -7,6 +7,7 @@ import {
 	MAX_TX_PER_BLOCK,
 } from 'src/core/consensus/blockLimits'
 import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
+import { txInterfaceValidator } from 'src/core/validation/joi/txInterface'
 import Joi from 'joi'
 import _ from 'lodash'
 
@@ -26,24 +27,6 @@ import _ from 'lodash'
 // `verifyChainIntegrity` menelusuri seluruh rantai, itu berarti ribuan
 // kompilasi skema yang identik. Kini skema hidup di scope modul (dibangun
 // sekali saat impor) dan `verifyStruct` hanya memanggil `.validate()`.
-
-// Schema untuk transaksi di dalam blok (MemPoolInterface).
-const txInterface = Joi.object({
-	// `from` adalah hasil ecrecover, bukan field yang dikirim. Transaksi
-	// di dalam blok selalu sudah melewati decode, jadi nilainya ada.
-	from: Joi.string().required(),
-	receiver: Joi.string().required(),
-	amount: Joi.number().required().max(MAX_SUPPLY_NEXU),
-	txHash: Joi.string().required(),
-	sign: Joi.object({
-		r: Joi.string().required(),
-		s: Joi.string().required(),
-		v: Joi.number().required(),
-	}).required(),
-	data: Joi.string().optional(),
-	fee: Joi.number().required().min(0).max(MAX_SUPPLY_NEXU),
-	nonce: Joi.number().integer().min(0).required(),
-})
 
 // Schema untuk objek coinbaseTransaction.
 const coinbaseTransactionSchema = Joi.object({
@@ -105,7 +88,10 @@ const blockStructSchema = Joi.object({
 	metadata: metadataSchema.optional(), // Use .optional() if metadata is not required
 	// C1: jumlah tx dibatasi konsensus (lihat `blockLimits`); cap di sini
 	// menutup blok yang memaksa verifier memproses tx tak terhingga per byte.
-	transactions: Joi.array().items(txInterface).max(MAX_TX_PER_BLOCK).required(),
+	transactions: Joi.array()
+		.items(txInterfaceValidator)
+		.max(MAX_TX_PER_BLOCK)
+		.required(),
 	contract: Joi.any(),
 })
 

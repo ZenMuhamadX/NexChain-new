@@ -354,13 +354,16 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 					'minerAddress required — kirim {minerAddress} (alamat penerima hadiah)',
 			}
 		}
-		if (!isValidAddress(provided)) {
+		const raw = provided.trim()
+		const minerAddress = /^NxC/i.test(raw)
+			? `NxC${raw.slice(3).toLowerCase()}`
+			: raw.toLowerCase()
+		if (!isValidAddress(minerAddress)) {
 			return {
 				status: false,
-				error: `Invalid miner address: ${formatStr(provided)}`,
+				error: `Invalid miner address: ${formatStr(provided)} (harus NxC + 40 hex)`,
 			}
 		}
-		const minerAddress = provided
 
 		// Jangan membangun di atas rantai yang rusak: integrity check kini
 		// benar-benar memeriksa hasil (verifyStruct await, PoW, hash chain,

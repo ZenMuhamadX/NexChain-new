@@ -112,9 +112,10 @@ fn parse_args() -> Result<Args, String> {
         }
         None => return Err("--address wajib diisi (pakai --help)".to_string()),
     };
+    let address = normalize_address(&address);
     if !is_valid_address(&address) {
         return Err(format!(
-            "alamat tidak valid: {address:?} - harus diawali NxC dan 43 karakter"
+            "alamat tidak valid: {address:?} - harus NxC + 40 hex (43 karakter)"
         ));
     }
 
@@ -139,9 +140,26 @@ fn parse_args() -> Result<Args, String> {
     })
 }
 
-/// Salinan `isValidAddress` node.
+/// Terima `NxC`/`nxc` dengan hex apa pun; hasil selalu `NxC` + hex lowercase.
+fn normalize_address(address: &str) -> String {
+    let trimmed = address.trim();
+    match trimmed.get(..3) {
+        Some(prefix) if prefix.eq_ignore_ascii_case("NxC") =>
+            format!("NxC{}", trimmed[3..].to_lowercase()),
+        _ => trimmed.to_lowercase(),
+    }
+}
+
+/// Salinan `isValidAddress` node: `NxC` + 40 hex lowercase.
 fn is_valid_address(address: &str) -> bool {
-    address.starts_with("NxC") && address.len() == 43
+    if !address.starts_with("NxC") {
+        return false;
+    }
+    let hex = &address[3..];
+    hex.len() == 40
+        && hex
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 fn now_ms() -> u64 {
@@ -619,6 +637,10 @@ mod tests {
         let good_x = format!("NxC{}", "a".repeat(40));
         assert_eq!(good_x.len(), 43);
         assert!(is_valid_address(&good_x));
+        assert_eq!(normalize_address(" NxC00AB "), "NxC00ab");
+        assert_eq!(normalize_address("nXc00AB"), "NxC00ab");
+        assert!(!is_valid_address(&format!("NxC{}", "A".repeat(40))));
+        assert!(!is_valid_address(&format!("NxC{}", "g".repeat(40))));
         assert!(!is_valid_address(&format!("NxS{}", "b".repeat(40))));
         assert!(!is_valid_address("NxC"));
         assert!(!is_valid_address(&format!("NxC{}", "a".repeat(41))));

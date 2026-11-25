@@ -42,6 +42,13 @@ import { HexString } from 'src/types/block'
  * transaksi on-chain.
  */
 export interface TxInterface {
+	/**
+	 * Byte tipe wire. Absen = `0x02` (skema NexChain). `0x03` = transaksi
+	 * Ethereum legacy yang diterjemahkan gateway; field `raw` wajib ada.
+	 */
+	type?: number
+	/** RLP signed Ethereum mentah (tanpa byte tipe), hanya untuk `type: 0x03`. */
+	raw?: HexString
 	nonce: number
 	fee: number
 	receiver: string

@@ -177,7 +177,7 @@ const snapshot = async (address: string) => {
 // kebetulan sama).
 console.log('\nGROUP 5 — klasifikasi P2P connectBlock (nonce FATAL):')
 
-const SENDER_P2P = `NxC${'9p'.repeat(20)}`
+const SENDER_P2P = `NxC${'98'.repeat(20)}`
 await fund(SENDER_P2P)
 {
 	const { prepareBlockForHashing } = await import('src/core/block/prepareBlock')
@@ -466,8 +466,8 @@ await fund(SENDER_T6)
 console.log('\nGROUP 6 — prioritas laju-fee + cap byte:')
 
 const SENDER_F = `NxC${'f7'.repeat(20)}`
-const SENDER_G = `NxC${'8g'.repeat(20)}`
-const SENDER_H = `NxC${'h9'.repeat(20)}`
+const SENDER_G = `NxC${'87'.repeat(20)}`
+const SENDER_H = `NxC${'76'.repeat(20)}`
 await fund(SENDER_F)
 await fund(SENDER_G)
 {

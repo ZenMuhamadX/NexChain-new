@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { classifyQuery } from '../lib/classify'
+import { classifyQuery, normalizeQuery } from '../lib/classify'
 
 const RECENT_KEY = 'nex:recent-search'
 const RECENT_LIMIT = 5
@@ -94,7 +94,7 @@ export function SearchBar({
 	const kindLabel = trimmed ? KIND_LABEL[kind] : ''
 
 	const go = (value: string) => {
-		const target = value.trim()
+		const target = normalizeQuery(value)
 		if (!target) return
 		const next = [target, ...recent.filter((item) => item !== target)].slice(
 			0,

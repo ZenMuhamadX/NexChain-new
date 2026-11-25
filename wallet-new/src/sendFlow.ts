@@ -8,6 +8,14 @@ import { toNexu } from 'src/core/token/toNexu'
 import { validateTransactionFees } from 'src/core/validation/module/isValidTxFee'
 import type { TxInterface } from 'src/types/transaction'
 
+/** Normalkan alamat: prefix `NxC` tetap kanonik, hex jadi lowercase. */
+const normalizeReceiver = (value: string): string => {
+	const trimmed = value.trim()
+	return /^NxC/i.test(trimmed)
+		? `NxC${trimmed.slice(3).toLowerCase()}`
+		: trimmed
+}
+
 /** Lantai biaya: wire tx paling ramping berukuran 96 byte. */
 export const MIN_WIRE_FEE_NEXU = 96
 const AUTO_FEE_SEED_NEXU = 100
@@ -43,9 +51,9 @@ export const validateSendForm = (
 	availableNexu?: number,
 ): SendErrors => {
 	const errors: SendErrors = {}
-	const receiver = form.receiver.trim()
+	const receiver = normalizeReceiver(form.receiver)
 	if (!isValidAddress(receiver)) {
-		errors.receiver = 'Invalid address (NxC + 40 hex).'
+		errors.receiver = 'Invalid address (NxC + 40 lowercase hex).'
 	} else if (receiver === sender) {
 		errors.receiver = 'Sender and recipient must be different.'
 	}
@@ -105,7 +113,7 @@ export const buildSignedTransaction = async (
 	for (let i = 0; i < AUTO_FEE_MAX_ITERATIONS; i++) {
 		const unsigned = createUnsignedTransaction(
 			{
-				receiver: form.receiver.trim(),
+				receiver: normalizeReceiver(form.receiver),
 				format: 'nexu',
 				sender,
 				amount,

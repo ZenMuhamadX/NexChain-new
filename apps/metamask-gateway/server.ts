@@ -3,7 +3,8 @@
  *
  * Node tetap memakai Basic Auth + CORS ketat di loopback. Gateway ini yang
  * bicara `eth_*` ke MetaMask (CORS longgar, tanpa credentials) dan meneruskan
- * HANYA method baca ke node lewat `nex_*`.
+ * method baca plus `eth_sendRawTransaction` ke node lewat `nex_*`. Method tulis
+ * lain (`nex_getWork`, `nex_submitWork`, `eth_sign`, …) tidak pernah diteruskan.
  */
 import { config } from 'dotenv'
 import express, { ErrorRequestHandler } from 'express'
@@ -13,20 +14,26 @@ import { rateLimit } from 'express-rate-limit'
 import {
 	CHAIN_ID_HEX,
 	consumeNonce,
+	ethToNexAddress,
 	formatWeiAsNxc,
 	GAS_PRICE_HEX,
-	getNexForEth,
+	getEthForNex,
+	getEthHashForNex,
+	getNexHashForEth,
+	hashEthTx,
 	issueNonce,
 	nexToEthAddress,
 	normalizeChainId,
 	nodeRpc,
 	nexuToWeiHex,
 	setMapping,
+	setTxHashMapping,
 	toEthHash,
 	toHexQuantity,
 	toNexHash,
 	verifyRegistration,
 } from './bridge'
+import { uint8ToBase64 } from 'src/core/encoding/hex/base64/uint8ToBase64'
 
 config({ path: `${process.cwd()}/.env` })
 
@@ -86,6 +93,12 @@ interface EthTx {
 	s: string
 }
 
+const displayEthAddress = (nex: string): string =>
+	getEthForNex(nex) ?? nexToEthAddress(nex)
+
+const lookupHash = (hash: string): string =>
+	getNexHashForEth(hash) ?? toNexHash(hash)
+
 const toEthTx = (record: any): EthTx => {
 	const meta = record.metadata as
 		{ blockHeight: number; blockHash: string } | undefined
@@ -93,13 +106,13 @@ const toEthTx = (record: any): EthTx => {
 	const prefix32 = (value: string): string =>
 		`0x${value.replace(/^0x/, '').padStart(64, '0')}`
 	return {
-		hash: toEthHash(record.txHash),
+		hash: getEthHashForNex(record.txHash) ?? toEthHash(record.txHash),
 		nonce: toHexQuantity(record.nonce),
 		blockHash: meta ? `0x${meta.blockHash}` : null,
 		blockNumber: meta ? toHexQuantity(meta.blockHeight) : null,
 		transactionIndex: meta ? '0x0' : null,
-		from: nexToEthAddress(record.from),
-		to: nexToEthAddress(record.receiver),
+		from: displayEthAddress(record.from),
+		to: displayEthAddress(record.receiver),
 		value: nexuToWeiHex(record.amount),
 		gas: GAS_LIMIT_HEX,
 		gasPrice: GAS_PRICE_HEX,
@@ -107,6 +120,24 @@ const toEthTx = (record: any): EthTx => {
 		v: sign ? toHexQuantity(sign.v) : '0x0',
 		r: sign ? prefix32(sign.r) : prefix32('0'),
 		s: sign ? prefix32(sign.s) : prefix32('0'),
+	}
+}
+
+const toEthBlock = (block: any, fullTx: boolean) => {
+	const body = block.block ?? block
+	return {
+		number: toHexQuantity(body.height),
+		hash: `0x${body.header.hash}`,
+		parentHash: `0x${body.header.previousBlockHash}`,
+		timestamp: toHexQuantity(body.header.timestamp),
+		miner: displayEthAddress(body.minerId),
+		gasLimit: GAS_LIMIT_HEX,
+		gasUsed: '0x0',
+		// Jangan sertakan kolom base fee: MetaMask akan kirim tx tipe 2 yang
+		// tidak bisa dibaca node (node hanya menerima 0x03 ‖ legacy RLP).
+		transactions: (body.transactions ?? []).map((tx: any) =>
+			fullTx ? toEthTx(tx) : toEthHash(tx.txHash),
+		),
 	}
 }
 
@@ -131,14 +162,12 @@ const handleRpc = async (method: string, params: unknown): Promise<any> => {
 			return toHexQuantity(state.currentBlockHeight)
 		}
 		case 'eth_getBalance': {
-			const nex = getNexForEth(asString(params, 0))
-			if (!nex) return '0x0' // belum registrasi → alamat NexChain tidak dikenal
+			const nex = ethToNexAddress(asString(params, 0))
 			const account = await nodeRpc('nex_getAccount', [nex])
 			return nexuToWeiHex(account?.balance ?? 0)
 		}
 		case 'eth_getTransactionCount': {
-			const nex = getNexForEth(asString(params, 0))
-			if (!nex) return '0x0'
+			const nex = ethToNexAddress(asString(params, 0))
 			const tag = param(params, 1)
 			const nonce =
 				tag === 'pending'
@@ -153,29 +182,28 @@ const handleRpc = async (method: string, params: unknown): Promise<any> => {
 				height < 0
 					? await nodeRpc('nex_getCurrentBlock')
 					: await nodeRpc('nex_getBlockByHeight', [height])
-			if (!block) return null
-			const body = (block as any).block ?? block
-			return {
-				number: toHexQuantity(body.height),
-				hash: `0x${body.header.hash}`,
-				parentHash: `0x${body.header.previousBlockHash}`,
-				timestamp: toHexQuantity(body.header.timestamp),
-				miner: nexToEthAddress(body.minerId),
-				gasLimit: GAS_LIMIT_HEX,
-				gasUsed: '0x0',
-				transactions: (body.transactions ?? []).map((tx: any) =>
-					param(params, 1) === true ? toEthTx(tx) : toEthHash(tx.txHash),
-				),
-			}
+			return block ? toEthBlock(block, param(params, 1) === true) : null
+		}
+		case 'eth_getBlockByHash': {
+			// Node menyimpan kunci `blockHash:<hex>` tanpa prefix 0x.
+			const hash = asString(params, 0).replace(/^0x/, '')
+			const block = await nodeRpc('nex_getBlockByHash', [hash])
+			return block ? toEthBlock(block, param(params, 1) === true) : null
 		}
 		case 'eth_getTransactionByHash': {
 			const hash = asString(params, 0)
 			try {
 				const record = await nodeRpc('nex_getTransactionByTxHash', [
-					toNexHash(hash),
+					lookupHash(hash),
 				])
 				return record ? toEthTx(record) : null
-			} catch {
+			} catch (error) {
+				logRpc(
+					method,
+					brief(hash),
+					'→ null (ERROR)',
+					error instanceof Error ? error.message : String(error),
+				)
 				return null
 			}
 		}
@@ -183,7 +211,7 @@ const handleRpc = async (method: string, params: unknown): Promise<any> => {
 			const hash = asString(params, 0)
 			try {
 				const record = await nodeRpc('nex_getTransactionByTxHash', [
-					toNexHash(hash),
+					lookupHash(hash),
 				])
 				if (!record?.metadata) return null // pending belum punya receipt
 				const tx = toEthTx(record)
@@ -202,14 +230,76 @@ const handleRpc = async (method: string, params: unknown): Promise<any> => {
 					effectiveGasPrice: GAS_PRICE_HEX,
 					type: '0x0',
 				}
-			} catch {
+			} catch (error) {
+				logRpc(
+					method,
+					brief(hash),
+					'→ null (ERROR)',
+					error instanceof Error ? error.message : String(error),
+				)
 				return null
 			}
+		}
+		case 'eth_sendRawTransaction': {
+			const rawHex = asString(params, 0)
+			if (!/^0x[0-9a-fA-F]+$/.test(rawHex) || rawHex.length % 2 !== 0)
+				throw new Error('raw transaction harus hex berpasangan')
+			const raw = new Uint8Array(Buffer.from(rawHex.slice(2), 'hex'))
+			const hashes = hashEthTx(raw)
+			const payload = new Uint8Array(raw.length + 1)
+			payload[0] = 0x03
+			payload.set(raw, 1)
+			const result = await nodeRpc('nex_sendRawTransaction', [
+				uint8ToBase64(payload),
+			])
+			if (!result?.status)
+				throw new Error(result?.error ?? 'transaksi ditolak node')
+			setTxHashMapping(hashes.eth, hashes.nex)
+			return hashes.eth
 		}
 		default:
 			// JANGAN pernah fallback meneruskan method ke node: itu yang
 			// membuka jalur nex_getWork/nex_submitWork ke publik.
 			throw new Error(`method ${method} tidak tersedia di gateway`)
+	}
+}
+
+const logRpc = (...parts: unknown[]): void =>
+	console.log(`[${new Date().toISOString()}]`, ...parts)
+
+const brief = (value: unknown): string => {
+	let text: string
+	try {
+		text = JSON.stringify(value) ?? String(value)
+	} catch {
+		text = String(value)
+	}
+	return text.length > 240 ? `${text.slice(0, 240)}…` : text
+}
+
+const handleRpcLogged = async (
+	method: string,
+	params: unknown,
+): Promise<any> => {
+	const started = Date.now()
+	try {
+		const result = await handleRpc(method, params)
+		logRpc(
+			method,
+			brief(params),
+			'→',
+			brief(result),
+			`(${Date.now() - started}ms)`,
+		)
+		return result
+	} catch (error) {
+		logRpc(
+			method,
+			brief(params),
+			'→ ERROR',
+			error instanceof Error ? error.message : String(error),
+		)
+		throw error
 	}
 }
 
@@ -258,7 +348,7 @@ app.post('/rpc', async (req, res) => {
 			body.map(async (entry: any) => ({
 				jsonrpc: '2.0',
 				id: entry?.id ?? null,
-				result: await handleRpc(entry?.method, entry?.params),
+				result: await handleRpcLogged(entry?.method, entry?.params),
 			})),
 		)
 		res.json(responses)
@@ -268,7 +358,7 @@ app.post('/rpc', async (req, res) => {
 		res.json({
 			jsonrpc: '2.0',
 			id: body.id ?? null,
-			result: await handleRpc(body.method, body.params),
+			result: await handleRpcLogged(body.method, body.params),
 		})
 	} catch (error) {
 		res.json({
@@ -318,11 +408,18 @@ button{font-size:1rem;padding:.7rem 1rem;margin:.3rem .3rem .3rem 0;border:0;bor
 <body>
 <h1>Hubungkan MetaMask ke NexChain</h1>
 <p>Impor seed <b>tidak</b> memindahkan saldo. Saldo baru muncul setelah kamu tanda tangan gratis di bawah — <b>tanpa gas, tanpa transaksi, tanpa dana pindah</b>.</p>
-<div class="warn">Alamat MetaMask (<code>0x…</code>) berbeda dengan alamat wallet NexChain lama (<code>NxC…</code>), walaupun seed-nya sama. Tanda tangan ini memberi tahu gateway mana alamat NexChain milik akun MetaMask ini.</div>
+<div class="warn">Alamat MetaMask (<code>0x…</code>) dan alamat NexChain (<code>NxC…</code>) memakai 20 byte yang sama — beda prefix saja. Tanda tangan ini mengikat 20 byte itu ke akun MetaMask. Salin alamat <code>NxC…</code> di bawah untuk menerima dana dari wallet NexChain.</div>
 <button id="connect">Hubungkan &amp; daftarkan</button>
+<button id="copyNex" hidden>Salin alamat NxC</button>
 <pre id="status">Buka halaman ini dari ekstensi MetaMask di Chrome/Edge, atau tab Browser di MetaMask iOS.</pre>
 <script>
 const status = document.getElementById('status')
+let registeredNex = ''
+document.getElementById('copyNex').onclick = async () => {
+  if (!registeredNex) return
+  await navigator.clipboard.writeText(registeredNex)
+  status.textContent = 'Alamat NxC tersalin:\\n' + registeredNex
+}
 const expectedChain = '${CHAIN_ID_HEX}'
 const normalizeChainId = ${normalizeChainId.toString()}
 const formatWeiAsNxc = ${formatWeiAsNxc.toString()}
@@ -360,7 +457,9 @@ document.getElementById('connect').onclick = async () => {
     if (result.error) throw new Error(result.error)
     const balance = await rpc('eth_getBalance',[result.eth,'latest'])
     const saldo = balance.result ? formatWeiAsNxc(balance.result) : '?'
-    status.textContent = 'Terdaftar\\nMetaMask: '+result.eth+'\\nNexChain: '+result.nex+'\\nSaldo (NXC): '+saldo+'\\n\\nKalau saldo di MetaMask masih 0, pindah network ke Ethereum lalu balik ke NexChain untuk menyegarkan cache.\\nKirim transaksi belum aktif di tahap ini.'
+    registeredNex = result.nex
+    document.getElementById('copyNex').hidden = false
+    status.textContent = 'Terdaftar\\nMetaMask: '+result.eth+'\\nNexChain: '+result.nex+'\\nSaldo (NXC): '+saldo+'\\n\\nKalau saldo di MetaMask masih 0, pindah network ke Ethereum lalu balik ke NexChain untuk menyegarkan cache.\\nKirim dari MetaMask sudah aktif.'
   } catch (error) {
     status.textContent = 'Gagal: ' + (error.message || error)
   }

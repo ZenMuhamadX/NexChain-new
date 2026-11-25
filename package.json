@@ -17,6 +17,7 @@
 		"check:consensus": "bun run scripts/consensusRulesCheck.ts",
 		"check:rpc": "bun run scripts/rpcSecurityCheck.ts",
 		"check:metamask": "bun run scripts/metamaskGatewayCheck.ts",
+		"check:ethTx": "bun run scripts/ethTxCodecCheck.ts",
 		"check:p2p": "bun run scripts/p2pCheck.ts",
 		"check:txpolicy": "bun run scripts/txPolicyCheck.ts",
 		"check:storage": "bun run scripts/storageCheck.ts",

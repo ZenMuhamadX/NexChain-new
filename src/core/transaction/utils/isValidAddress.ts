@@ -1,2 +1,2 @@
 export const isValidAddress = (address: string): boolean =>
-	address.startsWith('NxC') && address.length === 43
+	/^NxC[0-9a-f]{40}$/.test(address)

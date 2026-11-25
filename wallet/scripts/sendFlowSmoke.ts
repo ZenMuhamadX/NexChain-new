@@ -148,6 +148,14 @@ const main = async (): Promise<void> => {
 			info.address,
 		)
 		ok(badAddr.receiver !== undefined, 'sendFlow: alamat pendek ditolak')
+		const mixedCase = validateSendForm(
+			{ ...form, receiver: `NxC${'0'.repeat(39)}A` },
+			info.address,
+		)
+		ok(
+			mixedCase.receiver === undefined,
+			'sendFlow: alamat huruf besar dinormalkan',
+		)
 		const sameParty = validateSendForm(
 			{ ...form, receiver: info.address },
 			info.address,

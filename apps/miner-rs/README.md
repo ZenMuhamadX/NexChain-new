@@ -39,7 +39,7 @@ nex-miner --rpc http://192.168.1.10:8000/rpc --address NxC... --threads 6
 
 | flag           | default                                     | keterangan                                  |
 | -------------- | ------------------------------------------- | ------------------------------------------- |
-| `--address`    | wajib (prompt kalau TTY)                    | alamat penerima hadiah, `NxC`/`NxS` 43 char |
+| `--address`    | wajib (prompt kalau TTY)                    | alamat penerima hadiah, `NxC` + 40 hex lowercase (43 char) |
 | `--rpc`        | `NEX_RPC_URL` → `http://localhost:8000/rpc` | endpoint JSON-RPC                           |
 | `--threads`    | jumlah CPU logis                            | turunkan kalau laptop kepanasan             |
 | `--user`       | `NEX_RPC_USER`                              | username Basic Auth                         |

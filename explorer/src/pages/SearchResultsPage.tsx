@@ -1,7 +1,7 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { rpc } from '../api/methods'
 import { isNotFound } from '../api/rpcClient'
-import { classifyQuery } from '../lib/classify'
+import { classifyQuery, normalizeQuery } from '../lib/classify'
 import { useAsync } from '../hooks/useAsync'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import {
@@ -26,7 +26,8 @@ import {
  * membuat React melempar "Rendered more hooks than during the previous render".
  */
 export function SearchResultsPage() {
-	const { query = '' } = useParams()
+	const { query: rawQuery = '' } = useParams()
+	const query = normalizeQuery(rawQuery)
 	useDocumentTitle(`Search: ${query}`)
 
 	const kind = classifyQuery(query)

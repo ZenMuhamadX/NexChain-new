@@ -151,6 +151,11 @@ ok(
 	isValidAddress(info.address) && !isValidAddress('NxCabc'),
 )
 ok(
+	'address: lowercase hex only',
+	!isValidAddress(`NxC${'A'.repeat(40)}`) &&
+		!isValidAddress(`NxC${'g'.repeat(40)}`),
+)
+ok(
 	'txHash: TxC plus 64 hex (not bare 64)',
 	isTxHash(`TxC${'a'.repeat(64)}`) && !isTxHash('a'.repeat(64)),
 )
@@ -219,6 +224,13 @@ ok(
 	'validation: sender equals recipient is rejected',
 	validateSendForm({ ...form, receiver: sender }, sender).receiver !==
 		undefined,
+)
+ok(
+	'validation: uppercase hex receiver is normalized',
+	validateSendForm(
+		{ ...form, receiver: `NxC${'0'.repeat(39)}A` },
+		sender,
+	).receiver === undefined,
 )
 ok(
 	'validation: thousands separator is rejected',

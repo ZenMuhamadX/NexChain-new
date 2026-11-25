@@ -1,5 +1,4 @@
-﻿import { recoverSignerAddress } from 'src/crypto/verifySignature'
-import { txSighash, txHashOf } from 'src/core/encoding/rlp/txCodec'
+﻿import { txFrom, txHashOf } from 'src/core/encoding/rlp/txCodec'
 import { validateRule } from './validateField'
 import { TxInterface } from 'src/types/transaction'
 
@@ -51,7 +50,7 @@ export const validateTransactionSignature = async (
 		return false
 	}
 
-	const signer = recoverSignerAddress(txSighash(transaction), transaction.sign!)
+	const signer = txFrom(transaction)
 	if (
 		!validateRule(
 			signer !== undefined,

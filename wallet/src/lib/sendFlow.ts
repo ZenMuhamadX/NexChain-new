@@ -12,6 +12,14 @@ import { sendRawTransaction } from './rpc'
 import { formatNxcCompact } from './format'
 import { cryptoWorker } from '@/hooks/useCryptoWorker'
 
+/** Normalkan alamat: prefix `NxC` tetap kanonik, hex jadi lowercase. */
+const normalizeReceiver = (value: string): string => {
+	const trimmed = value.trim()
+	return /^NxC/i.test(trimmed)
+		? `NxC${trimmed.slice(3).toLowerCase()}`
+		: trimmed
+}
+
 /**
  * Ukuran wire (byte) TERKECIL untuk transaksi sah = lantai biaya fee otomatis
  * wallet (lantai laju-fee node = 1 nexu/byte, jadi fee = ukuran wire).
@@ -55,7 +63,7 @@ export const hasSendErrors = (errors: SendErrors): boolean =>
  * Aturan yang diterapkan (sumber: `src/core/validation/module/isValid*` dan
  * Joi `txInterfaceValidator`):
  *
- *   - alamat    : `isValidAddress` (prefix NxC, panjang 43) -
+ *   - alamat    : `isValidAddress` (NxC + 40 hex lowercase, 43 char) -
  *                 validateAddresses + validateAddressLengths
  *   - pengirim ≠ penerima — validateTransactionSenderReceiver
  *   - jumlah    : > 0, parse string eksak via `toNexu` (aritmetika string,
@@ -84,10 +92,10 @@ export const validateSendForm = (
 ): SendErrors => {
 	const errors: SendErrors = {}
 
-	const receiver = form.receiver.trim()
+	const receiver = normalizeReceiver(form.receiver)
 	if (!isValidAddress(receiver)) {
 		errors.receiver =
-			'Alamat tidak valid (harus diawali NxC, panjang 43 karakter).'
+			'Alamat tidak valid (harus NxC + 40 hex lowercase, 43 karakter).'
 	} else if (receiver === sender) {
 		errors.receiver = 'Pengirim dan penerima tidak boleh sama.'
 	}
@@ -177,7 +185,7 @@ const composeComTx = (
 	amountNexu: number,
 ): comTxInterface => {
 	const comTx: comTxInterface = {
-		receiver: form.receiver.trim(),
+		receiver: normalizeReceiver(form.receiver),
 		format: 'nexu',
 		sender,
 		amount: amountNexu,

@@ -167,6 +167,7 @@ const OFFLINE_GATES: ReadonlyArray<{ label: string; script: string }> = [
 	{ label: 'aturan konsensus', script: 'check:consensus' },
 	{ label: 'keamanan RPC', script: 'check:rpc' },
 	{ label: 'gateway MetaMask', script: 'check:metamask' },
+	{ label: 'codec tx Ethereum (0x03)', script: 'check:ethTx' },
 	{ label: 'P2P (framing/protokol)', script: 'check:p2p' },
 	{ label: 'kebijakan tx', script: 'check:txpolicy' },
 	{ label: 'storage', script: 'check:storage' },

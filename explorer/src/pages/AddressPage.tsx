@@ -12,7 +12,7 @@ import { PageSkeleton, SkeletonTable } from '../components/common/Skeleton'
 import { EmptyState, ErrorState } from '../components/common/States'
 import { useAsync } from '../hooks/useAsync'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { ADDRESS_PATTERN } from '../lib/classify'
+import { ADDRESS_PATTERN, normalizeQuery } from '../lib/classify'
 import {
 	formatDateTime,
 	formatNxc,
@@ -25,7 +25,8 @@ import {
 const PAGE_SIZE = 25
 
 export function AddressPage() {
-	const { address = '' } = useParams()
+	const { address: rawAddress = '' } = useParams()
+	const address = normalizeQuery(rawAddress)
 	const valid = ADDRESS_PATTERN.test(address)
 	const [params] = useSearchParams()
 	const { pathname } = useLocation()

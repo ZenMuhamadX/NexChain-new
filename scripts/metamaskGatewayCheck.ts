@@ -1,5 +1,5 @@
 /**
- * Gate offline untuk Stage 1 dari gateway MetaMask.
+ * Gate offline untuk gateway MetaMask (registrasi + kirim).
  *
  * Jalankan:  bun run check:metamask
  *
@@ -43,8 +43,6 @@ const throws = (fn: () => unknown): boolean => {
 }
 
 const { CHAIN_ID } = await import('../src/crypto/chainId')
-const { generateAddressFromPublicKey } =
-	await import('../src/crypto/generateAddressFromPublicKey')
 
 const ec = new EC('secp256k1')
 const PRIVATE_KEY =
@@ -73,6 +71,8 @@ for (const method of [
 	'eth_getBalance',
 	'eth_getTransactionCount',
 	'eth_getTransactionReceipt',
+	'eth_getBlockByHash',
+	'eth_sendRawTransaction',
 ])
 	ok(`${method} diizinkan`, bridge.ALLOWED_METHODS.has(method))
 for (const method of [
@@ -80,13 +80,43 @@ for (const method of [
 	'nex_submitWork',
 	'nex_sendTransaction',
 	'nex_sendRawTransaction',
-	'eth_sendRawTransaction',
 	'eth_sign',
 	'personal_sign',
 	'wallet_switchEthereumChain',
 	'wallet_addEthereumChain',
 ])
 	ok(`${method} DITOLAK`, !bridge.ALLOWED_METHODS.has(method))
+
+// Gate tidak menyalakan server, jadi pastikan method yang dipakai MetaMask
+// untuk menutup tx (lihat PendingTransactionTracker) memang punya handler.
+const serverSource = fs.readFileSync(
+	path.join(import.meta.dir, '../apps/metamask-gateway/server.ts'),
+	'utf8',
+)
+ok(
+	'server punya handler eth_getBlockByHash',
+	serverSource.includes("case 'eth_getBlockByHash'"),
+)
+ok(
+	'blok tidak mengiklankan EIP-1559 (MetaMask tetap kirim tx legacy)',
+	!serverSource.includes('baseFeePerGas'),
+)
+ok('RPC dicatat ke konsol', serverSource.includes('handleRpcLogged'))
+const directAddressLookups =
+	serverSource.match(/ethToNexAddress\(asString\(params, 0\)\)/g) ?? []
+ok(
+	'saldo & nonce dibaca langsung dari alamat (tanpa registrasi)',
+	directAddressLookups.length === 2 &&
+		!serverSource.includes('getNexForEth(asString(params, 0))'),
+)
+const workSource = fs.readFileSync(
+	path.join(import.meta.dir, '../src/core/consensus/work.ts'),
+	'utf8',
+)
+ok(
+	'nex_getWork menormalkan minerAddress ke lowercase',
+	workSource.includes('NxC${raw.slice(3).toLowerCase()}'),
+)
 
 console.log('GROUP 2 — konversi alamat / hash / satuan:')
 ok(
@@ -110,6 +140,10 @@ const HEX64 = 'ab'.repeat(32)
 ok(
 	'NxC → 0x (lowercase)',
 	bridge.nexToEthAddress(`NxC${HEX40}`) === `0x${HEX40}`,
+)
+ok(
+	'0x checksummed → NxC lowercase',
+	bridge.ethToNexAddress(`0x${HEX40.toUpperCase()}`) === `NxC${HEX40}`,
 )
 ok(
 	'0x → TxC (digest sama, prefix diganti)',
@@ -136,6 +170,7 @@ ok(
 ok(
 	'alamat/hash invalid ditolak',
 	throws(() => bridge.nexToEthAddress('0x123')) &&
+		throws(() => bridge.nexToEthAddress(`NxC${'AB'.repeat(20)}`)) &&
 		throws(() => bridge.toEthHash('0x123')) &&
 		throws(() => bridge.toNexHash('TxC123')),
 )
@@ -166,14 +201,14 @@ const result = bridge.verifyRegistration(
 	nonce,
 	hexSignature(signMessage(message)),
 )
-const expectedNex = generateAddressFromPublicKey(key.getPublic(true, 'hex'))
+const expectedNex = `NxC${ethAddress.slice(2)}`
 ok(
 	'recover menghasilkan alamat Ethereum yang sama',
 	result.eth === ethAddress,
 	`${result.eth} vs ${ethAddress}`,
 )
 ok(
-	'recover menghasilkan alamat NexChain asli',
+	'recover menghasilkan alamat NexChain bridge (20 byte sama)',
 	result.nex === expectedNex,
 	`${result.nex} vs ${expectedNex}`,
 )
@@ -240,6 +275,33 @@ ok(
 ok(
 	'mapping ditulis ke disk dengan write atomik',
 	JSON.parse(fs.readFileSync(MAPPING_PATH, 'utf8')).mappings.length === 1,
+)
+ok(
+	'mapping dua arah',
+	bridge.getEthForNex(result.nex) === result.eth.toLowerCase(),
+)
+
+const { txHashOfPayload } = await import('../src/core/encoding/rlp/txCodec')
+const raw = new Uint8Array([0x01, 0x02, 0x03])
+const hashes = bridge.hashEthTx(raw)
+const payload = new Uint8Array(raw.length + 1)
+payload[0] = 0x03
+payload.set(raw, 1)
+ok(
+	'hash eth = keccak(raw), hash node = sha256(0x03 ‖ raw)',
+	hashes.eth === `0x${keccak256(raw)}` &&
+		hashes.nex === txHashOfPayload(payload),
+)
+bridge.setTxHashMapping(hashes.eth, hashes.nex)
+ok(
+	'translation hash tersimpan & dibaca dua arah',
+	bridge.getNexHashForEth(hashes.eth.toUpperCase()) === hashes.nex &&
+		bridge.getEthHashForNex(hashes.nex) === hashes.eth &&
+		JSON.parse(fs.readFileSync(MAPPING_PATH, 'utf8')).hashes.length === 1,
+)
+ok(
+	'NxC → 0x → NxC (20 byte identik)',
+	bridge.ethToNexAddress(bridge.nexToEthAddress(result.nex)) === result.nex,
 )
 fs.rmSync(MAPPING_PATH, { force: true })
 

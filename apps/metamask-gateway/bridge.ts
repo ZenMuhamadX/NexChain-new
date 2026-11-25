@@ -9,9 +9,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { ec as EC } from 'elliptic'
 import { CHAIN_ID } from 'src/crypto/chainId'
-import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
 import { recoverPublicKey } from 'src/crypto/recoverPublicKey'
 import { keccak256 } from 'src/core/encoding/keccak256'
+import { sha256 } from 'src/core/encoding/sha256'
 import { dataPath } from 'src/core/state/db/dataDir'
 
 const ec = new EC('secp256k1')
@@ -57,8 +57,10 @@ export const ALLOWED_METHODS: ReadonlySet<string> = new Set([
 	'eth_getCode',
 	'eth_getLogs',
 	'eth_getBlockByNumber',
+	'eth_getBlockByHash',
 	'eth_getTransactionByHash',
 	'eth_getTransactionReceipt',
+	'eth_sendRawTransaction',
 ])
 
 // ---------------------------------------------------------------------------
@@ -99,11 +101,22 @@ export const nodeRpc = async (
 // Konversi alamat / hash / satuan
 // ---------------------------------------------------------------------------
 
-/** `NxC…` → `0x…`. Dipakai untuk menampilkan tx node ke MetaMask. */
+/**
+ * 20 byte alamat adalah identitas akun; `NxC` dan `0x` cuma prefix tampilan.
+ * Akun yang dipakai MetaMask memang sengaja memakai 20 byte Ethereum apa
+ * adanya, supaya `to` di raw tx tidak perlu diubah (tanda tangan mengikatnya).
+ */
 export const nexToEthAddress = (address: string): string => {
 	if (!/^NxC[0-9a-f]{40}$/.test(address))
 		throw new Error(`alamat NexChain tidak valid: ${address}`)
 	return `0x${address.slice(3)}`
+}
+
+/** `0x…` → `NxC…`, kebalikan `nexToEthAddress`. */
+export const ethToNexAddress = (address: string): string => {
+	if (!/^0x[0-9a-fA-F]{40}$/.test(address))
+		throw new Error(`alamat Ethereum tidak valid: ${address}`)
+	return `NxC${address.slice(2).toLowerCase()}`
 }
 
 /** `TxC…` → `0x…` (digest sama, beda prefix saja). */
@@ -150,20 +163,47 @@ export const formatWeiAsNxc = (weiHex: string): string => {
 const MAPPING_FILE =
 	process.env.METAMASK_BRIDGE_MAPPING ?? dataPath('bridge', 'mappings.json')
 
-interface StoredMapping {
+interface StoredPair {
 	eth: string
 	nex: string
 }
 
 const mappings = new Map<string, string>()
+const ethByNex = new Map<string, string>()
+const nexByEthHash = new Map<string, string>()
+const ethByNexHash = new Map<string, string>()
+
+const persistMappings = (): void => {
+	fs.mkdirSync(path.dirname(MAPPING_FILE), { recursive: true })
+	const tmp = `${MAPPING_FILE}.tmp`
+	fs.writeFileSync(
+		tmp,
+		JSON.stringify(
+			{
+				mappings: [...mappings].map(([eth, nex]) => ({ eth, nex })),
+				hashes: [...nexByEthHash].map(([eth, nex]) => ({ eth, nex })),
+			},
+			null,
+			2,
+		),
+	)
+	fs.renameSync(tmp, MAPPING_FILE)
+}
 
 const loadMappings = (): void => {
 	try {
 		const raw = JSON.parse(fs.readFileSync(MAPPING_FILE, 'utf8')) as {
-			mappings?: StoredMapping[]
+			mappings?: StoredPair[]
+			hashes?: StoredPair[]
 		}
-		for (const entry of raw.mappings ?? [])
+		for (const entry of raw.mappings ?? []) {
 			mappings.set(entry.eth.toLowerCase(), entry.nex)
+			ethByNex.set(entry.nex, entry.eth.toLowerCase())
+		}
+		for (const entry of raw.hashes ?? []) {
+			nexByEthHash.set(entry.eth.toLowerCase(), entry.nex)
+			ethByNexHash.set(entry.nex, entry.eth.toLowerCase())
+		}
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
 	}
@@ -173,24 +213,40 @@ loadMappings()
 export const getNexForEth = (eth: string): string | undefined =>
 	mappings.get(eth.toLowerCase())
 
+export const getEthForNex = (nex: string): string | undefined =>
+	ethByNex.get(nex)
+
 export const setMapping = (eth: string, nex: string): void => {
-	mappings.set(eth.toLowerCase(), nex)
-	fs.mkdirSync(path.dirname(MAPPING_FILE), { recursive: true })
-	const tmp = `${MAPPING_FILE}.tmp`
-	fs.writeFileSync(
-		tmp,
-		JSON.stringify(
-			{
-				mappings: [...mappings].map(([ethKey, nexValue]) => ({
-					eth: ethKey,
-					nex: nexValue,
-				})),
-			},
-			null,
-			2,
-		),
-	)
-	fs.renameSync(tmp, MAPPING_FILE)
+	const key = eth.toLowerCase()
+	mappings.set(key, nex)
+	ethByNex.set(nex, key)
+	persistMappings()
+}
+
+/** `0x<keccak(raw)>` → `TxC<sha256(0x03 ‖ raw)>`. */
+export const getNexHashForEth = (hash: string): string | undefined =>
+	nexByEthHash.get(hash.toLowerCase())
+
+export const getEthHashForNex = (hash: string): string | undefined =>
+	ethByNexHash.get(hash)
+
+export const setTxHashMapping = (ethHash: string, nexHash: string): void => {
+	nexByEthHash.set(ethHash.toLowerCase(), nexHash)
+	ethByNexHash.set(nexHash, ethHash.toLowerCase())
+	persistMappings()
+}
+
+/** Hash eth dan hash node dari satu raw tx Ethereum. */
+export const hashEthTx = (
+	raw: Uint8Array,
+): { eth: string; nex: string } => {
+	const payload = new Uint8Array(raw.length + 1)
+	payload[0] = 0x03
+	payload.set(raw, 1)
+	return {
+		eth: `0x${keccak256(raw)}`,
+		nex: `TxC${sha256(payload, 'hex') as string}`,
+	}
 }
 
 // Nonce registrasi: sekali pakai, kedaluwarsa 5 menit.
@@ -291,5 +347,5 @@ export const verifyRegistration = (
 	if (eth.toLowerCase() !== account.toLowerCase())
 		throw new Error('signature tidak cocok dengan akun MetaMask')
 
-	return { eth, nex: generateAddressFromPublicKey(publicKey) }
+	return { eth, nex: ethToNexAddress(eth) }
 }

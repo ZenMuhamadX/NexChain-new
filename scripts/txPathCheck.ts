@@ -358,6 +358,12 @@ ok(
 	validateAddresses({ ...validTx, from: 'NxX' + '0'.repeat(40) }) === false,
 )
 ok(
+	'S1: alamat huruf besar / non-hex DITOLAK',
+	validateAddresses({ ...validTx, from: 'NxC' + 'A'.repeat(40) }) === false &&
+		validateAddresses({ ...validTx, receiver: 'NxC' + 'g'.repeat(40) }) ===
+			false,
+)
+ok(
 	'S1: receiver address tidak valid DITOLAK',
 	validateAddresses({ ...validTx, receiver: 'not-an-address' }) === false,
 )

@@ -20,12 +20,24 @@ export const TX_HASH_PATTERN = /^TxC[0-9a-f]{64}$/
 
 export type QueryKind = 'height' | 'address' | 'hash' | 'unknown'
 
+/** Prefix kanonik (`NxC`/`TxC`) dipertahankan, bagian hex jadi lowercase. */
+export function normalizeQuery(query: string): string {
+	const trimmed = query.trim()
+	if (/^NxC/i.test(trimmed)) return `NxC${trimmed.slice(3).toLowerCase()}`
+	if (/^TxC/i.test(trimmed)) return `TxC${trimmed.slice(3).toLowerCase()}`
+	return trimmed.toLowerCase()
+}
+
 export function classifyQuery(query: string): QueryKind {
-	if (ADDRESS_PATTERN.test(query)) return 'address'
+	// Alamat/hash dari user (termasuk salinan checksum MetaMask) dinormalkan
+	// ke lowercase; pola kanoniknya tetap lowercase.
+	const normalized = normalizeQuery(query)
+	if (ADDRESS_PATTERN.test(normalized)) return 'address'
 	// Hash dulu sebelum height: string64 digit murni bisa jadi hash.
 	// `hash` mencakup hash blok (64 hex) DAN hash tx (`TxC` + 64 hex); resolver
 	// mencoba blok dulu lalu transaksi, jadi kedua bentuk ditangani.
-	if (HASH_PATTERN.test(query) || TX_HASH_PATTERN.test(query)) return 'hash'
-	if (HEIGHT_PATTERN.test(query)) return 'height'
+	if (HASH_PATTERN.test(normalized) || TX_HASH_PATTERN.test(normalized))
+		return 'hash'
+	if (HEIGHT_PATTERN.test(normalized)) return 'height'
 	return 'unknown'
 }

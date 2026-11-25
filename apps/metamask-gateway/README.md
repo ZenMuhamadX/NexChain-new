@@ -1,8 +1,10 @@
-# Gateway MetaMask (Stage 1 — baca + registrasi)
+# Gateway MetaMask (baca + registrasi + kirim)
 
 Proses terpisah dari node. Node tetap di loopback dengan Basic Auth dan CORS
-ketat; gateway yang bicara `eth_*` ke MetaMask dan meneruskan **hanya method
-baca** ke node lewat `nex_*`.
+ketat; gateway yang bicara `eth_*` ke MetaMask. Method baca diteruskan ke node
+lewat `nex_*`; satu-satunya method tulis yang diteruskan adalah
+`eth_sendRawTransaction`. `nex_getWork`, `nex_submitWork`, `eth_sign`, dan
+`personal_sign` tidak pernah diteruskan.
 
 ```
 MetaMask iOS ──HTTPS──> gateway (:8545) ──loopback + Basic Auth──> node (:8000)
@@ -24,32 +26,57 @@ Env (semua opsional):
 iOS mewajibkan HTTPS: pasang reverse proxy dengan sertifikat valid di depan
 gateway, lalu pakai URL itu sebagai RPC URL di MetaMask. Buka halaman `/`
 dari **tab Browser di dalam aplikasi MetaMask** supaya `window.ethereum` ada.
+Di Windows/Chrome pakai `http://127.0.0.1:8545` (bukan `localhost`, yang bisa
+resolve ke `::1` lebih dulu).
 
-## Alur registrasi
+## Identitas akun
 
-Impor seed ke MetaMask tidak memindahkan saldo — private key sama (path
-`m/44'/60'/0'/0/0`), tapi alamatnya beda:
+20 byte alamat adalah identitas ledger. `0x…` (MetaMask) dan `NxC…` (NexChain)
+adalah byte yang **sama persis**, hanya prefix yang beda:
 
 - MetaMask: `0x…` = `keccak(pubkey)[-20:]`
-- NexChain: `NxC…` = `keccak(0x00 ‖ sha256(pubkey))[-20:]`
+- NexChain: `NxC…` = 20 byte yang sama
+
+Ini wajib karena `to` di raw Ethereum terikat tanda tangan — gateway tidak
+boleh menimpanya dengan alamat hasil turunan lain. Akun lama yang memakai
+`keccak(0x00 ‖ sha256(pubkey))` tidak dipakai lagi; mapping lamanya sudah
+dihapus dan harus registrasi ulang. Kirim dana ke alamat `NxC…` yang ditampilkan
+halaman onboarding, bukan ke string `0x…`.
+
+## Registrasi
 
 Halaman onboarding meminta `personal_sign` atas pesan yang memuat chainId dan
 nonce sekali pakai. Gateway memulihkan pubkey (EIP-191), memastikan alamat
-Ethereum-nya cocok dengan akun MetaMask, lalu menyimpan pasangan
-`0x… ↔ NxC…` ke disk. Tanpa registrasi, `eth_getBalance` mengembalikan `0x0`.
+Ethereum-nya cocok dengan akun MetaMask, lalu menyimpan pasangan `0x… ↔ NxC…`
+ke disk. Tanpa registrasi, `eth_getBalance` mengembalikan `0x0`. Tanda tangan
+ini gratis: tanpa gas, tanpa transaksi, tanpa dana pindah.
 
-Gasprice iklan 10 gwei = 1 nexu/gas (8 desimal NXC); saldo dikonversi ke wei
-dengan BigInt faktor `10^10`, tanpa pembulatan.
+Gasprice iklan 10 gwei = 1 nexu/gas (8 desimal NXC); konversi wei ↔ nexu pakai
+BigInt faktor `10^10`, tanpa pembulatan. Form _Add a network_ MetaMask tidak
+punya kolom decimals — EVM memakai 18 secara default (juga diset eksplisit
+lewat `wallet_addEthereumChain`). Saldo `latest` bisa tertahan cache MetaMask
+setelah registrasi; pindah network bolak-balik atau lock/unlock ekstensi.
 
-Form _Add a network_ MetaMask tidak punya kolom decimals — EVM memakai 18
-secara default (juga diset eksplisit lewat `wallet_addEthereumChain`).
-Saldo `latest` bisa tertahan cache MetaMask setelah registrasi; pindah network
-bolak-balik atau lock/unlock ekstensi untuk menyegarkannya.
+## Kirim
 
-## Batas Stage 1
+`eth_sendRawTransaction` menerima legacy EIP-155 (chainId 26, `v` 87/88) dan
+membungkusnya sebagai payload tipe `0x03` sebelum masuk node. Node memulihkan
+`from` dari `ecrecover`, memakai 20 byte `to` apa adanya sebagai `NxC…`, dan
+mengubah `value` serta `gasPrice × gasLimit` dari wei ke nexu eksak — wei yang
+tidak habis dibagi `10^10` ditolak.
 
-`eth_sendRawTransaction` **tidak tersedia**. MetaMask bisa melihat saldo,
-nonce, blok, dan receipt, belum bisa kirim. Itu menyusul setelah format
-tanda tangan Ethereum masuk konsensus lewat hard-fork by height.
+Dua hash berbeda dan diterjemahkan gateway:
 
-Gate: `bun run check:metamask` (masuk `check:all` fase offline).
+- MetaMask: `0x…` = `keccak(raw)`
+- Node: `TxC…` = `sha256(0x03 ‖ raw)`
+
+`eth_getTransactionByHash` dan `eth_getTransactionReceipt` menerima dua-duanya.
+
+Gate: `bun run check:metamask` dan `bun run check:ethTx` (keduanya masuk
+`check:all` fase offline).
+
+## Batas
+
+Tidak ada EVM, kontrak, atau ERC-20: `to` wajib 20 byte, `data` diteruskan apa
+adanya dan receipt selalu `status: 0x1`. MetaMask tidak punya RPC standar untuk
+riwayat, jadi transaksi masuk tidak muncul di Activity — pakai Explorer.
