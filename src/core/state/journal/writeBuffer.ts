@@ -19,12 +19,14 @@
  * Di luar commit (genesis, rollback, gate) tulisan langsung ke DB: tidak ada
  * yang perlu di-undo, dan rollback butuh menulis langsung.
  */
-import { rocksState } from 'src/core/state/db/state'
-import { rocksHistory } from 'src/core/state/db/history'
-import { rocksBlock } from 'src/core/state/db/block'
+import {
+	rocksBlock,
+	rocksHistory,
+	rocksState,
+	type DbView,
+} from 'src/core/state/db/chain'
 import { isNotFound } from 'src/core/state/db/notFound'
 import type { StateLeaf } from 'src/core/state/root'
-import type { Level } from 'level'
 
 export type JournalStoreName = 'state' | 'history' | 'block'
 
@@ -46,10 +48,10 @@ export interface JournalRecord {
 /** Urutan flush: badan blok dulu, state terakhir — lihat `flushWriteBuffer`. */
 const STORES: readonly JournalStoreName[] = ['block', 'state', 'history']
 
-export const dbFor = (store: JournalStoreName): Level<string, string> => {
-	if (store === 'state') return rocksState as Level<string, string>
-	if (store === 'history') return rocksHistory as Level<string, string>
-	return rocksBlock as Level<string, string>
+export const dbFor = (store: JournalStoreName): DbView => {
+	if (store === 'state') return rocksState
+	if (store === 'history') return rocksHistory
+	return rocksBlock
 }
 
 interface PendingWrite {

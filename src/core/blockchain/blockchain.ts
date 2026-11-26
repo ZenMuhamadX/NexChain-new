@@ -14,7 +14,11 @@ import {
 	getPreviousTimestamps,
 } from 'src/core/consensus/verify/module/verifyTimestamp'
 import { expectedDifficulty } from 'src/core/consensus/difficulty'
-import { getBlockByHeight } from '../block/query/onChain/block/getBlockByHeight'
+import {
+	getBlockHeader,
+	invalidateBlockHeadersFrom,
+	rememberBlockHeader,
+} from '../block/query/onChain/block/blockHeaderCache'
 import { processTransact } from 'src/core/transaction/processTransaction'
 import { logToConsole } from 'src/logging/logging'
 import { loggingDebug } from 'src/logging/debug'
@@ -117,18 +121,18 @@ export class BlockChains {
 			// Genesis (height 0) dikecualikan: ditulis lewat jalur bootstrap,
 			// bukan commitBlock.
 			//
-			// Induk yang sama dipakai lagi di bawah untuk `stateRoot`.
+			// Induk yang sama dipakai lagi di bawah untuk `stateRoot`. Header
+			// saja sudah cukup: memuat badan induk 1000 tx hanya untuk membaca
+			// difficulty/timestamp adalah biaya decoding yang terbuang.
+			const parentHeight = block.block.height - 1
 			const parent =
-				block.block.height > 0
-					? ((await getBlockByHeight(block.block.height - 1)) as
-							Block | undefined)
-					: undefined
+				block.block.height > 0 ? await getBlockHeader(parentHeight) : undefined
 			if (parent) {
 				const expected = expectedDifficulty(
-					parent.block.header.difficulty,
-					parent.block.header.timestamp,
+					parent.difficulty,
+					parent.timestamp,
 					block.block.header.timestamp,
-					parent.block.height,
+					parentHeight,
 				)
 				if (block.block.header.difficulty !== expected) {
 					throw new Error(
@@ -188,7 +192,7 @@ export class BlockChains {
 			// yang berbeda (atau klaimnya dipalsukan) → blok ditolak SEBELUM
 			// WAL, jadi tidak ada yang perlu di-rollback (journalHeight null).
 			const computedRoot = computeStateRoot(
-				parent?.block.header.stateRoot ?? EMPTY_STATE_ROOT,
+				parent?.stateRoot ?? EMPTY_STATE_ROOT,
 				bufferStateLeaves(),
 			)
 			if (block.block.header.stateRoot !== computedRoot) {
@@ -219,6 +223,7 @@ export class BlockChains {
 			// Journal blok ini kini "terpakai"; pangkas yang lebih tua dari
 			// MAX_REORG_DEPTH supaya store tidak tumbuh tanpa batas.
 			await pruneJournal(block.block.height)
+			rememberBlockHeader(block)
 
 			return { block, status: true }
 		} catch (error) {
@@ -228,11 +233,12 @@ export class BlockChains {
 			// gagal, kembalikan state persis ke sebelum blok ini (idempoten).
 			// Boot recovery tetap jaring pengaman bila proses mati di sini.
 			if (journalHeight !== null) {
+				invalidateBlockHeadersFrom(journalHeight)
 				try {
 					await rollbackBlock(journalHeight)
 				} catch (rollbackError) {
 					console.error(
-						'Journal rollback gagal (boot recovery akan menanganinya):',
+						'Journal rollback failed (boot recovery will handle it):',
 						rollbackError,
 					)
 				}

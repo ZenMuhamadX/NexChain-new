@@ -126,26 +126,26 @@ export const verifyStruct = async (chains: Block) => {
 			loggingErr({
 				message:
 					`Invalid block size: header ${chains.block.size} != ` +
-					`computed ${computed} (Σ byte wire tx)`,
+					`computed ${computed} (sum of tx wire bytes)`,
 				stack: new Error().stack!,
 				timestamp: generateTimestampz(),
 				level: 'error',
 				priority: 'high',
 				context: 'Block verifyStruct',
-				hint: 'Blok menyatakan size yang tidak sesuai isinya (aturan konsensus C1) — blok ditolak.',
+				hint: 'Block declares a size that does not match its contents (consensus rule C1) — block rejected.',
 			})
 			return false
 		}
 	} catch {
 		loggingErr({
 			message:
-				'Invalid block size: transaksi gagal di-encode untuk perhitungan ukuran wire',
+				'Invalid block size: transaction could not be encoded for wire-size calculation',
 			stack: new Error().stack!,
 			timestamp: generateTimestampz(),
 			level: 'error',
 			priority: 'high',
 			context: 'Block verifyStruct',
-			hint: 'Blok mengandung transaksi yang tidak bisa diukur (fail-closed) — blok ditolak.',
+			hint: 'Block contains a transaction that cannot be measured (fail-closed) — block rejected.',
 		})
 		return false
 	}

@@ -57,7 +57,7 @@ export const verifyBlockReward = (block: Block): string | null => {
 	//    memengaruhi konsensus hadiah sejak penghapusan gasPrice — struktur
 	//    metadata dijaga Joi di `verifyStruct`.
 	if (!block.block.metadata) {
-		return 'metadata hilang pada height > 0'
+		return 'metadata missing at height > 0'
 	}
 
 	// 4. totalReward === blockReward + fees (keduanya hasil recompute di

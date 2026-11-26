@@ -36,9 +36,17 @@ export const CHAIN_ID = readEnvChainId() ?? FALLBACK_CHAIN_ID
 export const encodeV = (recoveryParam: number): number =>
 	recoveryParam + CHAIN_ID * 2 + 35
 
-/** EIP-155: decode `v` kembali ke recovery param (0/1) untuk elliptic. */
+/**
+ * EIP-155: decode value `v` kembali ke recovery param (0/1) untuk elliptic.
+ * Mendukung juga legacy format (v = recovery + 26) untuk transaksi lama.
+ */
 export const decodeV = (v: number): number => {
-	const recovery = v - (CHAIN_ID * 2 + 35)
-	if (recovery === 0 || recovery === 1) return recovery
+	const eip155 = v - (CHAIN_ID * 2 + 35)
+	if (eip155 === 0 || eip155 === 1) return eip155
+
+	// Fallback legacy: v = recovery + 26
+	const legacy = v - 26
+	if (legacy === 0 || legacy === 1) return legacy
+
 	throw new Error(`Invalid signature v value: ${v}`)
 }

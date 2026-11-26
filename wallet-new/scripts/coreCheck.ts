@@ -160,10 +160,7 @@ ok(
 	'txHash: TxC plus 64 hex (not bare 64)',
 	isTxHash(`TxC${'a'.repeat(64)}`) && !isTxHash('a'.repeat(64)),
 )
-ok(
-	'chainId dari env/fallback',
-	Number.isSafeInteger(CHAIN_ID) && CHAIN_ID > 0,
-)
+ok('chainId dari env/fallback', Number.isSafeInteger(CHAIN_ID) && CHAIN_ID > 0)
 
 // ---------- 3 and 4. Wire tx, automatic fee, RBF ----------
 console.log('\n--- transactions ---')
@@ -234,10 +231,8 @@ ok(
 )
 ok(
 	'validation: uppercase hex receiver is normalized',
-	validateSendForm(
-		{ ...form, receiver: `NxC${'0'.repeat(39)}A` },
-		sender,
-	).receiver === undefined,
+	validateSendForm({ ...form, receiver: `NxC${'0'.repeat(39)}A` }, sender)
+		.receiver === undefined,
 )
 ok(
 	'validation: thousands separator is rejected',

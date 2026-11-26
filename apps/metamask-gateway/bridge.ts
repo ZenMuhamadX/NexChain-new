@@ -242,9 +242,7 @@ export const setTxHashMapping = (ethHash: string, nexHash: string): void => {
 }
 
 /** Hash eth dan hash node dari satu raw tx Ethereum. */
-export const hashEthTx = (
-	raw: Uint8Array,
-): { eth: string; nex: string } => {
+export const hashEthTx = (raw: Uint8Array): { eth: string; nex: string } => {
 	const payload = new Uint8Array(raw.length + 1)
 	payload[0] = 0x03
 	payload.set(raw, 1)
@@ -342,6 +340,9 @@ export const verifyRegistration = (
 
 	const hash = eip191Hash(registrationMessage(nonce))
 	const { r, s, recovery } = parseSignature(signature)
+	// `encodeV` (bukan literal 87) supaya v selalu mengikuti CHAIN_ID aktif;
+	// literal 87 hanya benar untuk chain id 26 dan membuat registrasi gagal
+	// total setelah fork chain id.
 	const { publicKey } = recoverPublicKey(hash, {
 		v: encodeV(recovery),
 		r,

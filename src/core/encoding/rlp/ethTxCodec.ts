@@ -20,6 +20,7 @@ import { keccak256 } from 'src/core/encoding/keccak256'
 import type { HexString } from 'src/types/block'
 import type { TxInterface } from 'src/types/transaction'
 import { TX_HASH_PREFIX } from './txHash'
+import { getCachedSender, rememberSender } from './senderCache'
 import { rlpDecode } from './rlpDecode'
 import { rlpEncode, type RlpInput } from './rlpEncode'
 import {
@@ -93,8 +94,7 @@ const parseEthFields = (raw: Uint8Array): EthFields => {
 		throw new Error('ethTxCodec: raw transaksi harus list RLP 9 item')
 
 	const to = asBytes(list[3], 3, 'to')
-	if (to.length !== 20)
-		throw new Error('ethTxCodec: to harus 20 byte')
+	if (to.length !== 20) throw new Error('ethTxCodec: to harus 20 byte')
 
 	const v = bytesToNumber(asBytes(list[6], 6, 'v'), 'v', 'ethTxCodec')
 	const recovery = v - (CHAIN_ID * 2 + 35)
@@ -188,7 +188,10 @@ export const decodeEthTxPayload = (data: Uint8Array): TxInterface => {
 		throw new Error('ethTxCodec: payload tipe 0x03 tidak valid')
 	const raw = data.subarray(1)
 	const fields = parseEthFields(raw)
-	const from = ethTxFrom(raw)
+	const txHash = TX_HASH_PREFIX + (sha256(data, 'hex') as string)
+	const cached = getCachedSender(txHash)
+	const from = cached ?? ethTxFrom(raw)
+	if (cached === undefined && from !== undefined) rememberSender(txHash, from)
 	return {
 		type: ETH_TX_TYPE,
 		nonce: fields.nonce,
@@ -198,7 +201,7 @@ export const decodeEthTxPayload = (data: Uint8Array): TxInterface => {
 		...(fields.data === undefined ? {} : { data: fields.data }),
 		sign: fields.sign,
 		raw: `0x${bytesToHex(raw)}`,
-		txHash: TX_HASH_PREFIX + (sha256(data, 'hex') as string),
+		txHash,
 		...(from === undefined ? {} : { from }),
 	}
 }

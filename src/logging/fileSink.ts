@@ -120,10 +120,7 @@ const failOnce = (): void => {
 	writeFailed = true
 	pending.length = 0
 	try {
-		writeConsole(
-			'PERINGATAN: log berkas gagal ditulis — pencatatan berkas dimatikan.\n',
-			true,
-		)
+		writeConsole('WARNING: file logging failed — file sink disabled.\n', true)
 	} catch {
 		// Abaikan.
 	}

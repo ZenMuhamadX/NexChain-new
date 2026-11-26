@@ -1,6 +1,6 @@
 import { Block } from 'src/core/block/blockModel'
 import { getBlockByHash } from './getBlockByHash'
-import { rocksState } from 'src/core/state/db/state'
+import { rocksState } from 'src/core/state/db/chain'
 
 export const getBlockByHeight = async (
 	height: number,

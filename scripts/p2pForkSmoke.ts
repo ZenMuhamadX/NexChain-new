@@ -160,13 +160,13 @@ try {
 	const peerDeadline = Date.now() + PEER_WAIT_MS
 	let peerSeen = false
 	while (Date.now() < peerDeadline) {
-		if (nodeA.output().includes('peer siap')) {
+		if (nodeA.output().includes('peer ready')) {
 			peerSeen = true
 			break
 		}
 		await delay(250)
 	}
-	check('handshake node B -> node A selesai (log "peer siap")', peerSeen)
+	check('handshake node B -> node A completed (log "peer ready")', peerSeen)
 
 	// 4. Reorg: cabang A (2 blok) lebih berat dari cabang B (1 blok).
 	const deadline = Date.now() + FORK_SYNC_TIMEOUT_MS

@@ -49,11 +49,10 @@ const ok = (name: string, cond: boolean, extra = ''): void => {
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nex-nonce-'))
 process.env.NEX_DATA_DIR = tmpDir
 
-const { rocksState } = await import('src/core/state/db/state')
-const { rocksHistory } = await import('src/core/state/db/history')
-const { rocksBlock } = await import('src/core/state/db/block')
-const { rocksJournal } = await import('src/core/state/db/journal')
-const { rocksMempool } = await import('src/core/state/db/memPool')
+const { rocksState } = await import('src/core/state/db/chain')
+const { rocksHistory } = await import('src/core/state/db/chain')
+const { rocksBlock } = await import('src/core/state/db/chain')
+const { rocksJournal } = await import('src/core/state/db/chain')
 const { getGenesisBlock } = await import('src/core/block/genesis')
 const { putAccount } = await import('src/core/state/account/putAccount')
 const { getAccount } = await import('src/core/state/account/getAccount')
@@ -79,7 +78,6 @@ await rocksState.open()
 await rocksHistory.open()
 await rocksBlock.open()
 await rocksJournal.open()
-await rocksMempool.open()
 
 // ---------------------------------------------------------------------------
 // util
@@ -668,7 +666,6 @@ await rocksState.close().catch(() => undefined)
 await rocksHistory.close().catch(() => undefined)
 await rocksBlock.close().catch(() => undefined)
 await rocksJournal.close().catch(() => undefined)
-await rocksMempool.close().catch(() => undefined)
 try {
 	fs.rmSync(tmpDir, { recursive: true, force: true })
 } catch {

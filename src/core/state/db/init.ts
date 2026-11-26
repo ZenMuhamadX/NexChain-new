@@ -1,18 +1,12 @@
 import fs from 'fs'
 import path from 'path'
-import { DATA_DIR, dataPath } from './dataDir'
+import { dataPath } from './dataDir'
 
 /**
- * Sub-direktori data node. Masing-masing adalah satu database LevelDB.
+ * Node memakai SATU LevelDB. Setiap store lama kini hanya namespace/key
+ * prefix di dalam database `chain` ini (lihat `chain.ts`).
  */
-const DATA_SUBDIRS = [
-	'block',
-	'history',
-	'journal',
-	'memPool',
-	'state',
-	'storeData',
-]
+const DATA_SUBDIRS = ['chain']
 
 let initialized = false
 
@@ -31,16 +25,9 @@ const probeWritable = (dir: string): void => {
 }
 
 /**
- * Pastikan direktori data siap dipakai.
- *
- * Idempoten: dipanggil oleh setiap modul DB saat impor, tetapi hanya benar-benar
- * bekerja sekali.
- *
- * FAIL-CLOSED: bila direktori data tidak bisa disiapkan atau ditulis, fungsi ini
- * MELEMPAR, bukan diam-diam lanjut. Node yang tidak bisa menyimpan data harus
- * berhenti di awal — kalau tidak, kegagalan tulis muncul jauh kemudian sebagai
- * "rantai kosong" dan berujung pada penulisan genesis baru di atas data yang
- * sebenarnya ada (lihat catatan di `apps/node/server.ts`).
+ * Pastikan direktori data siap dipakai. Idempoten dan fail-closed: node yang
+ * tidak bisa menyimpan data harus berhenti di awal, bukan menyimpulkan rantai
+ * kosong lalu menulis genesis baru di atas data yang sebenarnya ada.
  */
 export const initFile = (): void => {
 	if (initialized) return
@@ -50,11 +37,11 @@ export const initFile = (): void => {
 		for (const name of DATA_SUBDIRS) {
 			fs.mkdirSync(dataPath(name), { recursive: true })
 		}
-		probeWritable(DATA_DIR)
+		probeWritable(dataPath('chain'))
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error)
 		throw new Error(
-			`Direktori data "${DATA_DIR}" tidak dapat disiapkan (${reason}). ` +
+			`Direktori data "${dataPath('chain')}" tidak dapat disiapkan (${reason}). ` +
 				'Periksa NEX_DATA_DIR dan izin folder.',
 		)
 	}

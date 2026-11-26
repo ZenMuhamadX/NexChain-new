@@ -14,10 +14,10 @@ export class NonceMismatchError extends Error {
 	readonly actual: number
 	constructor(sender: string, expected: number, actual: number) {
 		super(
-			`Urutan nonce rusak untuk ${sender}: ` +
-				`diharapkan ${expected}, dapat ${actual} — ` +
-				`transaksi tiap pengirim di dalam blok wajib urut ` +
-				`tanpa lompat (kontigu dari nonce akun pra-blok).`,
+			`Nonce order broken for ${sender}: ` +
+				`expected ${expected}, got ${actual} — ` +
+				`transactions from each sender in a block must be ` +
+				`gap-free (contiguous from the pre-block account nonce).`,
 		)
 		this.name = 'NonceMismatchError'
 		this.sender = sender

@@ -42,7 +42,6 @@ const ok = (name: string, cond: boolean, extra = ''): void => {
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nex-mempool-reserve-'))
 process.env.NEX_DATA_DIR = tmpDir
 
-const { rocksMempool } = await import('src/core/state/db/memPool')
 const { saveMempool } =
 	await import('src/core/state/storage/mempool/saveMemPool')
 const { removeMemPool } =
@@ -51,8 +50,6 @@ const { countPendingBySender, senderIndexStats, sumCostBySender } =
 	await import('src/core/state/storage/mempool/mempoolIndex')
 const { getPendingReserve } =
 	await import('src/core/transaction/getPendingReserve')
-
-await rocksMempool.open()
 
 // ---------------------------------------------------------------------------
 // fixtures
@@ -189,7 +186,6 @@ ok(
 // ---------------------------------------------------------------------------
 // teardown
 // ---------------------------------------------------------------------------
-await rocksMempool.close().catch(() => undefined)
 try {
 	fs.rmSync(tmpDir, { recursive: true, force: true })
 } catch {

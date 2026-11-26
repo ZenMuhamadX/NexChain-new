@@ -72,6 +72,7 @@ import type { TxInterface } from 'src/types/transaction'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import type { RlpInput } from './rlpEncode'
 import { decodeTxPayload, encodeTxPayload } from './txCodec'
+import { withPubKeyBatch } from 'src/crypto/processPubKey'
 import {
 	addressToBytes,
 	bytesToAddress,
@@ -238,12 +239,14 @@ export const rlpListToBlock = (list: RlpInput): blockStruct => {
 	if (!Array.isArray(txItems)) {
 		throw new Error(`${LABEL}: transactions harus list`)
 	}
-	const transactions: TxInterface[] = txItems.map((entry) => {
-		if (!(entry instanceof Uint8Array)) {
-			throw new Error(`${LABEL}: item transaksi harus byte string`)
-		}
-		return decodeTxPayload(entry)
-	})
+	const transactions: TxInterface[] = withPubKeyBatch(txItems.length, () =>
+		txItems.map((entry) => {
+			if (!(entry instanceof Uint8Array)) {
+				throw new Error(`${LABEL}: item transaksi harus byte string`)
+			}
+			return decodeTxPayload(entry)
+		}),
+	)
 
 	const hashingAlgorithm = bytesToString(
 		item(headerItems, 6, 'header.hashingAlgorithm'),

@@ -147,8 +147,8 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nex-storage-'))
 process.env.NEX_DATA_DIR = tmpDir
 
 const { saveBlock } = await import('src/core/state/storage/block/saveBlock')
-const { rocksState } = await import('src/core/state/db/state')
-const { rocksBlock } = await import('src/core/state/db/block')
+const { rocksState } = await import('src/core/state/db/chain')
+const { rocksBlock } = await import('src/core/state/db/chain')
 const { getBlockState } = await import('src/core/state/storage/state/getState')
 const { getCurrentBlock } =
 	await import('src/core/block/query/onChain/block/getCurrentBlock')
@@ -225,6 +225,10 @@ const restoreSpies = (): void => {
 }
 
 const MINER = `NxC${'ab'.repeat(20)}`
+// Hash blok harus hex64: badan blok kini disimpan sebagai RLP (codec yang
+// sama dengan wire P2P), dan codec itu menolak hash non-hex.
+const hex64 = (char: string): string => char.repeat(64)
+const GENESIS_PREV = hex64('0')
 const fixtureBlock = (hash: string, height: number, prev: string): Block =>
 	new Block({
 		header: {
@@ -256,8 +260,8 @@ const fixtureBlock = (hash: string, height: number, prev: string): Block =>
 
 try {
 	// ---- commit blok height 1 ----
-	const H1 = 'HashBlok1'
-	const saved1 = await saveBlock(fixtureBlock(H1, 1, 'PrevGenesis'))
+	const H1 = hex64('a')
+	const saved1 = await saveBlock(fixtureBlock(H1, 1, GENESIS_PREV))
 	ok('saveBlock(height 1) → true', saved1 === true)
 
 	ok(
@@ -307,7 +311,7 @@ try {
 
 	// ---- guard plafon: tolak SEBELUM satu pun tulis ----
 	const callsBefore = calls.length
-	const poisoned = fixtureBlock('HashBlokX', 99, H1)
+	const poisoned = fixtureBlock(hex64('e'), 99, H1)
 	;(poisoned.block as unknown as { blockReward: number }).blockReward =
 		MAX_SUPPLY_NEXU + 1
 	const savedBad = await saveBlock(poisoned)
@@ -324,7 +328,7 @@ try {
 	)
 
 	// ---- commit berikutnya tetap konsisten ----
-	const H2 = 'HashBlok2'
+	const H2 = hex64('b')
 	const saved2 = await saveBlock(fixtureBlock(H2, 2, H1))
 	const state2 = await getBlockState()
 	ok(

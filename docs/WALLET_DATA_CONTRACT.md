@@ -23,14 +23,14 @@ kebenaran; path sumber tercantum di tiap bagian.
 
 ## 1. Identitas & satuan
 
-| Hal | Format | Sumber |
-| --- | --- | --- |
-| Alamat | `NxC` + 40 hex lowercase = 43 char → 20 byte | `src/core/encoding/rlp/codecScalars.ts` |
-| txHash | `TxC` + 64 hex lowercase = 67 char | `src/core/encoding/rlp/txHash.ts` |
-| Hash blok | 64 hex tanpa prefix | `src/types/block.ts` |
-| Chain ID | `NEX_CHAIN_ID`, fallback `2010` | `src/crypto/chainId.ts` |
-| Satuan | `1 NXC = 100_000_000 nexu` (8 desimal) | `src/core/token/constants.ts` |
-| Plafon suplai | `50_000_000 NXC = 5×10^15 nexu` | `src/core/token/constants.ts` |
+| Hal           | Format                                       | Sumber                                  |
+| ------------- | -------------------------------------------- | --------------------------------------- |
+| Alamat        | `NxC` + 40 hex lowercase = 43 char → 20 byte | `src/core/encoding/rlp/codecScalars.ts` |
+| txHash        | `TxC` + 64 hex lowercase = 67 char           | `src/core/encoding/rlp/txHash.ts`       |
+| Hash blok     | 64 hex tanpa prefix                          | `src/types/block.ts`                    |
+| Chain ID      | `NEX_CHAIN_ID`, fallback `2010`              | `src/crypto/chainId.ts`                 |
+| Satuan        | `1 NXC = 100_000_000 nexu` (8 desimal)       | `src/core/token/constants.ts`           |
+| Plafon suplai | `50_000_000 NXC = 5×10^15 nexu`              | `src/core/token/constants.ts`           |
 
 Jangan cek `txHash.length === 64` — selalu salah dan mematikan relay; pakai
 `isTxHash()`. Format lama `NxS` + 1-byte tag sudah dihapus.
@@ -45,26 +45,36 @@ Sumber: `src/client/wallet/{walletVault,vaultCrypto,kv,idbKv,jsCrypto}.ts`.
 
 ```ts
 // Publik, boleh dibaca tanpa unlock
-interface WalletInfo { address: string; publicKey: string; createdAt: number }
+interface WalletInfo {
+	address: string
+	publicKey: string
+	createdAt: number
+}
 
 // Yang tersimpan di KV
 interface VaultRecord {
-  id: string; address: string; publicKey: string; createdAt: number
-  blob: EncryptedBlob
+	id: string
+	address: string
+	publicKey: string
+	createdAt: number
+	blob: EncryptedBlob
 }
 
 // Hanya di memori setelah unlock — TIDAK pernah dipersist
 interface UnlockedWallet {
-  address: string; publicKey: string; privateKey: string; mnemonic: string
+	address: string
+	publicKey: string
+	privateKey: string
+	mnemonic: string
 }
 
 interface EncryptedBlob {
-  version: number          // 1
-  kdf: 'PBKDF2-SHA256'
-  iterations: number       // 310k desktop / 100k mobile, maks 10 juta
-  salt: string             // 16 byte hex
-  iv: string               // 12 byte hex
-  ciphertext: string       // hex, termasuk tag GCM 16 byte
+	version: number // 1
+	kdf: 'PBKDF2-SHA256'
+	iterations: number // 310k desktop / 100k mobile, maks 10 juta
+	salt: string // 16 byte hex
+	iv: string // 12 byte hex
+	ciphertext: string // hex, termasuk tag GCM 16 byte
 }
 ```
 
@@ -89,24 +99,24 @@ interface EncryptedBlob {
 ```ts
 // Niat pengguna (form), belum on-chain
 interface comTxInterface {
-  receiver: string
-  format: 'NXC' | 'nexu'  // HANYA konversi, tidak ikut ke rantai
-  sender: string          // untuk ambil nonce
-  amount: number
-  fee: number
-  data?: `0x${string}`
+	receiver: string
+	format: 'NXC' | 'nexu' // HANYA konversi, tidak ikut ke rantai
+	sender: string // untuk ambil nonce
+	amount: number
+	fee: number
+	data?: `0x${string}`
 }
 
 // On-chain, immutable
 interface TxInterface {
-  nonce: number
-  fee: number             // nexu
-  receiver: string
-  amount: number          // nexu
-  data?: `0x${string}`
-  sign: { v: number; r: string; s: string }
-  from?: string           // turunan, bukan field wire
-  txHash?: string         // turunan, bukan field wire
+	nonce: number
+	fee: number // nexu
+	receiver: string
+	amount: number // nexu
+	data?: `0x${string}`
+	sign: { v: number; r: string; s: string }
+	from?: string // turunan, bukan field wire
+	txHash?: string // turunan, bukan field wire
 }
 ```
 
@@ -124,7 +134,8 @@ RPC param = base64(payload)
 - `encodeTx()` → base64 payload; `decodeTx()` menghitung ulang `from` dan
   `txHash`, tidak mempercayai nilai dari luar.
 - `v = recoveryParam + chainId*2 + 35` (EIP-155; chainId 2010 → 4055/4056).
-  `decodeV` memakai `CHAIN_ID` yang sama, tanpa angka chain hardcoded.
+  `decodeV` memakai `CHAIN_ID` yang sama, tanpa angka chain hardcoded, dan
+  tetap menerima legacy `v = recovery + 26` untuk transaksi lama.
 - ECDSA secp256k1 dengan `canonical: true` (low-s) → anti-malleability.
   `r`/`s` di-pad 64 hex lowercase.
 - Integer RLP = big-endian minimal kanonik (nol depan ditolak); `0 → empty`.
@@ -150,29 +161,29 @@ Sumber: `wallet/src/lib/sendFlow.ts`, `wallet/src/lib/rpc.ts`,
 
 ```ts
 interface structBalance {
-  address: string
-  balance: number                   // nexu
-  transactionCount: number          // naik saat KIRIM dan TERIMA (self +2)
-  lastTransactionDate: number | null // timestamp BLOK (epoch ms)
-  nonce: number                     // hanya naik untuk tx KELUAR
+	address: string
+	balance: number // nexu
+	transactionCount: number // naik saat KIRIM dan TERIMA (self +2)
+	lastTransactionDate: number | null // timestamp BLOK (epoch ms)
+	nonce: number // hanya naik untuk tx KELUAR
 }
 ```
 
 - Alamat valid belum ada → akun-nol, bukan error.
 - State LevelDB: leaf RLP v1 `RLP([1, nonce, balance, txCount, lastTxTime])`.
 - `nex_getNonceAccount` = nonce terkonfirmasi; **`nex_getNextNonce`** = nonce
-  + jumlah tx pending pengirim. Pakai yang terakhir untuk kirim.
+  - jumlah tx pending pengirim. Pakai yang terakhir untuk kirim.
 
 ## 5. Riwayat
 
 ```ts
 interface HistoryEntry extends TxInterface {
-  metadata?: {
-    blockHeight: number
-    blockHash: string
-    blockTimestamp: number  // source of truth waktu tx
-    merkleRoot: string
-  }
+	metadata?: {
+		blockHeight: number
+		blockHash: string
+		blockTimestamp: number // source of truth waktu tx
+		merkleRoot: string
+	}
 }
 ```
 
@@ -203,9 +214,9 @@ Sumber: `src/core/transaction/saveTxHistory.ts`,
 
 ## 6. Mempool (node-local, bukan konsensus)
 
-| Kunci | Fungsi |
-| --- | --- |
-| `<txHash>` | entri `TxInterface` penuh |
+| Kunci                 | Fungsi                                              |
+| --------------------- | --------------------------------------------------- |
+| `<txHash>`            | entri `TxInterface` penuh                           |
 | `mpf:<from>:<txHash>` | indeks per-pengirim, nilai `{ cost: amount + fee }` |
 
 - `pendingReserve = Σ cost` indeks `mpf:` — **turunan, bukan counter**, jadi
@@ -223,23 +234,23 @@ Sumber: `src/core/transaction/memPool.ts`,
 
 ## 7. RPC (`POST /rpc`)
 
-| Method | Params → hasil |
-| --- | --- |
-| `nex_getAccount` | address → `structBalance` |
-| `nex_getBalance` | address → `"… NXC"` (string) |
-| `nex_getNonceAccount` / `nex_getNextNonce` | address → number |
-| `nex_getTransactionCount` | address → number |
-| `nex_getPendingReserve` | address → `{address, pendingAmount}` |
-| `nex_getTransactionsByAddress` | string \| objek → `{count, history, …}` |
-| `nex_getTransactionByTxHash` | txHash → `HistoryEntry` |
-| `nex_getPendingByAddress` | address → `TxInterface[]` |
-| `nex_getMempool` | – → `TxInterface[]` (≤100) |
-| `nex_sendRawTransaction` | base64 tx → `{status, txHash, error?}` **(WRITE)** |
-| `nex_authCheck` | – → `{status:true}` **(WRITE, uji kredensial)** |
-| `nex_getChainId` | – → number |
-| `nex_getSyncStatus` | – → `{phase, syncing, localHeight, targetHeight, updatedAt}` |
-| `nex_getBlockByHeight` / `ByHash` | → `{ block }` |
-| `nex_getRecentBlocks` / `nex_getBlocksRange` | → `blockSummary[]` |
+| Method                                       | Params → hasil                                               |
+| -------------------------------------------- | ------------------------------------------------------------ |
+| `nex_getAccount`                             | address → `structBalance`                                    |
+| `nex_getBalance`                             | address → `"… NXC"` (string)                                 |
+| `nex_getNonceAccount` / `nex_getNextNonce`   | address → number                                             |
+| `nex_getTransactionCount`                    | address → number                                             |
+| `nex_getPendingReserve`                      | address → `{address, pendingAmount}`                         |
+| `nex_getTransactionsByAddress`               | string \| objek → `{count, history, …}`                      |
+| `nex_getTransactionByTxHash`                 | txHash → `HistoryEntry`                                      |
+| `nex_getPendingByAddress`                    | address → `TxInterface[]`                                    |
+| `nex_getMempool`                             | – → `TxInterface[]` (≤100)                                   |
+| `nex_sendRawTransaction`                     | base64 tx → `{status, txHash, error?}` **(WRITE)**           |
+| `nex_authCheck`                              | – → `{status:true}` **(WRITE, uji kredensial)**              |
+| `nex_getChainId`                             | – → number                                                   |
+| `nex_getSyncStatus`                          | – → `{phase, syncing, localHeight, targetHeight, updatedAt}` |
+| `nex_getBlockByHeight` / `ByHash`            | → `{ block }`                                                |
+| `nex_getRecentBlocks` / `nex_getBlocksRange` | → `blockSummary[]`                                           |
 
 Auth: method tulis butuh `Authorization: Basic …` bila node menyetel
 `RPC_USER`/`RPC_PASSWORD`; tanpa kredensial hanya loopback yang boleh (node

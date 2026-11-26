@@ -5,6 +5,30 @@ import { loggingErr } from 'src/logging/errorLog'
 import { loggingDebug } from 'src/logging/debug'
 
 /**
+ * Decode blok 1000 tx memanggil `processPubKey` 1000 kali. Dua baris debug per
+ * panggilan = 2000 `appendFileSync`, dan itu mengubah verifikasi jadi I/O
+ * serial. Sama seperti geth/Bitcoin Core: event tetap dicatat, tapi produksinya
+ * satu baris ringkas per operasi besar. Error per tx TIDAK diagregat.
+ */
+let batching = false
+let batchCount = 0
+
+export const withPubKeyBatch = <T>(txCount: number, run: () => T): T => {
+	batching = true
+	batchCount = 0
+	const started = Date.now()
+	try {
+		return run()
+	} finally {
+		batching = false
+		loggingDebug(
+			'block:decode',
+			`decoded ${txCount} tx in ${Date.now() - started}ms (${batchCount} ecrecover)`,
+		)
+	}
+}
+
+/**
  * Processes a public key and generates its SHA256 hash.
  * @param publicKey - The public key in hexadecimal string format.
  * @returns The SHA256 hash of the public key as a Uint8Array, or undefined if an error occurs.
@@ -14,7 +38,8 @@ import { loggingDebug } from 'src/logging/debug'
  * Hasilnya identik dengan crypto.createHash('sha256').update(bytes).digest().
  */
 export const processPubKey = (publicKey: string): Uint8Array | undefined => {
-	loggingDebug('processPubKey', 'Processing public key...')
+	if (batching) batchCount++
+	else loggingDebug('processPubKey', 'Processing public key...')
 
 	try {
 		if (!isValidHexPublicKey(publicKey)) {
@@ -23,7 +48,8 @@ export const processPubKey = (publicKey: string): Uint8Array | undefined => {
 		}
 
 		const hashedKey = generateSha256Hash(publicKey)
-		loggingDebug('processPubKey', 'Successfully processed public key.')
+		if (!batching)
+			loggingDebug('processPubKey', 'Successfully processed public key.')
 		return hashedKey
 	} catch (error) {
 		logProcessingError(error)

@@ -23,7 +23,7 @@ interface HistoryWithBlockRef {
  * ditulis keliru.
  *
  * Dipakai untuk dua hal:
- *   - transaksi yang tersisa di mempool (crash tepat setelah `saveTxHistory`
+ *   - transaksi yang tersisa di mempool (crash setelah riwayat blok ditulis
  *     tetapi sebelum `removeMemPool`) tidak dieksekusi dua kali;
  *   - hadiah blok tidak dikredit dua kali bila proses diulang.
  */

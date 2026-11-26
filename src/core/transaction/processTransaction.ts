@@ -93,7 +93,7 @@ export const processTransact = async (
 
 	for (const tx of txData) {
 		// Penjaga idempotensi: transaksi yang sudah pernah dieksekusi
-		// (crash/sisa race di antara `saveTxHistory` dan `removeMemPool`)
+		// (crash setelah riwayat blok ditulis, sebelum `removeMemPool`)
 		// tidak dijalankan dua kali — cukup dibersihkan dari mempool.
 		if (tx.txHash && (await isTxExecuted(tx.txHash))) {
 			await removeMemPool(tx.txHash)

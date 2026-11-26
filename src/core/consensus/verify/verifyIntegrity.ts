@@ -10,6 +10,7 @@ import {
 } from './module/verifyTimestamp'
 import { expectedDifficulty } from '../difficulty'
 import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByHeight'
+import { getBlockHeader } from 'src/core/block/query/onChain/block/blockHeaderCache'
 import { Block } from 'src/core/block/blockModel'
 import { verifyMerkleRoot } from './module/verifyMerkleRoot'
 import { logToConsole } from 'src/logging/logging'
@@ -116,13 +117,13 @@ const verifyRange = async (
 			const reached = currentHeight - 1
 			if (reached !== tip) {
 				loggingErr({
-					message: `Chain integrity gagal: verifikasi berhenti di height ${reached}, tetapi blockState.currentBlockHeight=${tip}`,
+					message: `Chain integrity failed: verification stopped at height ${reached}, but blockState.currentBlockHeight=${tip}`,
 					stack: new Error().stack!,
 					timestamp: generateTimestampz(),
 					level: 'error',
 					priority: 'high',
 					context: 'verifyChainIntegrity',
-					hint: 'Blok hilang di tengah rantai atau penunjuk tip mendahului data. Reset direktori data (NEX_DATA_DIR) atau pulihkan dari node lain.',
+					hint: 'Block missing in the middle of the chain, or the tip pointer is ahead of the data. Reset the data directory (NEX_DATA_DIR) or restore from another node.',
 				})
 				resetVerifyMarker()
 				return false
@@ -146,7 +147,7 @@ const verifyRange = async (
 		}
 		// Genesis: identitas jaringan — hash wajib sama dengan konstanta kode.
 		if (currentHeight === 0 && hash !== GENESIS_HASH) {
-			failures.push('genesis hash mismatch (bukan rantai jaringan ini)')
+			failures.push('genesis hash mismatch (not this network)')
 		}
 		// Genesis: lihat catatan fungsi — merkle di-skip, sisanya tetap dicek.
 		if (
@@ -210,7 +211,7 @@ const verifyRange = async (
 				level: 'error',
 				priority: 'high',
 				context: 'verifyChainIntegrity',
-				hint: 'Rantai rusak atau bukan milik jaringan ini — hentikan node, periksa NEX_CHAIN_ID, atau reset direktori data (NEX_DATA_DIR). Mining ditolak sampai rantai valid.',
+				hint: 'Chain is corrupt or belongs to another network — stop the node, check NEX_CHAIN_ID, or reset the data directory (NEX_DATA_DIR). Mining is blocked until the chain is valid.',
 			})
 			// Rantai tidak valid → jangan sisakan titik terpercaya.
 			resetVerifyMarker()
@@ -256,8 +257,9 @@ export const verifyChainIncremental = async (): Promise<boolean> => {
 
 	// Marker tetap sah? Blok di `marker.height` HARUS ada dan ber-hash SAMA.
 	// Hash-keyed: setelah reorg, blok di height itu berganti → marker basi.
-	const anchor = (await getBlockByHeight(marker.height)) as Block | undefined
-	if (anchor === undefined || anchor.block.header.hash !== marker.hash) {
+	// Cek ini butuh hash saja — baca header, jangan decode badan 1000 tx.
+	const anchor = await getBlockHeader(marker.height)
+	if (anchor === undefined || anchor.hash !== marker.hash) {
 		return await verifyChainIntegrity()
 	}
 
@@ -267,8 +269,8 @@ export const verifyChainIncremental = async (): Promise<boolean> => {
 	const startHeight = marker.height + 1
 	const seed: VerifySeed = {
 		previousTimestamps: await getPreviousTimestamps(startHeight),
-		prevDifficulty: anchor.block.header.difficulty,
-		prevTimestamp: anchor.block.header.timestamp,
+		prevDifficulty: anchor.difficulty,
+		prevTimestamp: anchor.timestamp,
 		prevHeight: marker.height,
 	}
 	return await verifyRange(startHeight, seed)

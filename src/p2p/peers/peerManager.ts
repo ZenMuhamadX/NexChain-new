@@ -60,6 +60,12 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 	const banned = new BanList(config.banDurationMs)
 	/** Dial keluar yang masih berjalan, kunci = `host:port`. */
 	const outbound = new Map<string, OutboundHandle>()
+	/** Gagal dial per endpoint, diagregat supaya reconnect tidak banjir log. */
+	const connectFailures = new Map<
+		string,
+		{ count: number; lastReason: string; lastLoggedAt: number }
+	>()
+	const CONNECT_ERROR_LOG_MS = 60_000
 	let server: ServerHandle | undefined
 	let pingTimer: ReturnType<typeof setInterval> | undefined
 	let reconnectTimer: ReturnType<typeof setInterval> | undefined
@@ -163,7 +169,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 						protocolVersion: P2P_PROTOCOL_VERSION,
 					})
 					if (!check.ok) {
-						const reason = check.reason ?? 'version tidak valid'
+						const reason = check.reason ?? 'invalid version'
 						// Pelanggaran identitas jaringan layak di-ban, bukan
 						// sekadar diputus — biar tidak dihubungi lagi.
 						if (check.fatal) banned.ban(connection.remoteAddress, reason)
@@ -188,7 +194,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 				}
 				case 'verack': {
 					if (!record.handshake.receivedVersion) {
-						connection.close('verack sebelum version')
+						connection.close('verack before version')
 						return
 					}
 					record.handshake.receivedVerack = true
@@ -207,33 +213,38 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 					return
 				default:
 					if (!record.handshaked) {
-						connection.close('pesan sebelum handshake selesai')
+						connection.close('message before handshake completed')
 						return
 					}
 					emit('onPeerMessage', () => events.onPeerMessage(record, message))
 					return
 			}
 		} catch (err) {
-			logToConsole(`P2P: galat memproses pesan ${message.type}: ${String(err)}`)
-			connection.close('galat memproses pesan')
+			logToConsole(
+				`P2P: error handling message ${message.type}: ${String(err)}`,
+			)
+			connection.close('message handler error')
 		}
 	}
 
 	const transportEvents: TransportEvents = {
 		onConnection: (connection, inbound) => {
 			const now = Date.now()
+			if (connection.dialKey !== undefined) {
+				connectFailures.delete(connection.dialKey)
+			}
 			// Berisik per koneksi — pindah ke debug supaya konsol tenang.
 			loggingDebug(
 				'p2p:peerManager',
-				`P2P: koneksi ${inbound ? 'masuk' : 'keluar'} ` +
+				`P2P: ${inbound ? 'inbound' : 'outbound'} connection ` +
 					`${connection.remoteAddress}:${connection.remotePort}`,
 			)
 			if (banned.isBanned(connection.remoteAddress)) {
-				connection.close('alamat dibanned')
+				connection.close('address banned')
 				return
 			}
 			if (peers.size >= config.maxPeers) {
-				connection.close('terlalu banyak peer')
+				connection.close('too many peers')
 				return
 			}
 			const record: PeerRecord = {
@@ -260,15 +271,15 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 					publishPeerSnapshot()
 				})
 				.catch((err: unknown) => {
-					logToConsole(`P2P: gagal mengambil status lokal: ${String(err)}`)
-					connection.close('gagal mengambil status lokal')
+					logToConsole(`P2P: failed to get local status: ${String(err)}`)
+					connection.close('failed to get local status')
 				})
 			publishPeerSnapshot()
 		},
 		onMessage: (connection, message) => {
 			const record = peers.get(connection.id)
 			if (record === undefined) {
-				connection.close('koneksi tidak dikenal')
+				connection.close('unknown connection')
 				return
 			}
 			record.lastSeenAt = Date.now()
@@ -276,7 +287,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 			// `handleMessage` menangkap seluruh galatnya sendiri; ikat `.catch`
 			// di sini sebagai jaring pengaman terakhir.
 			handleMessage(connection, record, message).catch((err: unknown) => {
-				logToConsole(`P2P: galat handler pesan: ${String(err)}`)
+				logToConsole(`P2P: message handler error: ${String(err)}`)
 			})
 		},
 		onClose: (connection, reason) => {
@@ -293,19 +304,39 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 			loggingDebug(
 				'p2p:peerManager',
 				`P2P: peer ${connection.remoteAddress}:${connection.remotePort} ` +
-					`tertutup (${reason})`,
+					`closed (${reason})`,
 			)
 			emit('onPeerClosed', () => events.onPeerClosed(record, reason))
 			publishPeerSnapshot()
 		},
 		onConnectError: (host, port, reason) => {
 			// Cukup dicatat: interval reconnect akan mencoba lagi nanti.
-			outbound.delete(`${host}:${port}`)
-			// Gagal dial berulang tiap reconnectIntervalMs — jangan banjiri konsol.
+			const key = `${host}:${port}`
+			outbound.delete(key)
+			const now = Date.now()
+			const previous = connectFailures.get(key)
+			if (previous === undefined) {
+				connectFailures.set(key, {
+					count: 1,
+					lastReason: reason,
+					lastLoggedAt: now,
+				})
+				loggingDebug(
+					'p2p:peerManager',
+					`P2P: failed to connect to ${key} (${reason})`,
+				)
+				return
+			}
+			previous.count++
+			previous.lastReason = reason
+			if (now - previous.lastLoggedAt < CONNECT_ERROR_LOG_MS) return
 			loggingDebug(
 				'p2p:peerManager',
-				`P2P: gagal terhubung ke ${host}:${port} (${reason})`,
+				`P2P: ${previous.count}x failed to connect to ${key} ` +
+					`(last: ${previous.lastReason})`,
 			)
+			previous.count = 0
+			previous.lastLoggedAt = now
 		},
 	}
 
@@ -332,7 +363,7 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 		// Salin dulu: `close` bisa memicu `onClose` yang memutasi `peers`.
 		for (const record of [...peers.values()]) {
 			if (record.connection.remoteAddress !== remoteAddress) continue
-			record.connection.close('dibanned: ' + reason)
+			record.connection.close('banned: ' + reason)
 		}
 		publishPeerSnapshot()
 	}
@@ -398,8 +429,8 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 		)
 		server = listener
 		logToConsole(
-			`P2P: listener aktif di ${describeBindHost(config.bindHost)}:${listener.port} ` +
-				`(peer bootstrap: ${config.peers.length})`,
+			`P2P: listener active on ${describeBindHost(config.bindHost)}:${listener.port} ` +
+				`(${config.peers.length} bootstrap peers)`,
 		)
 		// Dial awal segera; interval reconnect mengulang yang gagal nanti.
 		dialBootstrapPeers()
@@ -420,14 +451,14 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 			try {
 				handle.cancel()
 			} catch (err) {
-				logToConsole(`P2P: gagal membatalkan dial keluar: ${String(err)}`)
+				logToConsole(`P2P: failed to cancel outbound dial: ${String(err)}`)
 			}
 		}
 		outbound.clear()
 
 		for (const record of [...peers.values()]) {
 			clearHandshakeTimer(record)
-			record.connection.close('node berhenti')
+			record.connection.close('node stopping')
 		}
 		peers.clear()
 

@@ -105,7 +105,7 @@ export class TcpConnection implements PeerConnection {
 		try {
 			this.socket.write(encodeFrame(message, this.maxMessageBytes))
 		} catch (error) {
-			this.destroy('kirim gagal: ' + describeError(error))
+			this.destroy('send failed: ' + describeError(error))
 		}
 	}
 

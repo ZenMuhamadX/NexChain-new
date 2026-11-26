@@ -52,10 +52,10 @@ const ok = (name: string, cond: boolean, extra = ''): void => {
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nex-reorg-'))
 process.env.NEX_DATA_DIR = tmpDir
 
-const { rocksState } = await import('src/core/state/db/state')
-const { rocksHistory } = await import('src/core/state/db/history')
-const { rocksBlock } = await import('src/core/state/db/block')
-const { rocksJournal } = await import('src/core/state/db/journal')
+const { rocksState } = await import('src/core/state/db/chain')
+const { rocksHistory } = await import('src/core/state/db/chain')
+const { rocksBlock } = await import('src/core/state/db/chain')
+const { rocksJournal } = await import('src/core/state/db/chain')
 const { getGenesisBlock, GENESIS_HASH } = await import('src/core/block/genesis')
 const { putAccount } = await import('src/core/state/account/putAccount')
 const { saveBlock } = await import('src/core/state/storage/block/saveBlock')
@@ -75,6 +75,8 @@ const journal = await import('src/core/state/journal/store')
 const sync = await import('src/core/events/syncState')
 const verify = await import('src/core/consensus/verify/verifyIntegrity')
 const verifyMarker = await import('src/core/consensus/verify/verifyMarker')
+const headerCache =
+	await import('src/core/block/query/onChain/block/blockHeaderCache')
 const { prepareBlockForHashing } = await import('src/core/block/prepareBlock')
 const { createPowHasher } = await import('src/core/consensus/Pow')
 const { meetsDifficulty } = await import('src/core/consensus/difficulty')
@@ -544,11 +546,20 @@ pool.addToPool(fakeBlock(5, hex64(6001), hex64(6000)))
 pool.addToPool(fakeBlock(6, hex64(6002), hex64(6001)))
 pool.addToPool(fakeBlock(7, hex64(6003), hex64(6002)))
 verifyMarker.setVerifyMarker(6, hex64(6010))
+headerCache.rememberBlockHeader(fakeBlock(9999, hex64(9999), hex64(9998)))
+ok(
+	'cache header terisi',
+	(await headerCache.getBlockHeader(9999)) !== undefined,
+)
 ok('invalidateFrom(6) membuang height >= 6', reorg.invalidateFrom(6) === 2)
 ok('tinggal height 5', pool.poolSize() === 1 && pool.hasPooled(hex64(6001)))
 ok(
 	'invalidateFrom juga membatalkan marker verifikasi >= 6',
 	verifyMarker.getVerifyMarker() === undefined,
+)
+ok(
+	'invalidateFrom juga membuang cache header >= 6',
+	(await headerCache.getBlockHeader(9999)) === undefined,
 )
 
 // ---------------------------------------------------------------------------

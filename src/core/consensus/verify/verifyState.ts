@@ -9,7 +9,7 @@ import {
 	flushWriteBuffer,
 	isAccountStateKey,
 } from 'src/core/state/journal/writeBuffer'
-import { rocksState } from 'src/core/state/db/state'
+import { rocksState } from 'src/core/state/db/chain'
 import { currentHeight } from 'src/core/state/journal/store'
 import { computeStateRoot, EMPTY_STATE_ROOT } from 'src/core/state/root'
 
@@ -47,7 +47,7 @@ export const replayState = async (
 	try {
 		for (; height <= tip; height++) {
 			const block = (await getBlockByHeight(height)) as Block | undefined
-			if (!block) throw new Error(`blok height ${height} tidak ditemukan`)
+			if (!block) throw new Error(`block at height ${height} not found`)
 
 			// Genesis tidak punya transisi state (hadiah 0, tanpa tx): root-nya
 			// wajib root-kosong dan TIDAK dieksekusi — mengeksekusinya akan
@@ -55,7 +55,7 @@ export const replayState = async (
 			if (height === 0) {
 				if (block.block.header.stateRoot !== EMPTY_STATE_ROOT) {
 					throw new Error(
-						`stateRoot genesis ${block.block.header.stateRoot} bukan root kosong ` +
+						`genesis stateRoot ${block.block.header.stateRoot} is not the empty root ` +
 							`${EMPTY_STATE_ROOT}`,
 					)
 				}
@@ -66,7 +66,7 @@ export const replayState = async (
 			root = computeStateRoot(root, bufferStateLeaves())
 			if (block.block.header.stateRoot !== root) {
 				throw new Error(
-					`stateRoot blok ${height} tidak cocok dengan header: ` +
+					`stateRoot at block ${height} does not match the header: ` +
 						`header ${block.block.header.stateRoot}, replay ${root}`,
 				)
 			}
@@ -81,9 +81,9 @@ export const replayState = async (
 			const drift = await stateDrift()
 			if (drift.length > 0) {
 				throw new Error(
-					`State DB tidak cocok dengan replay (header.stateRoot rantai valid): ` +
+					`State DB does not match replay (chain header.stateRoot is valid): ` +
 						drift.slice(0, 5).join('; ') +
-						(drift.length > 5 ? ` (+${drift.length - 5} akun lagi)` : ''),
+						(drift.length > 5 ? ` (+${drift.length - 5} more accounts)` : ''),
 				)
 			}
 		}
@@ -112,13 +112,14 @@ const stateDrift = async (): Promise<string[]> => {
 		if (!isAccountStateKey(key)) continue
 		const want = replayed.get(key)
 		if (want === undefined) {
-			drift.push(`akun ${key} ada di DB tetapi tidak dihasilkan rantai`)
+			drift.push(`account ${key} is in DB but was not produced by the chain`)
 		} else if (want !== String(value)) {
-			drift.push(`akun ${key} nilainya berbeda dari replay`)
+			drift.push(`account ${key} differs from replay`)
 		}
 		replayed.delete(key)
 	}
-	for (const key of replayed.keys()) drift.push(`akun ${key} hilang dari DB`)
+	for (const key of replayed.keys())
+		drift.push(`account ${key} missing from DB`)
 	return drift
 }
 

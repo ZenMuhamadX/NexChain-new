@@ -181,9 +181,9 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 			localHeight = undefined
 		}
 		logToConsole(
-			`P2P: tak ada kemajuan sinkronisasi dalam ~${config.syncTimeoutMs} ms ` +
-				`(tinggi lokal ${localHeight ?? '?'}) — mining dibuka sementara ` +
-				`(fase "assumed"); akan ditahan lagi bila terbukti tertinggal`,
+			`P2P: no sync progress within ~${config.syncTimeoutMs} ms ` +
+				`(local height ${localHeight ?? '?'}) — mining temporarily enabled ` +
+				`(phase "assumed"); will be blocked again if lagging is confirmed`,
 		)
 		markAssumed({ localHeight })
 	}
@@ -276,9 +276,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		}
 
 		clearSyncTimer()
-		logToConsole(
-			'P2P: rantai sudah menyusul peer (tervalidasi) — mining dibuka',
-		)
+		logToConsole('P2P: chain caught up with peers (validated) — mining enabled')
 		markSynced({ localHeight })
 	}
 
@@ -366,7 +364,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 	/** Minta blok dari peer terbaik; tidak pernah melempar ke pemanggil. */
 	const requestSync = (peer?: PeerState): void => {
 		runRequestSync(peer).catch((error: unknown) => {
-			logToConsole(`P2P: requestSync gagal — ${formatError(error)}`)
+			logToConsole(`P2P: requestSync failed — ${formatError(error)}`)
 		})
 	}
 
@@ -394,7 +392,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 	const onPeerReady = (peer: PeerState): void => {
 		beginOrContinueSync(peer.status?.bestHeight).catch((error: unknown) => {
 			logToConsole(
-				`P2P: onPeerReady gagal untuk ${peer.connection.id} — ` +
+				`P2P: onPeerReady failed for ${peer.connection.id} — ` +
 					`${formatError(error)}`,
 			)
 		})
@@ -402,7 +400,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		// Re-announce mempool yang masih ada untuk memberi tx ke peer baru
 		reannounceMempool().catch((error: unknown) => {
 			logToConsole(
-				`P2P: reannounceMempool gagal untuk ${peer.connection.id} — ` +
+				`P2P: reannounceMempool failed for ${peer.connection.id} — ` +
 					`${formatError(error)}`,
 			)
 		})
@@ -558,7 +556,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		} catch (error) {
 			gateway.ban(
 				peer.connection.remoteAddress,
-				`payload blok tidak bisa di-decode: ${formatError(error)}`,
+				`block payload could not be decoded: ${formatError(error)}`,
 			)
 			return
 		}
@@ -567,7 +565,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 			if (result.fatal) {
 				gateway.ban(
 					peer.connection.remoteAddress,
-					result.reason ?? 'pelanggaran protokol',
+					result.reason ?? 'protocol violation',
 				)
 			}
 			// Penolakan non-fatal (mis. tembakan lintas karena race) diabaikan.
@@ -576,7 +574,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		// Tiap blok masuk (termasuk kejar-kejaran IBD) — cukup di debug.
 		loggingDebug(
 			'p2p:sync',
-			`P2P: blok baru diterima dari peer ${peer.connection.id}`,
+			`P2P: new block received from peer ${peer.connection.id}`,
 		)
 		// Kemajuan nyata: perbarui tinggi lokal + segarkan anggaran katup.
 		await noteProgress()
@@ -614,7 +612,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 			}
 		} catch (error) {
 			logToConsole(
-				`P2P: gagal memproses tx dari ${peer.connection.id} — ` +
+				`P2P: failed to process tx from ${peer.connection.id} — ` +
 					`${formatError(error)}`,
 			)
 		}
@@ -650,7 +648,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 	const onPeerMessage = (peer: PeerState, message: P2PMessage): void => {
 		handleMessage(peer, message).catch((error: unknown) => {
 			logToConsole(
-				`P2P: gagal memproses '${message.type}' dari ${peer.connection.id} — ` +
+				`P2P: failed to process '${message.type}' from ${peer.connection.id} — ` +
 					`${formatError(error)}`,
 			)
 		})
@@ -691,7 +689,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 			// melaporkan 0 sejak awal; gerbang tetap lewat state, bukan meta.
 			beginOrContinueSync().catch((error: unknown) => {
 				logToConsole(
-					`P2P: inisialisasi status sync gagal — ${formatError(error)}`,
+					`P2P: sync status initialization failed — ${formatError(error)}`,
 				)
 			})
 		}
@@ -710,7 +708,7 @@ export const createSyncManager = (options: SyncManagerOptions): SyncManager => {
 		reannounceTimer = setInterval(() => {
 			reannounceMempool().catch((error: unknown) => {
 				logToConsole(
-					`P2P: reannounceMempool berkala gagal — ${formatError(error)}`,
+					`P2P: periodic reannounceMempool failed — ${formatError(error)}`,
 				)
 			})
 		}, 60_000)

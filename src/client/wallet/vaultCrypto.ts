@@ -114,7 +114,7 @@ const getCrypto = (): Crypto => {
 			console.warn(
 				`[vault] Insecure context detected (${
 					typeof location === 'undefined' ? 'unknown' : location.origin
-				}) — memakai fallback PBKDF2+AES-GCM murni JS. Skema dan format ciphertext IDENTIK dengan Web Crypto.`,
+				}) — using the pure-JS PBKDF2+AES-GCM fallback. Schema and ciphertext format are IDENTICAL to Web Crypto.`,
 			)
 		}
 		return createJsCrypto()
@@ -128,7 +128,7 @@ const getCrypto = (): Crypto => {
 	if (!fallbackAnnounced) {
 		fallbackAnnounced = true
 		console.warn(
-			`[vault] crypto.subtle tidak tersedia di secure context — memakai fallback JS.`,
+			`[vault] crypto.subtle unavailable in a secure context — using the JS fallback.`,
 		)
 	}
 	return createJsCrypto()

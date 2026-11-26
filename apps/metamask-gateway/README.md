@@ -7,13 +7,13 @@ lewat `nex_*`; satu-satunya method tulis yang diteruskan adalah
 `personal_sign` tidak pernah diteruskan.
 
 ```
-MetaMask iOS ──HTTPS──> gateway (:8545) ──loopback + Basic Auth──> node (:2008)
+MetaMask iOS ──HTTPS──> gateway (:8545) ──loopback + Basic Auth──> node (:8000)
 ```
 
 ## Jalankan
 
 ```sh
-bun run metamask:start
+bun run bridge:start
 ```
 
 Env (semua opsional):

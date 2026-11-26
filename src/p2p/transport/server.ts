@@ -76,11 +76,11 @@ export const startServer = (
 						// Socket mungkin sudah hilang saat `open` dipanggil, atau
 						// pemilik melempar — tutup koneksi, jangan gugurkan proses.
 						const reason = describeError(error)
-						console.error(`P2P: koneksi masuk gagal ditangani: ${reason}`)
+						console.error(`P2P: failed to handle inbound connection: ${reason}`)
 						const failed = connections.get(socket)
 						if (failed) {
 							connections.delete(socket)
-							failed.handleSocketClose('gagal ditangani: ' + reason)
+							failed.handleSocketClose('handle failed: ' + reason)
 						}
 						terminateQuietly(socket)
 					}
@@ -96,7 +96,7 @@ export const startServer = (
 					const connection = connections.get(socket)
 					if (!connection) return
 					connection.handleSocketClose(
-						error ? 'error: ' + error.message : 'ditutup peer',
+						error ? 'error: ' + error.message : 'closed by peer',
 					)
 					connections.delete(socket)
 				},
@@ -115,7 +115,7 @@ export const startServer = (
 				// Beri tahu pemilik dulu (onClose tetap hanya sekali), lalu
 				// hentikan listener beserta koneksi yang masih aktif.
 				for (const connection of connections.values()) {
-					connection.handleSocketClose('server dihentikan')
+					connection.handleSocketClose('server stopped')
 				}
 				connections.clear()
 				listener.stop(true)
@@ -123,7 +123,7 @@ export const startServer = (
 		}
 	} catch (error) {
 		throw new Error(
-			`P2P: gagal listen di ${options.bindHost}:${options.port} — ` +
+			`P2P: failed to listen on ${options.bindHost}:${options.port} — ` +
 				describeError(error),
 			{ cause: error },
 		)
@@ -183,12 +183,14 @@ export const connectOutbound = (
 						// Socket hilang atau pemilik melempar — laporkan satu sinyal
 						// kegagalan, jangan gugurkan proses.
 						const reason = describeError(error)
-						console.error(`P2P: koneksi keluar gagal ditangani: ${reason}`)
+						console.error(
+							`P2P: failed to handle outbound connection: ${reason}`,
+						)
 						const failed = connection
 						connection = undefined
 						terminateQuietly(socket)
 						if (failed) {
-							failed.handleSocketClose('gagal ditangani: ' + reason)
+							failed.handleSocketClose('handle failed: ' + reason)
 						} else {
 							notifyConnectError(reason)
 						}
@@ -199,7 +201,7 @@ export const connectOutbound = (
 				},
 				close(_socket, error) {
 					connection?.handleSocketClose(
-						error ? 'error: ' + error.message : 'ditutup peer',
+						error ? 'error: ' + error.message : 'closed by peer',
 					)
 					connection = undefined
 					activeSocket = undefined
