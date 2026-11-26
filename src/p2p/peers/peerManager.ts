@@ -60,6 +60,12 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 	const banned = new BanList(config.banDurationMs)
 	/** Dial keluar yang masih berjalan, kunci = `host:port`. */
 	const outbound = new Map<string, OutboundHandle>()
+	/** Gagal dial per endpoint, diagregat supaya reconnect tidak banjir log. */
+	const connectFailures = new Map<
+		string,
+		{ count: number; lastReason: string; lastLoggedAt: number }
+	>()
+	const CONNECT_ERROR_LOG_MS = 60_000
 	let server: ServerHandle | undefined
 	let pingTimer: ReturnType<typeof setInterval> | undefined
 	let reconnectTimer: ReturnType<typeof setInterval> | undefined
@@ -222,6 +228,9 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 	const transportEvents: TransportEvents = {
 		onConnection: (connection, inbound) => {
 			const now = Date.now()
+			if (connection.dialKey !== undefined) {
+				connectFailures.delete(connection.dialKey)
+			}
 			// Berisik per koneksi — pindah ke debug supaya konsol tenang.
 			loggingDebug(
 				'p2p:peerManager',
@@ -300,12 +309,32 @@ export const createPeerManager = (options: PeerManagerOptions): PeerManager => {
 		},
 		onConnectError: (host, port, reason) => {
 			// Cukup dicatat: interval reconnect akan mencoba lagi nanti.
-			outbound.delete(`${host}:${port}`)
-			// Gagal dial berulang tiap reconnectIntervalMs — jangan banjiri konsol.
+			const key = `${host}:${port}`
+			outbound.delete(key)
+			const now = Date.now()
+			const previous = connectFailures.get(key)
+			if (previous === undefined) {
+				connectFailures.set(key, {
+					count: 1,
+					lastReason: reason,
+					lastLoggedAt: now,
+				})
+				loggingDebug(
+					'p2p:peerManager',
+					`P2P: gagal terhubung ke ${key} (${reason})`,
+				)
+				return
+			}
+			previous.count++
+			previous.lastReason = reason
+			if (now - previous.lastLoggedAt < CONNECT_ERROR_LOG_MS) return
 			loggingDebug(
 				'p2p:peerManager',
-				`P2P: gagal terhubung ke ${host}:${port} (${reason})`,
+				`P2P: ${previous.count}x gagal terhubung ke ${key} ` +
+					`(terakhir: ${previous.lastReason})`,
 			)
+			previous.count = 0
+			previous.lastLoggedAt = now
 		},
 	}
 

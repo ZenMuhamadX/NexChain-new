@@ -239,16 +239,13 @@ export const rlpListToBlock = (list: RlpInput): blockStruct => {
 	if (!Array.isArray(txItems)) {
 		throw new Error(`${LABEL}: transactions harus list`)
 	}
-	const transactions: TxInterface[] = withPubKeyBatch(
-		'decodeBlock',
-		txItems.length,
-		() =>
-			txItems.map((entry) => {
-				if (!(entry instanceof Uint8Array)) {
-					throw new Error(`${LABEL}: item transaksi harus byte string`)
-				}
-				return decodeTxPayload(entry)
-			}),
+	const transactions: TxInterface[] = withPubKeyBatch(txItems.length, () =>
+		txItems.map((entry) => {
+			if (!(entry instanceof Uint8Array)) {
+				throw new Error(`${LABEL}: item transaksi harus byte string`)
+			}
+			return decodeTxPayload(entry)
+		}),
 	)
 
 	const hashingAlgorithm = bytesToString(

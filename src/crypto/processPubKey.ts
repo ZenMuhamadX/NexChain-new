@@ -13,11 +13,7 @@ import { loggingDebug } from 'src/logging/debug'
 let batching = false
 let batchCount = 0
 
-export const withPubKeyBatch = <T>(
-	label: string,
-	txCount: number,
-	run: () => T,
-): T => {
+export const withPubKeyBatch = <T>(txCount: number, run: () => T): T => {
 	batching = true
 	batchCount = 0
 	const started = Date.now()
@@ -26,8 +22,8 @@ export const withPubKeyBatch = <T>(
 	} finally {
 		batching = false
 		loggingDebug(
-			'processPubKey',
-			`${label}: ${txCount} tx, ${batchCount} ecrecover, ${Date.now() - started}ms`,
+			'block:decode',
+			`decoded ${txCount} tx in ${Date.now() - started}ms (${batchCount} ecrecover)`,
 		)
 	}
 }
