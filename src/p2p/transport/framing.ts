@@ -27,7 +27,7 @@ export const encodeFrame = (
 	const payload = new TextEncoder().encode(JSON.stringify(message))
 	if (payload.byteLength > maxMessageBytes) {
 		throw new FrameError(
-			`pesan ${payload.byteLength} byte melebihi batas ${maxMessageBytes}`,
+			`message of ${payload.byteLength} bytes exceeds limit ${maxMessageBytes}`,
 		)
 	}
 	const frame = new Uint8Array(LENGTH_PREFIX_BYTES + payload.byteLength)
@@ -73,7 +73,7 @@ export class FrameDecoder {
 			const length = view.getUint32(0, false)
 			if (length > this.maxMessageBytes) {
 				throw new FrameError(
-					`frame ${length} byte melebihi batas ${this.maxMessageBytes}`,
+					`frame of ${length} bytes exceeds limit ${this.maxMessageBytes}`,
 				)
 			}
 			if (this.buffer.byteLength - offset - LENGTH_PREFIX_BYTES < length) {
@@ -86,10 +86,10 @@ export class FrameDecoder {
 			try {
 				decoded = JSON.parse(new TextDecoder().decode(slice))
 			} catch {
-				throw new FrameError('payload bukan JSON valid')
+				throw new FrameError('payload is not valid JSON')
 			}
 			const message = parseMessage(decoded)
-			if (!message) throw new FrameError('bentuk pesan tidak dikenali')
+			if (!message) throw new FrameError('unrecognized message shape')
 			messages.push(message)
 			offset = start + length
 		}

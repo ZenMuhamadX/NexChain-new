@@ -157,7 +157,7 @@ export const enforceMempoolWireCap = async (
 	).length
 	if (poolCount >= maxTxs) {
 		logToConsole(
-			`Mempool penuh (cap ${maxTxs} tx): ${formatStr(tx.txHash ?? '')} ditolak`,
+			`Mempool full (cap ${maxTxs} txs): ${formatStr(tx.txHash ?? '')} rejected`,
 		)
 		return false
 	}
@@ -204,16 +204,16 @@ export const enforceMempoolWireCap = async (
 		// ini tak muat — ukurannya sendiri melebihi cap, atau seluruh ruang
 		// dipegang pengirimnya sendiri.
 		logToConsole(
-			`Mempool penuh (cap ${maxBytes} byte): ${formatStr(tx.txHash ?? '')} ` +
-				`ditolak (butuh ${total + size - freed} byte)`,
+			`Mempool full (cap ${maxBytes} bytes): ${formatStr(tx.txHash ?? '')} ` +
+				`rejected (needs ${total + size - freed} bytes)`,
 		)
 		return false
 	}
 
 	if (dropped.length > 0) {
 		logToConsole(
-			`Cap mempool: buang ${dropped.length} tx laju-fee terendah ` +
-				`(${freed} byte) demi ${formatStr(tx.txHash ?? '')}`,
+			`Mempool cap: dropped ${dropped.length} lowest-fee-rate txs ` +
+				`(${freed} bytes) for ${formatStr(tx.txHash ?? '')}`,
 		)
 	}
 	return true

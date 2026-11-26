@@ -87,16 +87,16 @@ export const sweepUnaffordableMempool = async (): Promise<SweepResult> => {
 		try {
 			stored = await rocksState.get(from).catch(() => null)
 		} catch {
-			logToConsole(`Sweep: lewati ${from} (akun tak terbaca)`)
+			logToConsole(`Sweep: skipping ${from} (unreadable account)`)
 			continue
 		}
 		if (stored === null || stored === undefined) {
-			logToConsole(`Sweep: lewati ${from} (tanpa akun tersimpan)`)
+			logToConsole(`Sweep: skipping ${from} (no stored account)`)
 			continue
 		}
 		const account = await getAccount(from).catch(() => undefined)
 		if (!account) {
-			logToConsole(`Sweep: lewati ${from} (akun tak terbaca)`)
+			logToConsole(`Sweep: skipping ${from} (unreadable account)`)
 			continue
 		}
 

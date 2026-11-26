@@ -62,12 +62,12 @@ export const checkBlockTimestamp = (
 	if (window.length > 0) {
 		const mtp = medianTimePast(window)
 		if (timestamp <= mtp) {
-			return `timestamp ${timestamp} <= median-time-past ${mtp} (harus lebih besar)`
+			return `timestamp ${timestamp} <= median-time-past ${mtp} (must be greater)`
 		}
 	}
 
 	if (timestamp > nowMs + MAX_FUTURE_DRIFT_MS) {
-		return `timestamp ${timestamp} melebihi batas masa depan ${nowMs + MAX_FUTURE_DRIFT_MS}`
+		return `timestamp ${timestamp} exceeds the future limit ${nowMs + MAX_FUTURE_DRIFT_MS}`
 	}
 
 	return null

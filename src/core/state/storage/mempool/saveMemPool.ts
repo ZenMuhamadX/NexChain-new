@@ -12,7 +12,7 @@ export const saveMempool = async (transaction: TxInterface): Promise<void> => {
 		return
 	}
 	if (!transaction.txHash || !transaction.from) {
-		console.error('saveMempool: txHash & from wajib ada sebelum menyimpan')
+		console.error('saveMempool: txHash & from are required before saving')
 		return
 	}
 	putMempoolTx(transaction)
@@ -30,7 +30,7 @@ export const replaceMempool = async (
 	transaction: TxInterface,
 ): Promise<void> => {
 	if (!oldTxHash || !transaction.txHash || !transaction.from) {
-		console.error('replaceMempool: txHash & from wajib ada sebelum menyimpan')
+		console.error('replaceMempool: txHash & from are required before saving')
 		return
 	}
 	deleteMempoolTx(oldTxHash)

@@ -274,7 +274,7 @@ expectRewardReject('totalTransactionFees off-by-one', (b) => {
 // metadata (txCount/created_at/extraData) tidak memengaruhi konsensus
 // hadiah; strukturnya dijaga Joi `verifyStruct` (menolak key tak dikenal,
 // jadi blok lama ber-gasPrice tetap tertolak di sana).
-expectRewardReject('metadata hilang pada height > 0', (b) => {
+expectRewardReject('metadata missing at height > 0', (b) => {
 	delete b.block.metadata
 })
 

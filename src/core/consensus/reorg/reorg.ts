@@ -154,9 +154,9 @@ export const onCompetingTip = async (tipHash: string): Promise<ReorgResult> => {
 
 	markForked({ localHeight: tipHeight })
 	logToConsole(
-		`Reorg: cabang ${tipHash.slice(0, 12)}… lebih berat ` +
-			`(${branchWork} > ${localWork}); ganti tip dari ${tipHeight} ke ` +
-			`${forkHeight + branch.length} (fork di ${forkHeight}).`,
+		`Reorg: branch ${tipHash.slice(0, 12)}… is heavier ` +
+			`(${branchWork} > ${localWork}); moving tip from ${tipHeight} to ` +
+			`${forkHeight + branch.length} (fork at ${forkHeight}).`,
 	)
 	return await switchToBranch(branch, forkHeight)
 }
@@ -310,8 +310,8 @@ export const switchToBranch = async (
 	prunePoolAtOrBelow(newHeight)
 
 	logToConsole(
-		`Reorg selesai: tip baru ${newHeight}, ${rolled} blok dibalik, ` +
-			`${readded} tx dikembalikan ke mempool.`,
+		`Reorg complete: new tip ${newHeight}, ${rolled} blocks rolled back, ` +
+			`${readded} txs readded to mempool.`,
 	)
 	return {
 		status: true,

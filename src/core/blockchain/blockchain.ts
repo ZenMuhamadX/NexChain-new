@@ -238,7 +238,7 @@ export class BlockChains {
 					await rollbackBlock(journalHeight)
 				} catch (rollbackError) {
 					console.error(
-						'Journal rollback gagal (boot recovery akan menanganinya):',
+						'Journal rollback failed (boot recovery will handle it):',
 						rollbackError,
 					)
 				}

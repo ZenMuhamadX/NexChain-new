@@ -95,7 +95,7 @@ export class MemPool {
 		)
 		if (replaced && !replacesFeeRate(replaced, transaction)) {
 			logToConsole(
-				`RBF ditolak: laju-fee pengganti tidak lebih tinggi dari ` +
+				`RBF rejected: replacement fee rate is not higher than ` +
 					`${formatStr(replaced.txHash ?? '')}`,
 			)
 			return { isValid: false, data: transaction }
@@ -160,8 +160,8 @@ export class MemPool {
 			const pendingCount = await countPendingBySender(transaction.from!)
 			if (pendingCount >= MAX_PENDING_PER_SENDER) {
 				logToConsole(
-					`Mempool per-sender cap: ${formatStr(transaction.from!)} sudah punya ` +
-						`${pendingCount} tx pending (batas ${MAX_PENDING_PER_SENDER}) — ditolak`,
+					`Mempool per-sender cap: ${formatStr(transaction.from!)} already has ` +
+						`${pendingCount} pending txs (limit ${MAX_PENDING_PER_SENDER}) — rejected`,
 				)
 				return false
 			}

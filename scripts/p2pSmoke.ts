@@ -166,16 +166,16 @@ try {
 	const peerDeadline = Date.now() + PEER_WAIT_MS
 	let peerSeen = false
 	while (Date.now() < peerDeadline) {
-		if (nodeA.output().includes('peer siap')) {
+		if (nodeA.output().includes('peer ready')) {
 			peerSeen = true
 			break
 		}
 		await delay(250)
 	}
-	check('handshake node B -> node A selesai (log "peer siap")', peerSeen)
+	check('handshake node B -> node A completed (log "peer ready")', peerSeen)
 	if (!peerSeen) {
 		throw new Error(
-			`tidak melihat "peer siap" di log node A dalam ${PEER_WAIT_MS / 1000}s`,
+			`did not see "peer ready" in node A log within ${PEER_WAIT_MS / 1000}s`,
 		)
 	}
 

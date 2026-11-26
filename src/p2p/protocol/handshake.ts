@@ -85,14 +85,14 @@ export const checkVersionMessage = (
 		return {
 			ok: false,
 			fatal: true,
-			reason: `chain id berbeda (${message.chainId} != ${expected.chainId})`,
+			reason: `chain id mismatch (${message.chainId} != ${expected.chainId})`,
 		}
 	}
 	if (message.protocolVersion !== expected.protocolVersion) {
 		return {
 			ok: false,
 			fatal: true,
-			reason: `versi protokol tidak didukung (${message.protocolVersion} != ${expected.protocolVersion})`,
+			reason: `unsupported protocol version (${message.protocolVersion} != ${expected.protocolVersion})`,
 		}
 	}
 	return { ok: true, fatal: false }

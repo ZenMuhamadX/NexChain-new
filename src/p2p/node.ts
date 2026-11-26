@@ -48,9 +48,9 @@ export const startP2P = async (
 
 	if (!isLoopbackHost(config.bindHost)) {
 		console.warn(
-			`PERINGATAN KEAMANAN: P2P bind ke ${config.bindHost} (non-loopback). ` +
-				`P2P TIDAK punya autentikasi — siapa pun yang menjangkau port ini ` +
-				`bisa mengirim blok/transaksi. Batasi lewat firewall.`,
+			`SECURITY WARNING: P2P bound to ${config.bindHost} (non-loopback). ` +
+				`P2P has no authentication — anyone who can reach this port ` +
+				`can send blocks/transactions. Restrict it with a firewall.`,
 		)
 	}
 
@@ -69,7 +69,7 @@ export const startP2P = async (
 				const status = peer.status
 				// Milestone handshake (dipakai smoke test) — tetap di info.
 				logToConsole(
-					`P2P: peer siap ${peer.connection.remoteAddress}:${peer.connection.remotePort}` +
+					`P2P: peer ready ${peer.connection.remoteAddress}:${peer.connection.remotePort}` +
 						(status ? ` (height ${status.bestHeight})` : ''),
 				)
 				syncHolder.current?.onPeerReady(peer)
@@ -80,7 +80,7 @@ export const startP2P = async (
 			onPeerClosed: (peer, reason) => {
 				loggingDebug(
 					'p2p:node',
-					`P2P: peer putus ${peer.connection.remoteAddress}:${peer.connection.remotePort} (${reason})`,
+					`P2P: peer disconnected ${peer.connection.remoteAddress}:${peer.connection.remotePort} (${reason})`,
 				)
 				syncHolder.current?.onPeerClosed(peer)
 			},
@@ -118,8 +118,8 @@ export const startP2P = async (
 	await manager.start()
 
 	logToConsole(
-		`P2P aktif di ${describeBindHost(config.bindHost)}:${config.port} ` +
-			`(maks ${config.maxPeers} peer, bootstrap ${config.peers.length} entri)`,
+		`P2P listening on ${describeBindHost(config.bindHost)}:${config.port} ` +
+			`(max ${config.maxPeers} peers, ${config.peers.length} bootstrap entries)`,
 	)
 
 	let stopped = false

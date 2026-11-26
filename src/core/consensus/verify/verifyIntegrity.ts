@@ -117,13 +117,13 @@ const verifyRange = async (
 			const reached = currentHeight - 1
 			if (reached !== tip) {
 				loggingErr({
-					message: `Chain integrity gagal: verifikasi berhenti di height ${reached}, tetapi blockState.currentBlockHeight=${tip}`,
+					message: `Chain integrity failed: verification stopped at height ${reached}, but blockState.currentBlockHeight=${tip}`,
 					stack: new Error().stack!,
 					timestamp: generateTimestampz(),
 					level: 'error',
 					priority: 'high',
 					context: 'verifyChainIntegrity',
-					hint: 'Blok hilang di tengah rantai atau penunjuk tip mendahului data. Reset direktori data (NEX_DATA_DIR) atau pulihkan dari node lain.',
+					hint: 'Block missing in the middle of the chain, or the tip pointer is ahead of the data. Reset the data directory (NEX_DATA_DIR) or restore from another node.',
 				})
 				resetVerifyMarker()
 				return false
@@ -147,7 +147,7 @@ const verifyRange = async (
 		}
 		// Genesis: identitas jaringan — hash wajib sama dengan konstanta kode.
 		if (currentHeight === 0 && hash !== GENESIS_HASH) {
-			failures.push('genesis hash mismatch (bukan rantai jaringan ini)')
+			failures.push('genesis hash mismatch (not this network)')
 		}
 		// Genesis: lihat catatan fungsi — merkle di-skip, sisanya tetap dicek.
 		if (
@@ -211,7 +211,7 @@ const verifyRange = async (
 				level: 'error',
 				priority: 'high',
 				context: 'verifyChainIntegrity',
-				hint: 'Rantai rusak atau bukan milik jaringan ini — hentikan node, periksa NEX_CHAIN_ID, atau reset direktori data (NEX_DATA_DIR). Mining ditolak sampai rantai valid.',
+				hint: 'Chain is corrupt or belongs to another network — stop the node, check NEX_CHAIN_ID, or reset the data directory (NEX_DATA_DIR). Mining is blocked until the chain is valid.',
 			})
 			// Rantai tidak valid → jangan sisakan titik terpercaya.
 			resetVerifyMarker()

@@ -78,8 +78,8 @@ export const validateTransactionFees = (
 			return validateRule(
 				false,
 				'transactionValidator',
-				'Invalid transaction fee: ukuran wire tidak dapat dihitung ' +
-					'(transaksi tidak sah)',
+				'Invalid transaction fee: wire size could not be computed ' +
+					'(invalid transaction)',
 			)
 		}
 	}
@@ -87,7 +87,7 @@ export const validateTransactionFees = (
 		!validateRule(
 			Number.isSafeInteger(size) && size > 0,
 			'transactionValidator',
-			'Invalid transaction fee: ukuran wire tidak sah',
+			'Invalid transaction fee: invalid wire size',
 		)
 	) {
 		return false
@@ -97,8 +97,8 @@ export const validateTransactionFees = (
 	return validateRule(
 		transaction.fee! >= minFee,
 		'transactionValidator',
-		`Invalid transaction fee: fee ${transaction.fee} nexu di bawah lantai ` +
-			`laju-fee ${minFee} nexu (ukuran wire ${size} byte × ` +
+		`Invalid transaction fee: fee ${transaction.fee} nexu below the ` +
+			`fee-rate floor ${minFee} nexu (wire size ${size} bytes × ` +
 			`${MIN_FEE_RATE_NEXU_PER_KB} nexu/kB = 1 nexu/byte)`,
 	)
 }

@@ -17,7 +17,7 @@ export const mineLog = (status: Block): void => {
 	try {
 		emit(
 			'info',
-			`Block ${status.block.header.hash} Created Succesfully — ` +
+			`Block ${status.block.header.hash} created successfully — ` +
 				`height ${status.block.height}, ` +
 				`${status.block.transactions.length} tx, ` +
 				`${status.block.header.difficulty} bits`,

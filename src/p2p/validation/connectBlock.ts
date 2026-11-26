@@ -93,49 +93,49 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 	//    Pesan P2P `block` membawa `{ block: {...} }` (serialisasi `Block`
 	//    milik kita); struct telanjang juga diterima.
 	if (typeof raw !== 'object' || raw === null) {
-		return reject('bentuk blok tidak valid', true)
+		return reject('invalid block shape', true)
 	}
 	const source = 'block' in raw ? (raw as { block: unknown }).block : raw
 	let block: Block
 	try {
 		block = new Block(source as blockStruct)
 	} catch {
-		return reject('bentuk blok tidak valid', true)
+		return reject('invalid block shape', true)
 	}
 
 	// 2. Hash ada dan panjangnya 64 karakter (SHA-256 hex).
 	const hash = block.block.header.hash
 	if (typeof hash !== 'string' || !verifyHashLength(hash)) {
-		return reject('hash tidak valid', true)
+		return reject('invalid hash', true)
 	}
 
 	// 3. Chain id harus milik jaringan kita — rantai lain = bukan milik kita.
 	if (block.block.chainId !== CHAIN_ID) {
-		return reject('chain id berbeda', true)
+		return reject('chain id mismatch', true)
 	}
 
 	// 4. Duplikat: jangan PERNAH re-commit (kredit ganda via processTransact).
 	if (await hasBlock(hash)) {
-		return reject('blok sudah ada', false)
+		return reject('block already exists', false)
 	}
 
 	// 5. Identitas genesis dikunci konstanta `GENESIS_HASH` (anti-fork).
 	//    Genesis biasanya sudah ada sehingga langkah 4 lebih dulu mengembalikan.
 	const isGenesis = block.block.height === 0
 	if (isGenesis && hash !== GENESIS_HASH) {
-		return reject('genesis tidak dikenal', true)
+		return reject('unknown genesis', true)
 	}
 
 	// 6. Struktur (Joi, fail-closed).
 	if (!(await verifyStruct(block))) {
-		return reject('struktur blok tidak valid', true)
+		return reject('invalid block structure', true)
 	}
 
 	// 7–8. PoW + hash blok vs isinya (genesis dilewati: identitasnya sudah
 	//      dikunci `GENESIS_HASH` dan jalur cabang menolak genesis).
 	if (!isGenesis) {
 		if (!verifyPow(block)) {
-			return reject('PoW tidak memenuhi difficulty', true)
+			return reject('PoW does not meet difficulty', true)
 		}
 		let hashMatches = false
 		try {
@@ -146,18 +146,18 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 			hashMatches = false
 		}
 		if (!hashMatches) {
-			return reject('hash blok tidak cocok dengan isinya', true)
+			return reject('block hash does not match its contents', true)
 		}
 	}
 
 	// 9. Field konsensus yang TIDAK butuh induk (height > 0).
 	if (block.block.height > 0) {
 		if (!verifyMerkleRoot(block.block.transactions, block.block.merkleRoot)) {
-			return reject('merkle root tidak cocok', true)
+			return reject('merkle root mismatch', true)
 		}
 		const rewardReason = verifyBlockReward(block)
 		if (rewardReason !== null) {
-			return reject('hadiah blok tidak valid: ' + rewardReason, true)
+			return reject('invalid block reward: ' + rewardReason, true)
 		}
 	}
 
@@ -183,7 +183,7 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 			Date.now(),
 		)
 		if (tsReason !== null) {
-			return reject('timestamp blok tidak valid: ' + tsReason, true)
+			return reject('invalid block timestamp: ' + tsReason, true)
 		}
 		const expected = expectedDifficulty(
 			tip.block.header.difficulty,
@@ -212,16 +212,13 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 			await verifyBlockNonceOrder(block)
 		} catch (error) {
 			if (isNonceMismatchError(error)) {
-				return reject(
-					'nonce tidak berurutan: ' + (error as Error).message,
-					true,
-				)
+				return reject('nonce out of order: ' + (error as Error).message, true)
 			}
 			throw error
 		}
 		const committed = await chains.commitBlock(block)
 		if (!committed.status) {
-			return reject('commitBlock menolak blok', false)
+			return reject('commitBlock rejected the block', false)
 		}
 		return { ok: true, fatal: false }
 	}
@@ -230,7 +227,7 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 	if (isGenesis) {
 		// Genesis jaringan jelas bukan cabang — kalau sampai di sini berarti
 		// tip kita belum ada atau hash-nya identik (langkah 4). Abaikan.
-		return reject('genesis tak menempel ke rantai lokal', false)
+		return reject('genesis does not attach to the local chain', false)
 	}
 
 	if (parent !== undefined) {
@@ -241,7 +238,7 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 			Date.now(),
 		)
 		if (tsReason !== null) {
-			return reject('timestamp blok tidak valid: ' + tsReason, true)
+			return reject('invalid block timestamp: ' + tsReason, true)
 		}
 		// Difficulty dihitung dari INDUK (lokal atau pooled) — angka header
 		// tidak dipercaya. Beda = pelanggaran konsensus.
@@ -254,7 +251,7 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 		if (block.block.header.difficulty !== expected) {
 			return reject(
 				`difficulty ${block.block.header.difficulty} != expected ${expected} ` +
-					`(height ${block.block.height}, induk cabang)`,
+					`(height ${block.block.height}, branch parent)`,
 				true,
 			)
 		}
@@ -268,7 +265,7 @@ const runChecks = async (raw: unknown): Promise<ConnectBlockResult> => {
 			Date.now(),
 		)
 		if (tsReason !== null) {
-			return reject('timestamp blok tidak valid: ' + tsReason, true)
+			return reject('invalid block timestamp: ' + tsReason, true)
 		}
 	}
 

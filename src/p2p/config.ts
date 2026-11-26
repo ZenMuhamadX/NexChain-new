@@ -85,7 +85,7 @@ export const parsePeerList = (raw: string | undefined): PeerEndpoint[] => {
 		// IPv6 tanpa bracket tidak didukung di v1 — cukup untuk devnet IPv4.
 		const idx = trimmed.lastIndexOf(':')
 		if (idx <= 0) {
-			console.warn(`P2P: entri peer tidak valid (${trimmed}) — dilewati`)
+			console.warn(`P2P: invalid peer entry (${trimmed}) — skipped`)
 			continue
 		}
 		const rawHost = trimmed.slice(0, idx)
@@ -96,7 +96,7 @@ export const parsePeerList = (raw: string | undefined): PeerEndpoint[] => {
 		const host = rawHost.toLowerCase() === 'localhost' ? '127.0.0.1' : rawHost
 		const port = Number(trimmed.slice(idx + 1))
 		if (!host || !Number.isSafeInteger(port) || port < 1 || port > 65535) {
-			console.warn(`P2P: entri peer tidak valid (${trimmed}) — dilewati`)
+			console.warn(`P2P: invalid peer entry (${trimmed}) — skipped`)
 			continue
 		}
 		out.push({ host, port })

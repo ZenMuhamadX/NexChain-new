@@ -169,7 +169,7 @@ export const recoverJournal = async (): Promise<number> => {
 	}
 	if (rolled > 0) {
 		logToConsole(
-			`Journal recovery: ${rolled} blok tak-tuntas dibalik ` +
+			`Journal recovery: ${rolled} unfinished blocks rolled back ` +
 				`(tip=${await currentHeight()}).`,
 		)
 	}

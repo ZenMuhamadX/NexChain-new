@@ -17,7 +17,7 @@ export const loggingErr = (err: ErrorInfo): void => {
 
 	// Konteks + stack ikut ke berkas; konsol hanya untuk prioritas tinggi.
 	const parts = [`[${err.context}] ${err.message}`]
-	if (err.hint) parts.push(`petunjuk: ${err.hint}`)
+	if (err.hint) parts.push(`hint: ${err.hint}`)
 	if (err.stack) parts.push(err.stack)
 	emit('error', parts.join('\n'), {
 		namespace: err.context,
