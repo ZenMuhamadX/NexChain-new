@@ -1,5 +1,4 @@
-import { Block } from 'src/core/block/blockModel'
-import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByHeight'
+import { getBlockHeader } from 'src/core/block/query/onChain/block/blockHeaderCache'
 import { TARGET_BLOCK_TIME_MS } from 'src/core/consensus/difficulty'
 
 /** Jendela median-time-past (Bitcoin: 11 blok sebelumnya). */
@@ -75,20 +74,22 @@ export const checkBlockTimestamp = (
 }
 
 /**
- * Ambil timestamp `height - 1` … `height - 11` (maksimal 11 blok) dari DB,
- * dalam urutan kronologis. Height yang tidak ada di DB dilewati.
+ * Ambil timestamp `height - 1` … `height - 11` (maksimal 11 blok),
+ * dalam urutan kronologis. Height yang tidak ada dilewati.
  *
- * Pembacaan DB — sengaja TERPISAH dari `checkBlockTimestamp` yang murni,
- * sehingga aturan bisa diuji tanpa LevelDB.
+ * MEMBACA HEADER, bukan badan blok: untuk blok 1000 tx, memuat badan berarti
+ * `ecrecover` 1000 kali per blok × 11 — itulah yang dulu membuat tiap poll
+ * `nex_getWork` memblokir RPC. `checkBlockTimestamp` tetap murni dan diuji
+ * terpisah; ini hanya pengambilan data.
  */
 export const getPreviousTimestamps = async (
 	height: number,
 ): Promise<number[]> => {
 	const timestamps: number[] = []
 	for (let h = Math.max(0, height - MTP_WINDOW); h < height; h++) {
-		const block = (await getBlockByHeight(h)) as Block | undefined
-		if (!block) continue
-		timestamps.push(block.block.header.timestamp)
+		const header = await getBlockHeader(h)
+		if (!header) continue
+		timestamps.push(header.timestamp)
 	}
 	return timestamps
 }

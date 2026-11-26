@@ -10,6 +10,7 @@ import {
 } from './module/verifyTimestamp'
 import { expectedDifficulty } from '../difficulty'
 import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByHeight'
+import { getBlockHeader } from 'src/core/block/query/onChain/block/blockHeaderCache'
 import { Block } from 'src/core/block/blockModel'
 import { verifyMerkleRoot } from './module/verifyMerkleRoot'
 import { logToConsole } from 'src/logging/logging'
@@ -256,8 +257,9 @@ export const verifyChainIncremental = async (): Promise<boolean> => {
 
 	// Marker tetap sah? Blok di `marker.height` HARUS ada dan ber-hash SAMA.
 	// Hash-keyed: setelah reorg, blok di height itu berganti → marker basi.
-	const anchor = (await getBlockByHeight(marker.height)) as Block | undefined
-	if (anchor === undefined || anchor.block.header.hash !== marker.hash) {
+	// Cek ini butuh hash saja — baca header, jangan decode badan 1000 tx.
+	const anchor = await getBlockHeader(marker.height)
+	if (anchor === undefined || anchor.hash !== marker.hash) {
 		return await verifyChainIntegrity()
 	}
 
@@ -267,8 +269,8 @@ export const verifyChainIncremental = async (): Promise<boolean> => {
 	const startHeight = marker.height + 1
 	const seed: VerifySeed = {
 		previousTimestamps: await getPreviousTimestamps(startHeight),
-		prevDifficulty: anchor.block.header.difficulty,
-		prevTimestamp: anchor.block.header.timestamp,
+		prevDifficulty: anchor.difficulty,
+		prevTimestamp: anchor.timestamp,
 		prevHeight: marker.height,
 	}
 	return await verifyRange(startHeight, seed)

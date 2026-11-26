@@ -51,6 +51,10 @@ import {
 	resetVerifyMarker,
 	setVerifyMarker,
 } from 'src/core/consensus/verify/verifyMarker'
+import {
+	invalidateBlockHeadersFrom,
+	resetBlockHeaderCache,
+} from 'src/core/block/query/onChain/block/blockHeaderCache'
 
 /** Hasil percobaan reorg (untuk RPC/gate/log). */
 export interface ReorgResult {
@@ -96,13 +100,16 @@ const readLocalSegment = async (
 
 /**
  * **R-1 `invalidateFrom(height)`** — satu titik untuk membuang SEMUA state
- * turunan ber-key height/hash >= `height` setelah tip berubah: branch pool DAN
- * marker verifikasi hash-keyed (`verifyMarker`, S4). Marker WAJIB ikut
- * dibersihkan di sini, kalau tidak jalur inkremental `nex_getWork` akan
- * mempercayai prefix blok yang sudah digantikan reorg.
+ * turunan ber-key height/hash >= `height` setelah tip berubah: branch pool,
+ * marker verifikasi hash-keyed (`verifyMarker`, S4), DAN indeks header RAM.
+ * Marker WAJIB ikut dibersihkan di sini, kalau tidak jalur inkremental
+ * `nex_getWork` akan mempercayai prefix blok yang sudah digantikan reorg.
+ * Indeks header ikut dibersihkan supaya MTP/template tidak membaca metadata
+ * blok lama setelah reorg.
  */
 export const invalidateFrom = (height: number): number => {
 	invalidateVerifyMarkerFrom(height)
+	invalidateBlockHeadersFrom(height)
 	return prunePoolAtOrAbove(height)
 }
 
@@ -110,6 +117,7 @@ export const invalidateFrom = (height: number): number => {
 export const resetReorgState = (): void => {
 	resetBranchPool()
 	resetVerifyMarker()
+	resetBlockHeaderCache()
 }
 
 /**

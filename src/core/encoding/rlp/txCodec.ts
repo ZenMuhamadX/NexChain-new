@@ -55,6 +55,7 @@ import { sha256 } from 'src/core/encoding/sha256'
 import { rlpEncode, type RlpInput } from './rlpEncode'
 import { rlpDecode } from './rlpDecode'
 import { TX_HASH_PREFIX } from './txHash'
+import { getCachedSender, rememberSender } from './senderCache'
 import {
 	ETH_TX_TYPE,
 	decodeEthTxPayload,
@@ -250,10 +251,16 @@ export const decodeTxPayload = (data: Uint8Array): TxInterface => {
 		)
 	}
 	const base = rlpListToTx(rlpDecode(data.subarray(1)))
-	const from = txFrom(base)
+	const txHash = txHashOfPayload(data)
+	// Content-addressed: `txHash` mengikat seluruh payload termasuk tanda
+	// tangan. Decode pertama tetap ecrecover penuh; yang berikutnya memakai
+	// hasil terverifikasi itu (geth `types.Sender`).
+	const cached = getCachedSender(txHash)
+	const from = cached ?? txFrom(base)
+	if (cached === undefined && from !== undefined) rememberSender(txHash, from)
 	return {
 		...base,
 		...(from === undefined ? {} : { from }),
-		txHash: txHashOfPayload(data),
+		txHash,
 	}
 }
