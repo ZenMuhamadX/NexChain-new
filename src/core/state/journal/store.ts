@@ -15,7 +15,7 @@
  * Rollback memulihkan `prev` sehingga idempoten dan aman diulang setelah crash
  * di tengah rollback.
  */
-import { rocksJournal } from 'src/core/state/db/journal'
+import { rocksJournal } from 'src/core/state/db/chain'
 import { isNotFound } from 'src/core/state/db/notFound'
 import { getBlockState } from 'src/core/state/storage/state/getState'
 import { logToConsole } from 'src/logging/logging'

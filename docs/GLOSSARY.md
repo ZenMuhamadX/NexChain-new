@@ -38,7 +38,7 @@ Istilah yang muncul berulang di kode & dokumentasi.
 
 ## State & Storage
 - **State** — saldo & nonce tiap akun. `src/core/state/storage/state/`.
-- **LevelDB** — penyimpanan persisten di bawah direktori data (`NEX_DATA_DIR`, default `./data`); satu database per store (block, history, memPool, state, storeData).
+- **LevelDB** — penyimpanan persisten di bawah direktori data (`NEX_DATA_DIR`, default `./data`); satu database `chain` dengan namespace per store (block, history, journal, memPool, state).
 - **DB layer** — abstraksi akses leveldb. `src/core/state/db/`.
 
 ## RPC

@@ -1,4 +1,4 @@
-import { rocksMempool } from 'src/core/state/db/memPool'
+import { rocksMempool } from 'src/core/state/db/chain'
 import type { TxInterface } from 'src/types/transaction'
 
 /**
@@ -109,7 +109,7 @@ const rebuildBody = async (): Promise<void> => {
 		values: true,
 		keys: false,
 	})) {
-		const tx = JSON.parse(value.toString()) as {
+		const tx = JSON.parse(String(value)) as {
 			txHash?: unknown
 			from?: unknown
 			amount?: unknown
@@ -181,7 +181,7 @@ export const ensureMempoolIndex = (): Promise<void> => {
  * Nilai indeks ditulis `saveMempool` sebagai `JSON.stringify({ cost })`
  * di atas `valueEncoding: 'json'` — Level mem-parse kembali jadi STRING
  * saat dibaca (persis seperti entri mempool yang dibaca `rebuildBody`
- * lewat `JSON.parse(value.toString())`). Tapi bila suatu penulis
+ * lewat `JSON.parse(String(value))`). Tapi bila suatu penulis
  * meletakkan objek langsung, bacanya sudah berupa objek — karena itu
  * dukung KEDUANYA, meniru idiom `senderOf` di `removeMemPool.ts`.
  */

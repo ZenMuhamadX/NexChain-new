@@ -147,8 +147,8 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nex-storage-'))
 process.env.NEX_DATA_DIR = tmpDir
 
 const { saveBlock } = await import('src/core/state/storage/block/saveBlock')
-const { rocksState } = await import('src/core/state/db/state')
-const { rocksBlock } = await import('src/core/state/db/block')
+const { rocksState } = await import('src/core/state/db/chain')
+const { rocksBlock } = await import('src/core/state/db/chain')
 const { getBlockState } = await import('src/core/state/storage/state/getState')
 const { getCurrentBlock } =
 	await import('src/core/block/query/onChain/block/getCurrentBlock')

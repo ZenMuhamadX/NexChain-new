@@ -1,5 +1,5 @@
 import { Block } from 'src/core/block/blockModel'
-import { rocksBlock } from 'src/core/state/db/block'
+import { rocksBlock } from 'src/core/state/db/chain'
 import { base58ToString } from 'src/core/encoding/hex/base58/base58ToString'
 import { HexString } from 'src/types/block'
 

@@ -240,8 +240,8 @@ const { processSender } =
 	await import('src/core/transaction/sender/processSender')
 const { isNonceMismatchError } =
 	await import('src/core/consensus/verify/module/verifyNonce')
-const { rocksState } = await import('src/core/state/db/state')
-const { rocksMempool } = await import('src/core/state/db/memPool')
+const { rocksState } = await import('src/core/state/db/chain')
+const { rocksMempool } = await import('src/core/state/db/chain')
 const { enforceMempoolWireCap, MAX_MEMPOOL_WIRE_BYTES } =
 	await import('src/core/state/storage/mempool/capMempool')
 const { transactionValidator } =

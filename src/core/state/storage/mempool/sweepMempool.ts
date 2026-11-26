@@ -1,5 +1,5 @@
-import { rocksMempool } from 'src/core/state/db/memPool'
-import { rocksState } from 'src/core/state/db/state'
+import { rocksMempool } from 'src/core/state/db/chain'
+import { rocksState } from 'src/core/state/db/chain'
 import { getAccount } from 'src/core/state/account/getAccount'
 import { logToConsole } from 'src/logging/logging'
 import {

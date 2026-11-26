@@ -1,5 +1,5 @@
 ﻿import { TxInterface } from 'src/types/transaction'
-import { rocksMempool } from 'src/core/state/db/memPool'
+import { rocksMempool } from 'src/core/state/db/chain'
 import { TX_KEY_RANGE } from './mempoolIndex'
 
 /**
@@ -19,7 +19,7 @@ const readMempool = async (limit?: number): Promise<TxInterface[]> => {
 		// `exactOptionalPropertyTypes` menolak `limit: undefined`.
 		...(limit === undefined ? {} : { limit }),
 	})) {
-		transactions.push(JSON.parse(value.toString()) as TxInterface)
+		transactions.push(JSON.parse(String(value)) as TxInterface)
 	}
 
 	return transactions

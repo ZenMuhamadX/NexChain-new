@@ -41,10 +41,10 @@ const ok = (name: string, cond: boolean, extra = ''): void => {
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nex-state-'))
 process.env.NEX_DATA_DIR = tmpDir
 
-const { rocksState } = await import('src/core/state/db/state')
-const { rocksHistory } = await import('src/core/state/db/history')
-const { rocksBlock } = await import('src/core/state/db/block')
-const { rocksJournal } = await import('src/core/state/db/journal')
+const { rocksState } = await import('src/core/state/db/chain')
+const { rocksHistory } = await import('src/core/state/db/chain')
+const { rocksBlock } = await import('src/core/state/db/chain')
+const { rocksJournal } = await import('src/core/state/db/chain')
 const { getGenesisBlock } = await import('src/core/block/genesis')
 const { saveBlock } = await import('src/core/state/storage/block/saveBlock')
 const { getBlockState } = await import('src/core/state/storage/state/getState')

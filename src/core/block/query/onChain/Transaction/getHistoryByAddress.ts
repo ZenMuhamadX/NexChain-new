@@ -1,6 +1,6 @@
 import { getHistoryByTxHash } from './getHistoryByTxHash'
 import { TxInterface } from 'src/types/transaction'
-import { rocksHistory } from 'src/core/state/db/history'
+import { rocksHistory } from 'src/core/state/db/chain'
 
 /** Ukuran halaman bawaan — sama dengan `PAGE_SIZE` explorer. */
 export const HISTORY_PAGE_SIZE = 25

@@ -1,5 +1,5 @@
 import { TxInterface } from 'src/types/transaction'
-import { rocksMempool } from 'src/core/state/db/memPool'
+import { rocksMempool } from 'src/core/state/db/chain'
 import { mempoolTxKey, runMempoolOp, senderIndexKey } from './mempoolIndex'
 
 /**

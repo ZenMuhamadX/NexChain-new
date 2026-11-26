@@ -1,4 +1,4 @@
-import { rocksMempool } from 'src/core/state/db/memPool'
+import { rocksMempool } from 'src/core/state/db/chain'
 import { isSimulation } from 'src/core/state/journal/writeBuffer'
 import { mempoolTxKey, runMempoolOp, senderIndexKey } from './mempoolIndex'
 

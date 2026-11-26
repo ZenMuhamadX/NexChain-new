@@ -1,6 +1,6 @@
 import { generateTimestampz } from 'src/core/encoding/lib/generateTimestamp'
 import { Block } from 'src/core/block/blockModel'
-import { rocksState } from 'src/core/state/db/state'
+import { rocksState } from 'src/core/state/db/chain'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { getBlockState } from './getState'
 import { MAX_SUPPLY_NEXU, NEXU_PER_NXC } from 'src/core/token/constants'

@@ -9,7 +9,7 @@ import {
 	flushWriteBuffer,
 	isAccountStateKey,
 } from 'src/core/state/journal/writeBuffer'
-import { rocksState } from 'src/core/state/db/state'
+import { rocksState } from 'src/core/state/db/chain'
 import { currentHeight } from 'src/core/state/journal/store'
 import { computeStateRoot, EMPTY_STATE_ROOT } from 'src/core/state/root'
 

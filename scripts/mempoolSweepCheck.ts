@@ -43,9 +43,9 @@ const ok = (name: string, cond: boolean, extra = ''): void => {
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nex-mempool-sweep-'))
 process.env.NEX_DATA_DIR = tmpDir
 
-const { rocksState } = await import('src/core/state/db/state')
-const { rocksHistory } = await import('src/core/state/db/history')
-const { rocksMempool } = await import('src/core/state/db/memPool')
+const { rocksState } = await import('src/core/state/db/chain')
+const { rocksHistory } = await import('src/core/state/db/chain')
+const { rocksMempool } = await import('src/core/state/db/chain')
 const { putAccount } = await import('src/core/state/account/putAccount')
 const { saveMempool } =
 	await import('src/core/state/storage/mempool/saveMemPool')
