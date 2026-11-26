@@ -35,7 +35,7 @@
 		"genesis:check": "bun run scripts/genesisCheck.ts",
 		"genesis:solve": "bun run scripts/genesisCheck.ts --solve",
 		"node:start": "bun run apps/node/server.ts",
-		"metamask:start": "bun run apps/metamask-gateway/server.ts",
+		"bridge:start": "bun run apps/metamask-gateway/server.ts",
 		"explorer:dev": "bun run --cwd explorer dev",
 		"explorer:build": "bun run --cwd explorer build",
 		"wallet:dev": "bun run --cwd wallet dev",
@@ -57,7 +57,8 @@
 		"miner:rs": "cargo run --release --manifest-path apps/miner-rs/Cargo.toml --",
 		"p2p:smoke": "bun run scripts/p2pSmoke.ts",
 		"p2p:fork": "bun run scripts/p2pForkSmoke.ts",
-		"p2p:evil": "bun run scripts/evilPeer.ts"
+		"p2p:evil": "bun run scripts/evilPeer.ts",
+		"rpc:test": "bun rpc-tester/serve.js"
 	},
 	"repository": {
 		"type": "git",

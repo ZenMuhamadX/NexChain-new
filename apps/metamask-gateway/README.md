@@ -13,7 +13,7 @@ MetaMask iOS ──HTTPS──> gateway (:8545) ──loopback + Basic Auth─�
 ## Jalankan
 
 ```sh
-bun run metamask:start
+bun run bridge:start
 ```
 
 Env (semua opsional):

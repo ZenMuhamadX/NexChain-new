@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="id">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>NexChain RPC Tester</title>
+		<style>
+			body {
+				font:
+					14px system-ui,
+					sans-serif;
+				max-width: 760px;
+				margin: 32px auto;
+				padding: 0 16px;
+				color: #222;
+			}
+			h1 {
+				font-size: 20px;
+			}
+			label {
+				display: block;
+				margin: 12px 0 4px;
+			}
+			input,
+			textarea {
+				width: 100%;
+				box-sizing: border-box;
+				padding: 8px;
+				font: inherit;
+			}
+			textarea {
+				height: 80px;
+				font-family: monospace;
+			}
+			details {
+				margin-top: 12px;
+			}
+			button {
+				margin-top: 16px;
+				padding: 8px 20px;
+				cursor: pointer;
+			}
+			pre {
+				background: #f4f4f4;
+				padding: 12px;
+				white-space: pre-wrap;
+				word-break: break-all;
+				min-height: 60px;
+			}
+			small {
+				color: #666;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>NexChain RPC Tester</h1>
+
+		<label for="url">RPC URL</label>
+		<input id="url" value="http://localhost:8000/rpc" />
+
+		<label for="method">Method</label>
+		<input
+			id="method"
+			list="methods"
+			value="nex_getChainId"
+			onkeydown="if (event.key === 'Enter') send()"
+		/>
+		<datalist id="methods">
+			<option value="nex_getChainId"></option>
+			<option value="nex_getCurrentBlock"></option>
+			<option value="nex_getBlockState"></option>
+			<option value="nex_getBlockByHeight"></option>
+			<option value="nex_getBlockByHash"></option>
+			<option value="nex_getRecentBlocks"></option>
+			<option value="nex_getBlocksRange"></option>
+			<option value="nex_getBalance"></option>
+			<option value="nex_getAccount"></option>
+			<option value="nex_getNonceAccount"></option>
+			<option value="nex_getNextNonce"></option>
+			<option value="nex_getTransactionByTxHash"></option>
+			<option value="nex_getTransactionsByAddress"></option>
+			<option value="nex_getMempool"></option>
+			<option value="nex_getPeerInfo"></option>
+			<option value="nex_getSyncStatus"></option>
+			<option value="nex_authCheck"></option>
+			<option value="nex_getWork"></option>
+			<option value="nex_submitWork"></option>
+			<option value="nex_sendTransaction"></option>
+			<option value="nex_sendRawTransaction"></option>
+		</datalist>
+
+		<label for="params">Params (JSON)</label>
+		<textarea id="params">[]</textarea>
+		<small
+			>Contoh: [] · ["NxC..."] · ["NxC...", 1, 10] (boleh juga scalar:
+			"NxC...")</small
+		>
+
+		<details>
+			<summary>Auth (opsional, untuk method tulis)</summary>
+			<label for="user">User</label>
+			<input id="user" />
+			<label for="pass">Password</label>
+			<input id="pass" type="password" />
+		</details>
+
+		<button onclick="send()">Kirim</button>
+		<pre id="out"></pre>
+
+		<script>
+			const el = (id) => document.getElementById(id)
+
+			async function send() {
+				const out = el('out')
+				out.textContent = 'Mengirim...'
+				try {
+					const headers = { 'content-type': 'application/json' }
+					const user = el('user').value
+					if (user) {
+						headers.authorization =
+							'Basic ' + btoa(user + ':' + el('pass').value)
+					}
+					const res = await fetch(
+						'/rpc?target=' + encodeURIComponent(el('url').value.trim()),
+						{
+							method: 'POST',
+							headers,
+							body: JSON.stringify({
+								jsonrpc: '2.0',
+								id: 1,
+								method: el('method').value.trim(),
+								params: JSON.parse(el('params').value || '[]'),
+							}),
+						},
+					)
+					const text = await res.text()
+					let body
+					try {
+						body = JSON.stringify(JSON.parse(text), null, 2)
+					} catch {
+						body = text
+					}
+					out.textContent = 'HTTP ' + res.status + '\n' + body
+				} catch (e) {
+					out.textContent = String(e)
+				}
+			}
+		</script>
+	</body>
+</html>
