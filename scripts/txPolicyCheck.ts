@@ -241,7 +241,6 @@ const { processSender } =
 const { isNonceMismatchError } =
 	await import('src/core/consensus/verify/module/verifyNonce')
 const { rocksState } = await import('src/core/state/db/chain')
-const { rocksMempool } = await import('src/core/state/db/chain')
 const { enforceMempoolWireCap, MAX_MEMPOOL_WIRE_BYTES } =
 	await import('src/core/state/storage/mempool/capMempool')
 const { transactionValidator } =
@@ -926,7 +925,6 @@ ok(
 // tutup storage & buang folder sementara
 // ---------------------------------------------------------------------------
 
-await rocksMempool.close().catch(() => undefined)
 await rocksState.close().catch(() => undefined)
 try {
 	fs.rmSync(tmpDir, { recursive: true, force: true })

@@ -20,9 +20,9 @@ export interface pendingReserve {
  * `processSender` menurunkan). Satu tulis hilang (crash di luar batch, bug
  * penulis berikutnya) menyesatkan selamanya — reserve menumpuk tanpa bisa
  * dilepas (dana terkunci permanen) atau nol padahal tx masih pending
- * (over-admission). Nilai turunan (`Σ(amount+fee)` dari `mpf:<from>:*` yang
- * ditulis ATOMIK bersama tx oleh `saveMempool`) tidak mungkin drift: indeks
- * ada ⟺ tx ada.
+ * (over-admission). Nilai turunan (`Σ(amount+fee)` dari indeks RAM
+ * per-pengirim yang diperbarui bersama tx oleh `saveMempool`) tidak mungkin
+ * drift: indeks ada ⟺ tx ada.
  *
  * DUA aturan keras (audit P1 #3) tetap berlaku:
  *

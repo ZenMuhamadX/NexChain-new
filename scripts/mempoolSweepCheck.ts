@@ -45,7 +45,6 @@ process.env.NEX_DATA_DIR = tmpDir
 
 const { rocksState } = await import('src/core/state/db/chain')
 const { rocksHistory } = await import('src/core/state/db/chain')
-const { rocksMempool } = await import('src/core/state/db/chain')
 const { putAccount } = await import('src/core/state/account/putAccount')
 const { saveMempool } =
 	await import('src/core/state/storage/mempool/saveMemPool')
@@ -64,7 +63,6 @@ const { signTransaction } = await import('src/crypto/signTransaction')
 
 await rocksState.open()
 await rocksHistory.open()
-await rocksMempool.open()
 
 // ---------------------------------------------------------------------------
 // util
@@ -275,7 +273,6 @@ ok(
 // ---------------------------------------------------------------------------
 await rocksState.close().catch(() => undefined)
 await rocksHistory.close().catch(() => undefined)
-await rocksMempool.close().catch(() => undefined)
 try {
 	fs.rmSync(tmpDir, { recursive: true, force: true })
 } catch {

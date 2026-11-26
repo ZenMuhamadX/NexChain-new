@@ -1,6 +1,6 @@
 ﻿// Identitas jaringan NexChain (EIP-155 chain id).
 //
-// Nilai diambil dari env `NEX_CHAIN_ID` (default 26) dan harus SAMA di semua
+// Nilai diambil dari env `NEX_CHAIN_ID` (default 2010) dan harus SAMA di semua
 // komponen pada jaringan yang sama (node, RPC, wallet, explorer).
 //
 // Mengikuti standar PoW Bitcoin: identitas jaringan ditentukan oleh konstanta
@@ -8,13 +8,13 @@
 // genesis — lihat `nexchain/block/genesis.ts`) menghasilkan rantai yang
 // sepenuhnya terpisah; transaksi tidak bisa di-replay lintas jaringan karena
 // chain id ikut di-hash ke payload transaksi (`nexchain/transaction/createTxHash`).
-const DEFAULT_CHAIN_ID = 26
+const DEFAULT_CHAIN_ID = 2010
 
 /**
  * Baca `NEX_CHAIN_ID` dari env Node/Bun (node RPC, CLI). `process` dijaga
  * typeof supaya bundler browser (paket `wallet/`) tetap aman — pola sama dengan
  * `client/rpc-client/lib/rpcClient.ts`. Di browser `process` tidak ada, jadi
- * kita jatuh ke default 26 (chain id devnet). Nilai ini harus sama di semua
+ * kita jatuh ke default 2010. Nilai ini harus sama di semua
  * komponen satu jaringan; untuk jaringan non-default, `NEX_CHAIN_ID` diset
  * di `.env` node dan wallet mengikuti default-nya lewat konfigurasi build.
  */
@@ -32,7 +32,7 @@ export const CHAIN_ID = readEnvChainId() ?? DEFAULT_CHAIN_ID
 /**
  * EIP-155: encode recovery param (0/1) ke value `v`.
  * v = recoveryParam + chainId * 2 + 35
- * Contoh (chainId 26): recovery 0 -> v = 87, recovery 1 -> v = 88
+ * Contoh (chainId 2010): recovery 0 -> v = 4055, recovery 1 -> v = 4056
  */
 export const encodeV = (recoveryParam: number): number =>
 	recoveryParam + CHAIN_ID * 2 + 35

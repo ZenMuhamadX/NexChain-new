@@ -159,7 +159,7 @@ ok(
 	'txHash: TxC plus 64 hex (not bare 64)',
 	isTxHash(`TxC${'a'.repeat(64)}`) && !isTxHash('a'.repeat(64)),
 )
-ok('chainId defaults to 26', CHAIN_ID === 26)
+ok('chainId defaults to 2010', CHAIN_ID === 2010)
 
 // ---------- 3 and 4. Wire tx, automatic fee, RBF ----------
 console.log('\n--- transactions ---')
@@ -185,7 +185,10 @@ ok(
 	'tx: txHash is recomputed from the payload',
 	decoded.txHash === tx.txHash && isTxHash(decoded.txHash ?? ''),
 )
-ok('tx: EIP-155 v for chainId 26', tx.sign.v === 87 || tx.sign.v === 88)
+ok(
+	'tx: EIP-155 v for chainId 2010',
+	tx.sign.v === 4055 || tx.sign.v === 4056,
+)
 ok(
 	'tx: 6 unsigned items / 8 signed items / type 0x02',
 	UNSIGNED_ITEM_COUNT === 6 && SIGNED_ITEM_COUNT === 8 && TX_TYPE === 0x02,

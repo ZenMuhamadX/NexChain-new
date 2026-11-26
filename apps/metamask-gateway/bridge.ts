@@ -8,7 +8,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { ec as EC } from 'elliptic'
-import { CHAIN_ID } from 'src/crypto/chainId'
+import { CHAIN_ID, encodeV } from 'src/crypto/chainId'
 import { recoverPublicKey } from 'src/crypto/recoverPublicKey'
 import { keccak256 } from 'src/core/encoding/keccak256'
 import { sha256 } from 'src/core/encoding/sha256'
@@ -19,8 +19,8 @@ const ec = new EC('secp256k1')
 export const CHAIN_ID_HEX = `0x${CHAIN_ID.toString(16)}`
 
 /**
- * MetaMask bisa mengembalikan chainId sebagai `"0x1a"`, `"0X1A"`, `"26"`,
- * atau angka 26. Semua dinormalisasi supaya perbandingan tidak gagal hanya
+ * MetaMask bisa mengembalikan chainId sebagai `"0x7da"`, `"0X7DA"`, `"2010"`,
+ * atau angka 2010. Semua dinormalisasi supaya perbandingan tidak gagal hanya
  * karena format.
  */
 export const normalizeChainId = (value: unknown): string | null => {
@@ -337,8 +337,11 @@ export const verifyRegistration = (
 
 	const hash = eip191Hash(registrationMessage(nonce))
 	const { r, s, recovery } = parseSignature(signature)
+	// `encodeV` (bukan literal 87) supaya v selalu mengikuti CHAIN_ID aktif;
+	// literal 87 hanya benar untuk chain id 26 dan membuat registrasi gagal
+	// total setelah fork chain id.
 	const { publicKey } = recoverPublicKey(hash, {
-		v: recovery + 87,
+		v: encodeV(recovery),
 		r,
 		s,
 	})

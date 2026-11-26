@@ -123,7 +123,7 @@ RPC param = base64(payload)
 
 - `encodeTx()` → base64 payload; `decodeTx()` menghitung ulang `from` dan
   `txHash`, tidak mempercayai nilai dari luar.
-- `v = recoveryParam + chainId*2 + 35` (EIP-155; chainId 26 → 87/88).
+- `v = recoveryParam + chainId*2 + 35` (EIP-155; chainId 2010 → 4055/4056).
   `decodeV` juga menerima legacy `v = recovery + 26`.
 - ECDSA secp256k1 dengan `canonical: true` (low-s) → anti-malleability.
   `r`/`s` di-pad 64 hex lowercase.

@@ -25,6 +25,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { HexString } from 'src/types/block'
+import { signTransaction } from 'src/crypto/signTransaction'
+import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
+import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
 
 let pass = 0
 let fail = 0
@@ -72,8 +75,17 @@ await rocksJournal.open()
 // util
 // ---------------------------------------------------------------------------
 
-const MINER = `NxC${'cc'.repeat(20)}`
-const RECEIVER = `NxC${'dd'.repeat(20)}`
+// Blok disimpan sebagai RLP, jadi `decodeBlock` memulihkan `from` dari tanda
+// tangan. Fixture harus memakai kunci nyata; tanda tangan palsu membuat replay
+// mengkredit alamat hasil ecrecover, bukan MINER/RECEIVER di bawah.
+const minerKeys = generateKeysFromMnemonic(
+	'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+)
+const receiverKeys = generateKeysFromMnemonic(
+	'legal winner thank year wave sausage worth useful legal winner thank yellow',
+)
+const MINER = generateAddressFromPublicKey(minerKeys.publicKey)
+const RECEIVER = generateAddressFromPublicKey(receiverKeys.publicKey)
 const hex64 = (n: number): string => n.toString(16).padStart(64, '0')
 
 let fakeHash = 0x2000
@@ -85,23 +97,17 @@ const commit = async (
 	return (await chains.commitBlock(tpl)).status
 }
 
-/** Tx mainan (tanda tangan palsu — `commitBlock` tidak memeriksanya). */
-const makeTx = (
-	from: string,
-	nonce: number,
-	amount: number,
-	fee: number,
-	tag: string,
-) =>
-	({
-		nonce,
-		fee,
-		receiver: RECEIVER,
-		amount,
-		from,
-		txHash: `TxC${'0'.repeat(60)}${tag.length}${tag.slice(-3)}`,
-		sign: { v: 27, r: '01'.repeat(32), s: '02'.repeat(32) },
-	}) as never
+const makeTx = (from: string, nonce: number, amount: number, fee: number) =>
+	signTransaction(
+		{
+			nonce,
+			fee,
+			receiver: RECEIVER,
+			amount,
+			sign: { v: 0, r: '0'.repeat(64), s: '0'.repeat(64) },
+		},
+		(from === MINER ? minerKeys : receiverKeys).privateKey,
+	)
 
 const balanceOf = async (address: string): Promise<number> =>
 	(await getAccount(address))?.balance ?? -1
@@ -154,7 +160,7 @@ ok(
 const AMOUNT = 100_000_000
 const FEE = 1_000_000
 const block2 = await createBlockTemplate(
-	[makeTx(MINER, 0, AMOUNT, FEE, 'a1')],
+	[makeTx(MINER, 0, AMOUNT, FEE)],
 	MINER,
 )
 ok('commit blok 2 (dengan transfer nyata)', await commit(block2))
@@ -180,7 +186,7 @@ ok('penerima menerima amount', (await balanceOf(RECEIVER)) === AMOUNT)
 }
 
 const block3 = await createBlockTemplate(
-	[makeTx(RECEIVER, 0, 10, 1, 'b2')],
+	[makeTx(RECEIVER, 0, 10, 1)],
 	MINER,
 )
 ok('commit blok 3 (penerima membelanjakan)', await commit(block3))

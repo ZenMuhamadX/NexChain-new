@@ -1,5 +1,4 @@
 import { transactionValidator } from 'src/core/validation/txValidator.v'
-import { saveTxHistory } from 'src/core/transaction/saveTxHistory'
 import { TxInterface } from 'src/types/transaction'
 import { logToConsole } from 'src/logging/logging'
 import {
@@ -122,11 +121,10 @@ export class MemPool {
 			return { isValid: false, data: transaction }
 		}
 
-		// Save transaction to mempool and history — pengganti MENGGANTI tx
-		// lama dalam satu batch atomik, bukan menambah entri kedua.
+		// Simpan ke mempool RAM — pengganti MENGGANTI tx lama, bukan
+		// menambah entri kedua. Riwayat baru ditulis saat tx masuk blok.
 		if (replaced?.txHash) await replaceMempool(replaced.txHash, transaction)
 		else await saveMempool(transaction)
-		await saveTxHistory(transaction.txHash!, transaction)
 		logToConsole(
 			`Transaction added to mempool TxHash: ${formatStr(transaction.txHash!)}...`,
 		)
@@ -140,10 +138,10 @@ export class MemPool {
 	 * Reserve-nya TURUNAN dari indeks mempool per-pengirim
 	 * (`getPendingReserve` = Σ(amount+fee) tx pending pengirim ini) — bukan
 	 * kunci tersimpan. Karena itu admission ini TIDAK menulis reserve apa
-	 * pun: `saveMempool` di bawah menulis tx BERSAMA entri indeksnya dalam
-	 * SATU batch atomik, sehingga reserve berikutnya otomatis menyertakan
-	 * transaksi ini. Keputusan terima/tolak tidak berubah — hanya sumber
-	 * reserve yang berpindah dari counter ke turunan.
+	 * pun: `saveMempool` di bawah menambahkan tx ke Map RAM, sehingga reserve
+	 * berikutnya otomatis menyertakan transaksi ini. Keputusan terima/tolak
+	 * tidak berubah — hanya sumber reserve yang berpindah dari counter ke
+	 * turunan.
 	 * @param transaction - User transaction.
 	 * @returns True if balance is sufficient, otherwise false.
 	 */

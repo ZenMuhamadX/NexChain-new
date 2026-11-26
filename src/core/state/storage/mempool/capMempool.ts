@@ -34,6 +34,15 @@ import { removeMemPool } from './removeMempool'
  */
 export const MAX_MEMPOOL_WIRE_BYTES = 10 * 100 * 1000
 
+/**
+ * Cap jumlah tx GLOBAL — KEBIJAKAN node, bukan konsensus.
+ *
+ * Cap byte di bawah membatasi ukuran, tetapi ribuan tx kecil tetap bisa
+ * membuat pindai template/indeks panjang. Angka 4096 = 4× blok 1000 tx,
+ * cukup untuk beberapa blok ke depan tanpa menjadi gudang.
+ */
+export const MAX_MEMPOOL_TX = 4096
+
 /** Satu entri pool beserta ukuran wire kanoniknya (dihitung sekali). */
 type Entry = { tx: TxInterface; size: number }
 
@@ -129,20 +138,34 @@ const cheapestQueue = (
  *   ditolak hanya karena pool kebetulan penuh.
  * @param maxBytes - Batas byte. Parameter hanya untuk gate (menguji
  *   evictasi tanpa fixture 1 MB); produksi memakai bawaannya.
+ * @param maxTxs - Batas jumlah tx. Parameter hanya untuk gate; produksi
+ *   memakai `MAX_MEMPOOL_TX`.
  */
 export const enforceMempoolWireCap = async (
 	tx: TxInterface,
 	replaced?: TxInterface,
 	maxBytes: number = MAX_MEMPOOL_WIRE_BYTES,
+	maxTxs: number = MAX_MEMPOOL_TX,
 ): Promise<boolean> => {
 	const size = wireSize(tx)
 	// Tx tak ter-encode tak akan pernah bisa masuk blok — fail-closed.
 	if (size <= 0) return false
 
+	const pool = await loadAllMempool()
+	const poolCount = pool.filter(
+		(entry) => !replaced || entry.txHash !== replaced.txHash,
+	).length
+	if (poolCount >= maxTxs) {
+		logToConsole(
+			`Mempool penuh (cap ${maxTxs} tx): ${formatStr(tx.txHash ?? '')} ditolak`,
+		)
+		return false
+	}
+
 	// Susun antrean per-pengirim sekaligus hitung byte pool yang PERSIS.
 	const bySender = new Map<string, Entry[]>()
 	let total = 0
-	for (const entry of await loadAllMempool()) {
+	for (const entry of pool) {
 		const entrySize = wireSize(entry)
 		if (entrySize <= 0) continue
 		// Tx yang sedang digantikan meninggalkan pool pada langkah berikutnya
