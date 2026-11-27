@@ -1,10 +1,10 @@
 # Miner Rust NexChain. Jalankan: docker compose up -d
 #
-# PENTING: node harus bisa dijangkau dari dalam container. Default node
-# (RPC_BIND_HOST=127.0.0.1) TIDAK bisa dihubungi lewat host.docker.internal,
-# jadi set RPC_BIND_HOST=0.0.0.0 di .env root node (wajib bersama
-# RPC_USER/RPC_PASSWORD — node menolak bind non-loopback tanpa kredensial).
-# Alternatif: jalankan node di compose yang sama dan pakai http://node:8000/rpc.
+# Node dan miner diasumsikan di mesin Linux yang sama (Debian), jadi pakai
+# network_mode: host: 127.0.0.1 di container = server itu sendiri. Node cukup
+# bind ke 127.0.0.1, port RPC tidak perlu dibuka ke LAN, dan tidak ada NAT.
+# Kalau miner dipindah ke mesin lain, hapus network_mode dan isi NEX_RPC_URL
+# dengan IP LAN node.
 #
 # $$ adalah escape compose: nilai dibaca container dari blok `environment`,
 # bukan diinterpolasi dari env host.
@@ -20,14 +20,13 @@ services:
       - exec nex-miner --address "$$MINER_ADDRESS" --rpc "$$NEX_RPC_URL" --threads "$$MINER_THREADS"
     environment:
       MINER_ADDRESS: NxC... # GANTI: NxC + 40 hex (43 karakter)
-      NEX_RPC_URL: http://host.docker.internal:8000/rpc
+      NEX_RPC_URL: http://127.0.0.1:2008/rpc # samakan dengan NEX_RPC_PORT node
       NEX_RPC_USER: nex # kosongkan dua ini kalau node tanpa Basic Auth
       NEX_RPC_PASS: ganti-ini
       # available_parallelism() tidak melihat kuota cgroup, jadi jangan biarkan
       # default (jumlah CPU host): satu thread cukup dan tidak rebutan kuota.
       MINER_THREADS: '1'
-    extra_hosts:
-      - host.docker.internal:host-gateway
+    network_mode: host
     cpus: '0.5' # 0.25 juga cukup: difficulty rantai hanya 20-22 bit
     mem_limit: 256m
     logging:
