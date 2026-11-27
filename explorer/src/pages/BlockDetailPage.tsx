@@ -328,7 +328,7 @@ export function BlockDetailPage() {
 								</div>
 								<div className="detail-row">
 									<dt>Difficulty</dt>
-									<dd>{formatNumber(block.header.difficulty)}</dd>
+									<dd>{block.header.difficulty}</dd>
 								</div>
 								<div className="detail-row">
 									<dt>Hashing algorithm</dt>

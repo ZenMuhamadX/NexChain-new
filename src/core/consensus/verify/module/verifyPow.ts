@@ -3,8 +3,7 @@ import { meetsDifficulty } from 'src/core/consensus/difficulty'
 
 /**
  * Verifikasi Proof-of-Work sebuah blok memakai **difficulty milik blok
- * itu sendiri** (`header.difficulty`, satuan bit zerodepan — lihat
- * `nexchain/miner/difficulty`).
+ * itu sendiri** (`header.difficulty`, compact bits ala Bitcoin).
  *
  * BUG (diperbaiki): target dulu di-hardcode `difficulty = 4` (prefix 4 digit
  * "0") sementara proses mining memakai prefix 5 digit — kriteria validasi

@@ -267,9 +267,10 @@ yang sama di chain lain = akun berbeda.
 
 `blockStruct { header, height, size, totalTransactionFees, merkleRoot,
 minerId, chainId?, status, blockReward, totalReward, coinbaseTransaction,
-metadata?, transactions }`. `header.difficulty` **float** (kuantisasi 0,25
-bit), `timestamp` epoch ms, ada `stateRoot` (ikut preimage PoW). `size` = Σ
-byte wire tx pengguna; `transactions` tidak memuat coinbase.
+metadata?, transactions }`. `header.difficulty` compact `bits` uint32 yang
+di JSON-RPC dikirim sebagai hex string 8 digit (`"0x1e100000"`; di penyimpanan
+dan wire P2P tetap uint32), `timestamp` epoch ms, ada `stateRoot` (ikut preimage
+PoW). `size` = Σ byte wire tx pengguna; `transactions` tidak memuat coinbase.
 
 ## 9. Jebakan yang harus disampaikan ke agen
 

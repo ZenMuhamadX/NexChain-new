@@ -164,7 +164,7 @@ export function DashboardPage() {
 					</div>
 					<div>
 						<dt>Difficulty</dt>
-						<dd>{latest ? formatNumber(latest.difficulty) : '—'}</dd>
+						<dd>{latest ? latest.difficulty : '—'}</dd>
 						<span>SHA256 proof-of-work</span>
 					</div>
 					<div>

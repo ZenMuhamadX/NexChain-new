@@ -28,14 +28,18 @@
  *   - pruneExpiredJobs: job hidup utuh, job kadaluarsa dibuang + dihitung
  */
 import {
+	difficultyToBits,
 	expectedDifficulty,
+	formatBits,
 	MIN_DIFFICULTY_BITS,
 	MAX_DIFFICULTY_BITS,
+	parseBits,
 	TARGET_BLOCK_TIME_MS,
 } from 'src/core/consensus/difficulty'
 import {
 	createJob,
 	getJob,
+	getLiveJobByCacheKey,
 	pruneExpiredJobs,
 	JOB_TTL_MS,
 } from 'src/core/consensus/jobStore'
@@ -54,7 +58,7 @@ const ok = (name: string, cond: boolean, extra = '') => {
 }
 
 // ============ 1. expectedDifficulty (murni, tanpa I/O) ============
-const BASE = 27.5 // difficulty nyata yang diamati user saat idle
+const BASE = difficultyToBits(27.5) // compact bits dari difficulty idle nyata
 const T0 = 1_700_000_000_000 // anchor waktu acak — tidak bergantung Date.now()
 const H = 100 // tinggi induk (>= 1 supaya retarget berlaku)
 const T = TARGET_BLOCK_TIME_MS
@@ -68,25 +72,31 @@ ok(
 )
 
 // gap == 2x target -> log2(0.5) = -1 bit persis (batas atas cabang halus).
-ok('2x target -> 26.5', expectedDifficulty(BASE, T0, T0 + 2 * T, H) === 26.5)
+ok(
+	'2x target -> 26.5',
+	expectedDifficulty(BASE, T0, T0 + 2 * T, H) === difficultyToBits(26.5),
+)
 
 // gap > 2x target -> pemulihan BORONGAN: -(ceil(gap/T)-1). 5x -> -4.
 ok(
 	'5x target -> 23.5 (borongan -4)',
-	expectedDifficulty(BASE, T0, T0 + 5 * T, H) === 23.5,
+	expectedDifficulty(BASE, T0, T0 + 5 * T, H) === difficultyToBits(23.5),
 )
 
 // 10x target -> -min(9, 8) = -8 (dijepit MAX_STALL_FALL_BITS).
 ok(
 	'10x target -> 19.5 (borongan -8, jepit)',
-	expectedDifficulty(BASE, T0, T0 + 10 * T, H) === 19.5,
+	expectedDifficulty(BASE, T0, T0 + 10 * T, H) === difficultyToBits(19.5),
 )
 
 // gap == 0.5x target -> log2(2) = +1 bit.
-ok('0.5x target -> 28.5', expectedDifficulty(BASE, T0, T0 + T / 2, H) === 28.5)
+ok(
+	'0.5x target -> 28.5',
+	expectedDifficulty(BASE, T0, T0 + T / 2, H) === difficultyToBits(28.5),
+)
 
 // Blok sangat cepat (1 detik): langkah di-clamp +2 -> 47+2=49 -> ceiling 48.
-const rCeil = expectedDifficulty(47, T0, T0 + 1_000, H)
+const rCeil = expectedDifficulty(difficultyToBits(47), T0, T0 + 1_000, H)
 ok(
 	`sangat cepat -> ceiling ${MAX_DIFFICULTY_BITS}`,
 	rCeil === MAX_DIFFICULTY_BITS,
@@ -94,7 +104,12 @@ ok(
 )
 
 // Idle raksasa: langkah di-clamp -8 lalu dijepit floor -> 9-8=1 -> 8.
-const rFloor = expectedDifficulty(9, T0, T0 + 1_000_000_000, H)
+const rFloor = expectedDifficulty(
+	difficultyToBits(9),
+	T0,
+	T0 + 1_000_000_000,
+	H,
+)
 ok(
 	`idle raksasa -> floor ${MIN_DIFFICULTY_BITS}`,
 	rFloor === MIN_DIFFICULTY_BITS,
@@ -116,7 +131,8 @@ ok(
 // Guard: timestamp non-finite -> flat, bukan NaN/Infinity.
 ok(
 	'timestamp non-finite -> flat 20',
-	expectedDifficulty(20, Number.NaN, T0, H) === 20,
+	expectedDifficulty(difficultyToBits(20), Number.NaN, T0, H) ===
+		difficultyToBits(20),
 )
 
 // Determinisme: argumen identik -> hasil identik (inti model ini).
@@ -129,8 +145,8 @@ ok(
 // Quirk batas cabang (didokumentasikan): gap = 2T -> -1, gap = 2T+1 -> -2.
 ok(
 	'batas cabang: gap=2T -> -1, gap=2T+1 -> -2',
-	expectedDifficulty(BASE, T0, T0 + 2 * T, H) === 26.5 &&
-		expectedDifficulty(BASE, T0, T0 + 2 * T + 1, H) === 25.5,
+	expectedDifficulty(BASE, T0, T0 + 2 * T, H) === difficultyToBits(26.5) &&
+		expectedDifficulty(BASE, T0, T0 + 2 * T + 1, H) === difficultyToBits(25.5),
 )
 
 // ============ 2. pruneExpiredJobs (prune memori murni) ============
@@ -162,6 +178,72 @@ ok('job hidup ikut terhapus (map bersih)', getJob(live.jobId) === undefined)
 ok(
 	'pemanggilan ulang tanpa job sisa -> 0',
 	pruneExpiredJobs(Date.now() + JOB_TTL_MS + 60_000) === 0,
+)
+
+// ============ 3. cache job getWork (tip + alamat miner) ============
+console.log('cache getWork:')
+
+const CACHED_ADDR = 'NxC000000000000000000000000000000000000002'
+const cached = createJob({
+	block: blockStub,
+	payload: 'payload-cache',
+	difficulty: difficultyToBits(20),
+	height: 1,
+	previousBlockHash: '0xstub',
+	minerAddress: CACHED_ADDR,
+	cacheKey: `tipA|${CACHED_ADDR}`,
+})
+ok(
+	'cache key sama -> job yang sama dipakai ulang',
+	getLiveJobByCacheKey(`tipA|${CACHED_ADDR}`)?.jobId === cached.jobId,
+)
+ok(
+	'cache key beda -> job lama tidak bocor',
+	getLiveJobByCacheKey(`tipB|${CACHED_ADDR}`) === undefined,
+)
+
+const expiredCached = createJob({
+	block: blockStub,
+	payload: 'payload-expired-cache',
+	difficulty: difficultyToBits(20),
+	height: 1,
+	previousBlockHash: '0xstub',
+	minerAddress: CACHED_ADDR,
+	cacheKey: `tipC|${CACHED_ADDR}`,
+})
+ok(
+	'job cache kadaluarsa awalnya hidup',
+	getJob(expiredCached.jobId) !== undefined,
+)
+pruneExpiredJobs(Date.now() + JOB_TTL_MS + 60_000)
+ok(
+	'job kadaluarsa tidak dipakai ulang',
+	getLiveJobByCacheKey(`tipC|${CACHED_ADDR}`) === undefined,
+)
+
+// ============ 4. representasi hex di JSON-RPC ============
+console.log('bits hex RPC:')
+
+ok(
+	'formatBits: selalu 8 digit berprefix 0x',
+	formatBits(0x1e100000) === '0x1e100000' &&
+		formatBits(0x12345) === '0x00012345',
+)
+ok(
+	'parseBits: balikan formatBits untuk batas rantai',
+	[MIN_DIFFICULTY_BITS, MAX_DIFFICULTY_BITS, difficultyToBits(27.5)].every(
+		(bits) => parseBits(formatBits(bits)) === bits,
+	),
+)
+ok('parseBits: huruf besar diterima', parseBits('0X1E100000') === 0x1e100000)
+ok(
+	'parseBits: tolak desimal, tanpa prefix, pendek, dan non-hex',
+	parseBits(504365056) === undefined &&
+		parseBits('1e100000') === undefined &&
+		parseBits('0x1e10000') === undefined &&
+		parseBits('0xzz00000') === undefined &&
+		parseBits('0x1g000000') === undefined &&
+		parseBits(null) === undefined,
 )
 
 console.log(`\n  ============ ${pass} OK / ${fail} FAIL ============`)

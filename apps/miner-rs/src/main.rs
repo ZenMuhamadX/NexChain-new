@@ -363,9 +363,24 @@ impl Rpc {
 struct Work {
     job_id: String,
     payload: String,
-    difficulty: f64,
+    difficulty: u32,
     height: u64,
     expires_at: u64,
+}
+
+/// `difficulty` dari RPC selalu compact bits hex 8 digit — sama dengan
+/// `formatBits` di `src/core/consensus/difficulty.ts` (parity dicek di sini).
+fn parse_difficulty_hex(value: &Value) -> Result<u32, String> {
+    let raw = value
+        .as_str()
+        .ok_or_else(|| "difficulty bukan string hex".to_string())?;
+    let digits = raw
+        .strip_prefix("0x")
+        .ok_or_else(|| "difficulty tanpa awalan 0x".to_string())?;
+    if digits.len() != 8 || !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("difficulty bukan hex uint32 8 digit".to_string());
+    }
+    u32::from_str_radix(digits, 16).map_err(|_| "difficulty bukan uint32".to_string())
 }
 
 fn get_work(rpc: &mut Rpc, address: &str) -> Result<Work, GetWorkError> {
@@ -401,10 +416,8 @@ fn get_work(rpc: &mut Rpc, address: &str) -> Result<Work, GetWorkError> {
             .as_str()
             .ok_or_else(|| GetWorkError::Retry("payload bukan string".to_string()))?
             .to_string(),
-        difficulty: field("difficulty")
-            .map_err(GetWorkError::Retry)?
-            .as_f64()
-            .ok_or_else(|| GetWorkError::Retry("difficulty bukan angka".to_string()))?,
+        difficulty: parse_difficulty_hex(&field("difficulty").map_err(GetWorkError::Retry)?)
+            .map_err(GetWorkError::Retry)?,
         height: field("height")
             .map_err(GetWorkError::Retry)?
             .as_u64()
@@ -579,7 +592,7 @@ fn run() -> Result<(), String> {
         };
 
         println!(
-            "Job {} | height #{} | difficulty {} bits",
+            "Job {} | height #{} | difficulty 0x{:08x}",
             work.job_id, work.height, work.difficulty
         );
 
@@ -630,6 +643,25 @@ mod tests {
         assert_eq!(base64(b"fo"), "Zm8=");
         assert_eq!(base64(b"foo"), "Zm9v");
         assert_eq!(base64(b"user:pass"), "dXNlcjpwYXNz");
+    }
+
+    #[test]
+    fn difficulty_hex_matches_node() {
+        assert_eq!(
+            parse_difficulty_hex(&json!("0x1e100000")).unwrap(),
+            0x1e100000
+        );
+        assert_eq!(
+            parse_difficulty_hex(&json!("0x1E100000")).unwrap(),
+            0x1e100000
+        );
+        for bad in ["1e100000", "0x1e10000", "0xzz000000", "0x1g000000"] {
+            assert!(
+                parse_difficulty_hex(&json!(bad)).is_err(),
+                "{bad} harus ditolak"
+            );
+        }
+        assert!(parse_difficulty_hex(&json!(504365056)).is_err());
     }
 
     #[test]

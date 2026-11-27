@@ -20,14 +20,14 @@
 
 export type HexString = `0x${string}`
 
-/** Header blok. `timestamp` = epoch ms; `difficulty` = float (0.25 bit). */
+/** Header blok. `timestamp` = epoch ms; `difficulty` = compact bits hex `0x…`. */
 export interface BlockHeader {
 	previousBlockHash: string
 	timestamp: number
 	hash: string
 	nonce: number
 	version: string
-	difficulty: number
+	difficulty: string
 	hashingAlgorithm: string
 	/**
 	 * v0.1: komitmen state (akumulator chained-diff, bukan trie).
@@ -105,7 +105,7 @@ export interface blockSummary {
 	txCount: number
 	size: number
 	status: 'confirmed' | 'pending'
-	difficulty: number
+	difficulty: string
 	blockReward: number
 	totalReward: number
 }

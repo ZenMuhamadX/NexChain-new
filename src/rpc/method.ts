@@ -21,6 +21,22 @@ import { CHAIN_ID } from 'src/crypto/chainId'
 import { getWork, submitWork } from 'src/core/consensus/work'
 import { getSyncStatus } from 'src/core/events/syncState'
 import { getPeerStateSnapshot } from 'src/core/events/peerState'
+import { formatBits } from 'src/core/consensus/difficulty'
+
+/**
+ * Blok penuh di JSON-RPC memakai compact bits hex, bukan uint32 seperti di
+ * penyimpanan/P2P. Satu-satunya field yang berubah; field lain utuh.
+ */
+const toRpcBlock = (block: Block) => ({
+	...block,
+	block: {
+		...block.block,
+		header: {
+			...block.block.header,
+			difficulty: formatBits(block.block.header.difficulty),
+		},
+	},
+})
 
 /** Ubah Block penuh menjadi ringkasan untuk list explorer. */
 const toBlockSummary = (block: Block): blockSummary => {
@@ -34,7 +50,7 @@ const toBlockSummary = (block: Block): blockSummary => {
 		txCount: b.transactions?.length ?? 0,
 		size: b.size,
 		status: b.status,
-		difficulty: b.header.difficulty,
+		difficulty: formatBits(b.header.difficulty),
 		blockReward: b.blockReward,
 		totalReward: b.totalReward,
 	}
@@ -101,11 +117,13 @@ rpc.addMethod('echo', (message: any) => {
 // Block
 
 rpc.addMethod('nex_getBlockByHash', async (hash: string): Promise<any> => {
-	return await getBlockByHash(hash!)
+	const block = await getBlockByHash(hash!)
+	return block ? toRpcBlock(block) : block
 })
 
 rpc.addMethod('nex_getBlockByHeight', async (blockNumber: number) => {
-	return await getBlockByHeight(blockNumber!)
+	const block = await getBlockByHeight(blockNumber!)
+	return block ? toRpcBlock(block) : block
 })
 
 rpc.addMethod('nex_getBlockTransactionByHeight', async (height: number) => {
@@ -123,7 +141,8 @@ rpc.addMethod('nex_getBlockState', async () => {
 })
 
 rpc.addMethod('nex_getCurrentBlock', async () => {
-	return await getCurrentBlock()
+	const block = await getCurrentBlock()
+	return block ? toRpcBlock(block) : block
 })
 
 rpc.addMethod('nex_getChainId', async () => {
@@ -315,7 +334,7 @@ rpc.addMethod('nex_sendRawTransaction', async (data: string) => {
 // target 60 detik; miner eksternal yang menghitung PoW lewat HTTP sehingga
 // RPC tetap hidup selama mining. Lihat nexchain/miner/work.ts.
 // Params getWork: {minerAddress} | [minerAddress] | minerAddress | kosong
-//   → {status, jobId, payload, difficulty, height, previousBlockHash, ...}
+//   → {status, jobId, payload, difficulty: "0x…", height, ...}
 // Params submitWork: {jobId, nonce, hash} → {status, height?, hash?, error?}
 rpc.addMethod('nex_getWork', async (params?: unknown) => {
 	return await getWork(params)

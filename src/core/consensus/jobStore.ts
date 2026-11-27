@@ -28,6 +28,8 @@ export interface MiningJob {
 	previousBlockHash: string
 	/** Alamat penerima hadiah — jadi `minerId` & receiver coinbase blok ini. */
 	minerAddress: string
+	/** Kunci cache node-local: tip + alamat miner. Bukan bagian konsensus. */
+	cacheKey?: string
 	createdAt: number
 	expiresAt: number
 }
@@ -58,9 +60,9 @@ export const pruneExpiredJobs = (nowMs: number = Date.now()): number => {
  *
  * Field yang dipilih adalah yang membuat template BEDA antar blok/miner:
  * tinggi, hash sebelumnya, difficulty, penerima hadiah, timestamp template
- * (beda tiap `getWork` walau tip sama), dan merkle root (beda bila daftar
+ * (melekat pada template saat job dibuat), dan merkle root (beda bila daftar
  * transaksi berbeda). Urutan & label dipakukan supaya hasilnya deterministik
- * untuk konten yang sama — silakan bandingkan `jobContentFor` dua job.
+ * untuk konten yang sama. Job yang di-cache dipakai ulang tanpa dibuat ulang.
  *
  * (Modul ini server-side saja — `node:crypto` di sini tidak masuk bundel
  * browser; terverifikasi oleh `check:browser`.)
@@ -137,6 +139,21 @@ export const getJob = (jobId: string): MiningJob | undefined => {
 		return undefined
 	}
 	return job
+}
+
+/**
+ * Pakai ulang job hidup untuk kunci (tip, minerAddress) yang sama. Timestamp
+ * ikut preimage, jadi job lama dipertahankan apa adanya sampai tip bergerak
+ * atau TTL habis — bukan dibangun ulang tiap poll.
+ */
+export const getLiveJobByCacheKey = (
+	cacheKey: string,
+): MiningJob | undefined => {
+	pruneExpiredJobs()
+	for (const job of jobs.values()) {
+		if (job.cacheKey === cacheKey) return job
+	}
+	return undefined
 }
 
 export const deleteJob = (jobId: string): void => {

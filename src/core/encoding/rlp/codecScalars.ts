@@ -195,12 +195,11 @@ export const bytesToString = (
 /**
  * Float → IEEE-754 float64 8 byte big-endian.
  *
- * RLP hanya mengenal byte string, sedangkan dua field blok dikirim sebagai
- * float64: `header.difficulty` (pecahan — kuantisasi 0.25 bit) dan
- * `block.size` (jumlah byte payload tx; DULU KB float dari
- * `calculateSize(...).KB`). Keduanya tetap float64 supaya wire tidak berubah
- * hanya karena arti `size` berganti. float64 mentah = round-trip eksak untuk
- * setiap f64, tanpa menafsirkan ulang arti field.
+ * RLP hanya mengenal byte string. `block.size` dikirim sebagai float64
+ * (jumlah byte payload tx; DULU KB float dari `calculateSize(...).KB`), jadi
+ * wire tidak berubah hanya karena arti `size` berganti. Sejak fork `bits`,
+ * `header.difficulty` adalah compact uint32 dan memakai `numberToBytes`, bukan
+ * float64. float64 mentah = round-trip eksak untuk setiap f64.
  */
 export const float64ToBytes = (
 	value: number,

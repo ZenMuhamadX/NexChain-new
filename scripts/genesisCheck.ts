@@ -19,6 +19,7 @@ import {
 import { prepareBlockForHashing } from 'src/core/block/prepareBlock'
 import { hashWithNonce } from 'src/core/consensus/Pow'
 import {
+	formatBits,
 	INITIAL_DIFFICULTY_BITS,
 	meetsDifficulty,
 } from 'src/core/consensus/difficulty'
@@ -48,7 +49,7 @@ try {
 	console.log(`OK  genesis valid (chain id ${CHAIN_ID})`)
 	console.log(`    hash  ${GENESIS_HASH}`)
 	console.log(`    nonce ${GENESIS_NONCE}`)
-	console.log(`    diff  ${INITIAL_DIFFICULTY_BITS} bits`)
+	console.log(`    bits  ${formatBits(INITIAL_DIFFICULTY_BITS)}`)
 } catch (error) {
 	console.error(
 		`FAIL ${error instanceof Error ? error.message : 'constanta genesis tidak valid'}`,

@@ -14,7 +14,11 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 import { createPowHasher } from 'src/core/consensus/Pow'
-import { meetsDifficulty } from 'src/core/consensus/difficulty'
+import {
+	formatBits,
+	meetsDifficulty,
+	parseBits,
+} from 'src/core/consensus/difficulty'
 
 /** Batas waktu boot node: RPC menjawab DAN genesis sudah tertulis. */
 export const BOOT_TIMEOUT_MS = 30_000
@@ -291,7 +295,7 @@ export interface WorkJob {
 	error?: string
 	jobId?: string
 	payload?: string
-	difficulty?: number
+	difficulty?: string
 	height?: number
 	expiresAt?: number
 }
@@ -312,11 +316,12 @@ export const mineOneBlock = async (
 	timeoutMs = MINE_TIMEOUT_MS,
 ): Promise<MinedBlock> => {
 	const work = await rpc<WorkJob>(url, 'nex_getWork', { minerAddress })
+	const bits = parseBits(work.difficulty)
 	if (
 		!work.status ||
 		typeof work.jobId !== 'string' ||
 		typeof work.payload !== 'string' ||
-		typeof work.difficulty !== 'number' ||
+		bits === undefined ||
 		typeof work.height !== 'number' ||
 		typeof work.expiresAt !== 'number'
 	) {
@@ -334,21 +339,19 @@ export const mineOneBlock = async (
 	let found = false
 	while (Date.now() < deadline) {
 		hash = hasher.hash(nonce)
-		if (meetsDifficulty(hash, work.difficulty)) {
+		if (meetsDifficulty(hash, bits)) {
 			found = true
 			break
 		}
 		nonce++
 	}
 	if (!found) {
-		throw new Error(
-			`nonce tidak ditemukan untuk difficulty ${work.difficulty} bits`,
-		)
+		throw new Error(`nonce tidak ditemukan untuk bits ${formatBits(bits)}`)
 	}
 	const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1)
 	console.log(
 		`  ....  nonce ${nonce} ditemukan dalam ${elapsed}s ` +
-			`(difficulty ${work.difficulty} bits)`,
+			`(bits ${formatBits(bits)})`,
 	)
 
 	const submit = await rpc<SubmitResult>(url, 'nex_submitWork', {

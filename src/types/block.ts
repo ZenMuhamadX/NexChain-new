@@ -42,7 +42,8 @@ export interface blockSummary {
 	txCount: number
 	size: number
 	status: 'confirmed' | 'pending'
-	difficulty: number
+	/** Compact bits sebagai hex string `0x…` (kontrak JSON-RPC). */
+	difficulty: string
 	blockReward: number
 	totalReward: number
 }

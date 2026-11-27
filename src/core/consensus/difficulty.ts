@@ -1,134 +1,134 @@
 /**
- * Difficulty Proof-of-Work NexChain — adaptif, target block time 60 detik.
+ * Difficulty Proof-of-Work NexChain — compact `bits` ala Bitcoin.
  *
- * Satuan: **bit zerodepan fractional** (bukan jumlah digit heksadesimal),
- * di-quantize ke langkah 0.25. Contoh: difficulty 20 = hash harus diawali
- * tepat 5 digit "0" (setara prefix "00000" pada skema lama); difficulty 20.5
- * = 5 digit "0" + nibble berikutnya < 8.
+ * `header.difficulty` adalah uint32: 1 byte eksponen + 23 bit mantissa,
+ * `target = mantissa × 2^(8·(eksponen−3))`. Hash 64-hex (big-endian) lolos
+ * bila `hash <= target`. Ini menggantikan bilangan desimal "bit nol depan"
+ * (langkah 0.25) yang dulu dipakai rantai lama; perubahan ini fork dan
+ * semua hash/genesis berubah.
  *
- * `header.difficulty` IKUT preimage PoW (lihat `prepareBlockForHashing`), dan
- * angka yang diperbolehkan dihitung ULANG oleh setiap validator lewat
- * `expectedDifficulty` — BUKAN dipercaya dari header. Semua node memakai
- * fungsi murni yang sama sehingga hasilnya identik; determinisme inilah
- * mekanisme "sinkronisasi"-nya (tidak ada nilai difficulty yang dikirim).
- *
- * `meetsDifficulty` tetap satu-satunya definisi "kerja cukup" (dipakai miner
- * & node).
- *
- * Modul ini SENGAJA murni (tanpa impor DB / model / logging) supaya aman
- * diimpor proses miner eksternal — lihat `apps/miner/`.
+ * Retarget tetap memakai satuan bit pecahan di dalam (langkah +2/−4/−8,
+ * jepit [8,48]) supaya perilaku jaringan tidak berubah — hanya penyimpanan
+ * dan perbandingannya yang sekarang memakai compact target. Semua fungsi
+ * di sini murni supaya bisa dipakai node, verifier, dan tooling tanpa I/O.
  */
-
-/** Target jarak antar blok (ms). Inilah yang dikejar retarget. */
 export const TARGET_BLOCK_TIME_MS = 60_000
 
-/** Difficulty awal rantai (== skema lama prefix 5 digit heksadesimal). */
-export const INITIAL_DIFFICULTY_BITS = 20
-
-/** Batas bawah/atas difficulty (mencegah rantai berhenti atau tak terjangkau). */
-export const MIN_DIFFICULTY_BITS = 8
-export const MAX_DIFFICULTY_BITS = 48
-
-/**
- * Batas koreksi retarget PER BLOK — asimetris, hasil kalibrasi lapangan:
- *
- * - `MAX_RISE_BITS` 2 (naik): koreksi naik yang agresif membuat cascade blok
- *   1-detik melompat MELEWATI titik seimbang (mis. 20 → 24 bit untuk hashrate
- *   ~120 kH/s) sehingga blok berikutnya memakan menit. Dengan langkah maks
- *   +2, pendekatan ke titik seimbang monoton — ladder waktu blok menyempit ke
- *   sekitar target tanpa overshoot besar.
- * - `MAX_FALL_BITS` 4 (turun): blok yang sangat lambat / idle time panjang
- *   harus segera kembali ke sekitar target; jatuh maks 4 bit per blok
- *   memulihkan equilibrium dalam 1–2 blok (turun 14 bit sekaligus setelah
- *   menganggur semalam tetap dicegah).
- * - Kalibrasi ini dilakukan saat target masih 30 detik; ketika target
- *   digeser ke 60 detik (P2) nilai ±2/4 bit DIPERTAHANKAN — langkah
- *   per-blok yang sama kini bergerak dua kali lebih lambat dalam satuan
- *   "kejutan waktu", yang justru menurunkan overshoot tanpa mengubah
- *   sifat asimetris (naik hati-hati, turun cepat).
- */
-export const MAX_RISE_BITS = 2
-export const MAX_FALL_BITS = 4
-
-/**
- * Batas penurunan **borongan** saat rantai menganggur lama (`gap > 2×TARGET`).
- * Berbeda dari `MAX_FALL_BITS` (koreksi halus per blok), ini langkah
- * pemulihan: blok jujur setelah idle panjang langsung turun banyak bit agar
- * rantai segera kembali mendekati target. Dipakai HANYA oleh
- * `expectedDifficulty`; nilainya boleh disetel 8–12 (kalibrasi devnet).
- */
-export const MAX_STALL_FALL_BITS = 8
-
-/** Langkah kuantisasi difficulty (bit) supaya nilai deterministik & ringkas. */
+const MAX_TARGET = (1n << 256n) - 1n
+const MIN_FRACTIONAL_BITS = 8
+const MAX_FRACTIONAL_BITS = 48
 const QUANTUM_BITS = 0.25
+const MAX_RISE_BITS = 2
+const MAX_FALL_BITS = 4
+const MAX_STALL_FALL_BITS = 8
 
-/** Batasi difficulty ke [MIN, MAX] lalu kuantisasi ke kelipatan 0.25 bit. */
-export const clampDifficulty = (bits: number): number => {
-	if (!Number.isFinite(bits)) return MIN_DIFFICULTY_BITS
-	const quantized = Math.round(bits / QUANTUM_BITS) * QUANTUM_BITS
-	// Hindari -0 dan bulatkan representasi float (mis. 20.25 aman, tapi
-	// hasil operasi float bisa menghasilkan 20.249999999999996).
-	const clean = Object.is(quantized, -0) ? 0 : quantized
-	return Math.min(MAX_DIFFICULTY_BITS, Math.max(MIN_DIFFICULTY_BITS, clean))
+/** Eksponen/mantissa dari compact bits; `undefined` bila tidak valid. */
+const splitCompact = (
+	bits: number,
+): { exponent: number; mantissa: number } | undefined => {
+	if (!Number.isSafeInteger(bits) || bits < 0 || bits > 0xffffffff)
+		return undefined
+	const exponent = Math.floor(bits / 0x1000000)
+	const mantissa = bits % 0x800000
+	// Bit tanda (0x800000) bukan mantissa; eksponen 3..32 menutup difficulty
+	// 48..8 bit yang dipakai rantai ini.
+	if ((bits & 0x800000) !== 0 || mantissa === 0) return undefined
+	if (exponent < 3 || exponent > 32) return undefined
+	return { exponent, mantissa }
 }
 
-/**
- * Apakah `hash` (hex SHA-256, 64 digit) memenuhi difficulty `bits`?
- *
- * Cara kerja (ekivalen dengan `hash < 2^(256 - bits)` tapi cepat, string-only):
- *   - `floor(bits/4)` digit heksadesimal pertama wajib "0";
- *   - sisa `bits mod 4` bit ditentukan oleh nibble berikutnya:
- *     nibble < 2^(4 - sisa).
- *
- * Fungsi ini adalah SATU-SATUNYA definisi "kerja cukup" — dipakai identik
- * oleh miner (loop PoW) dan node (verifikasi submit + verifyPow), sehingga
- * kriteria produksi dan kriteria validasi tidak bisa lagi berbeda.
- */
+/** Compact bits → target 256-bit (big-endian). `0n` berarti bits tidak valid. */
+export const compactToTarget = (bits: number): bigint => {
+	const parts = splitCompact(bits)
+	if (!parts) return 0n
+	const target = BigInt(parts.mantissa) << BigInt(8 * (parts.exponent - 3))
+	return target > MAX_TARGET ? 0n : target
+}
+
+/** Target 256-bit → compact bits kanonik; `0` bila tidak bisa direpresentasikan. */
+export const targetToCompact = (target: bigint): number => {
+	if (target <= 0n || target > MAX_TARGET) return 0
+	let exponent = Math.ceil(target.toString(16).length / 2)
+	if (exponent < 3) return 0
+	let mantissa = Number(target >> BigInt(8 * (exponent - 3)))
+	if (mantissa > 0x7fffff) {
+		mantissa = Math.floor(mantissa / 256)
+		exponent++
+	}
+	if (mantissa === 0 || exponent > 32) return 0
+	return exponent * 0x1000000 + mantissa
+}
+
+/** Bilangan "bit nol depan" pecahan → compact bits (dipakai retarget & genesis). */
+export const difficultyToBits = (fractionalBits: number): number => {
+	if (!Number.isFinite(fractionalBits)) return 0
+	const bits = clampFractional(fractionalBits)
+	const log2Target = 256 - bits
+	const exponent = Math.floor(log2Target / 8) + 1
+	if (exponent < 3 || exponent > 32) return 0
+	const mantissa = Math.round(2 ** (log2Target - 8 * (exponent - 3)))
+	if (mantissa <= 0 || mantissa > 0x7fffff) return 0
+	return exponent * 0x1000000 + mantissa
+}
+
+/** Compact bits → perkiraan bit nol depan (untuk arithmetic retarget). */
+export const bitsToDifficulty = (bits: number): number => {
+	const parts = splitCompact(bits)
+	if (!parts) return MIN_FRACTIONAL_BITS
+	return 256 - (8 * (parts.exponent - 3) + Math.log2(parts.mantissa))
+}
+
+const clampFractional = (bits: number): number => {
+	if (!Number.isFinite(bits)) return MIN_FRACTIONAL_BITS
+	const quantized = Math.round(bits / QUANTUM_BITS) * QUANTUM_BITS
+	const clean = Object.is(quantized, -0) ? 0 : quantized
+	return Math.min(MAX_FRACTIONAL_BITS, Math.max(MIN_FRACTIONAL_BITS, clean))
+}
+
+/** Terima compact bits kanonik dalam rentang rantai; selain itu pakai floor. */
+export const clampDifficulty = (bits: number): number => {
+	const target = compactToTarget(bits)
+	if (target === 0n) return difficultyToBits(MIN_FRACTIONAL_BITS)
+	const canonical = targetToCompact(target)
+	if (canonical === 0) return difficultyToBits(MIN_FRACTIONAL_BITS)
+	const difficulty = bitsToDifficulty(canonical)
+	if (difficulty < MIN_FRACTIONAL_BITS)
+		return difficultyToBits(MIN_FRACTIONAL_BITS)
+	if (difficulty > MAX_FRACTIONAL_BITS)
+		return difficultyToBits(MAX_FRACTIONAL_BITS)
+	return canonical
+}
+
+/** Satu-satunya definisi "kerja cukup" — dipakai miner dan node. */
 export const meetsDifficulty = (hash: string, bits: number): boolean => {
 	if (typeof hash !== 'string' || hash.length !== 64) return false
-	if (!Number.isFinite(bits)) return false
-	if (bits <= 0) return true // difficulty 0 = tanpa syarat
-
-	const zeroDigits = Math.floor(bits / 4)
-	const remainder = bits - zeroDigits * 4 // di [0, 4)
-
-	for (let i = 0; i < zeroDigits; i++) {
-		if (hash[i] !== '0') return false
-	}
-	if (remainder > 0) {
-		const nibble = Number.parseInt(hash[zeroDigits], 16)
-		// parseInt melempar NaN untuk digit non-heksadesimal → tolak.
-		if (!Number.isFinite(nibble)) return false
-		if (nibble >= 2 ** (4 - remainder)) return false
-	}
-	return true
+	const target = compactToTarget(bits)
+	if (target === 0n) return false
+	return hash.toLowerCase() <= target.toString(16).padStart(64, '0')
 }
 
 /**
- * Difficulty yang DIPERBOLEHKAN untuk blok `height = parentHeight + 1`,
- * dihitung HANYA dari data rantai (deterministik) — menggantikan retarget
- * berbasis jam dinding node (`now - tip.timestamp`) yang membuat tiap node
- * bisa menghitung angka berbeda untuk blok yang sama.
- *
- * `gap = blockTimestampMs - parentTimestampMs` — KEDUA timestamp terikat PoW
- * (keduanya ikut preimage), jadi penambang tidak bisa mengarang jarak tanpa
- * mengulang kerja:
- *   - `parentHeight <= 0` (blok pertama di atas genesis) atau `gap <= 0`
- *     (timestamp kembar/mundur) → difficulty tidak berubah;
- *   - `gap <= 2×TARGET` → koreksi halus `log2(TARGET/gap)`, dijepit
- *     `[-MAX_FALL_BITS, +MAX_RISE_BITS]`;
- *   - `gap > 2×TARGET` → pemulihan borongan `-min(ceil(gap/TARGET) - 1,
- *     MAX_STALL_FALL_BITS)` (idle panjang turun agresif, bukan hanya 4 bit).
- *
- * Hasil selalu lewat `clampDifficulty` (kuantisasi 0.25 bit, kunci
- * [MIN, MAX]). Karena murni, `createBlockTemplate` dan semua validator
- * (`commitBlock`, `connectBlock`, `verifyChainIntegrity`) memakai fungsi yang
- * SAMA → angka identik di seluruh node.
- *
- * @param parentBits        difficulty blok induk (`parent.difficulty`)
- * @param parentTimestampMs timestamp blok induk (epoch ms)
- * @param blockTimestampMs  timestamp blok yang dinilai (epoch ms)
- * @param parentHeight      tinggi blok induk
+ * Representasi di JSON-RPC: compact bits selalu hex 8 digit berprefix `0x`.
+ * Miner Rust memakai aturan yang sama — `cargo test` menjaga parity-nya.
+ */
+export const formatBits = (bits: number): string =>
+	`0x${bits.toString(16).padStart(8, '0')}`
+
+/** Balikan `formatBits`; `undefined` bila bukan hex uint32 berprefix. */
+export const parseBits = (value: unknown): number | undefined => {
+	if (typeof value !== 'string' || !/^0x[0-9a-f]{8}$/i.test(value))
+		return undefined
+	return Number.parseInt(value.slice(2), 16)
+}
+
+export const INITIAL_DIFFICULTY_BITS = difficultyToBits(20)
+export const MIN_DIFFICULTY_BITS = difficultyToBits(MIN_FRACTIONAL_BITS)
+export const MAX_DIFFICULTY_BITS = difficultyToBits(MAX_FRACTIONAL_BITS)
+
+/**
+ * Difficulty blok berikutnya, deterministik dari data rantai. Timestamp
+ * induk dan blok sama-sama terikat PoW, jadi gap tidak bisa dikarang tanpa
+ * mengulang kerja. Hasil selalu compact bits.
  */
 export const expectedDifficulty = (
 	parentBits: number,
@@ -136,22 +136,23 @@ export const expectedDifficulty = (
 	blockTimestampMs: number,
 	parentHeight: number,
 ): number => {
-	const current = clampDifficulty(parentBits)
-	if (!Number.isFinite(parentHeight) || parentHeight <= 0) return current
+	const current = clampFractional(bitsToDifficulty(parentBits))
+	if (!Number.isFinite(parentHeight) || parentHeight <= 0)
+		return difficultyToBits(current)
 
 	const gap = blockTimestampMs - parentTimestampMs
-	if (!Number.isFinite(gap) || gap <= 0) return current
+	if (!Number.isFinite(gap) || gap <= 0) return difficultyToBits(current)
 
 	if (gap <= 2 * TARGET_BLOCK_TIME_MS) {
 		const step = Math.log2(TARGET_BLOCK_TIME_MS / gap)
 		const clampedStep =
 			step > 0 ? Math.min(MAX_RISE_BITS, step) : Math.max(-MAX_FALL_BITS, step)
-		return clampDifficulty(current + clampedStep)
+		return difficultyToBits(clampFractional(current + clampedStep))
 	}
 
 	const stallStep = -Math.min(
 		Math.ceil(gap / TARGET_BLOCK_TIME_MS) - 1,
 		MAX_STALL_FALL_BITS,
 	)
-	return clampDifficulty(current + stallStep)
+	return difficultyToBits(clampFractional(current + stallStep))
 }

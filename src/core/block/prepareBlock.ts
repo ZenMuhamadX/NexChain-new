@@ -42,7 +42,6 @@ export const prepareBlockForHashing = ({ block }: Block): string => {
 		minerId: block.minerId,
 		totalReward: block.totalReward,
 		coinbaseTransaction: block.coinbaseTransaction,
-		transactions: block.transactions,
 	}
 	return JSON.stringify(newBlockStruct)
 }

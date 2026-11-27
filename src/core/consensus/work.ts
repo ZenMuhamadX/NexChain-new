@@ -8,8 +8,15 @@ import { getCurrentBlock } from 'src/core/block/query/onChain/block/getCurrentBl
 import { isChainsValid } from 'src/core/block/isChainValid'
 import { encodeTxPayload } from 'src/core/encoding/rlp/txCodec'
 import { hashWithNonce } from './Pow'
-import { meetsDifficulty, TARGET_BLOCK_TIME_MS } from './difficulty'
-import { createJob, getJob, deleteJob, pruneExpiredJobs } from './jobStore'
+import { formatBits, meetsDifficulty, TARGET_BLOCK_TIME_MS } from './difficulty'
+import {
+	createJob,
+	getJob,
+	deleteJob,
+	pruneExpiredJobs,
+	getLiveJobByCacheKey,
+	type MiningJob,
+} from './jobStore'
 import { chains } from 'src/core/block/initBlock'
 import { isValidAddress } from 'src/core/transaction/utils/isValidAddress'
 import { mineLog } from 'src/logging/mineLog'
@@ -67,7 +74,8 @@ export interface WorkOk {
 	jobId: string
 	/** Preimage PoW — miner mencari nonce agar sha256(payload+nonce) lolos. */
 	payload: string
-	difficulty: number
+	/** Compact bits dalam hex `0x…` (kontrak JSON-RPC). */
+	difficulty: string
 	height: number
 	previousBlockHash: string
 	minerAddress: string
@@ -81,11 +89,24 @@ export interface WorkErr {
 }
 export type WorkResult = WorkOk | WorkErr
 
+const workResultFromJob = (job: MiningJob): WorkOk => ({
+	status: true,
+	jobId: job.jobId,
+	payload: job.payload,
+	difficulty: formatBits(job.difficulty),
+	height: job.height,
+	previousBlockHash: job.previousBlockHash,
+	minerAddress: job.minerAddress,
+	expiresAt: job.expiresAt,
+	targetBlockTimeMs: TARGET_BLOCK_TIME_MS,
+})
+
 export interface SubmitOk {
 	status: true
 	height: number
 	hash: string
-	difficulty: number
+	/** Compact bits hex `0x…` (kontrak JSON-RPC). */
+	difficulty: string
 	minerAddress: string
 }
 export interface SubmitErr {
@@ -382,6 +403,13 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 		// (berbasis timestamp blok), jadi prune murni untuk memori.
 		pruneExpiredJobs()
 
+		// shortcut: job dipakai ulang sampai tip bergerak atau TTL habis, jadi tx
+		// baru masuk blok berikutnya (bukan memaksa template dibangun tiap poll).
+		const tip = (await getCurrentBlock()) as Block
+		const cacheKey = `${tip.block.header.hash}|${minerAddress}`
+		const cached = getLiveJobByCacheKey(cacheKey)
+		if (cached) return workResultFromJob(cached)
+
 		// Sapuan keterjangkauan (G4, node-local): buang tx pool yang basi
 		// (`nonce < account.nonce`) atau tak lagi terjangkau SEBELUM template
 		// disusun — di dalam aliran getWork (lewat setelah gerbang syncing di
@@ -424,24 +452,16 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 			height: template.block.height,
 			previousBlockHash: template.block.header.previousBlockHash,
 			minerAddress,
+			cacheKey,
 		})
 
 		logToConsole(
-			`Work ${job.jobId} → height ${job.height}, difficulty ${job.difficulty} bits, ` +
+			`Work ${job.jobId} → height ${job.height}, ` +
+				`bits ${formatBits(job.difficulty)}, ` +
 				`${selected.length} tx, miner ${formatStr(minerAddress)}`,
 		)
 
-		return {
-			status: true,
-			jobId: job.jobId,
-			payload,
-			difficulty: job.difficulty,
-			height: job.height,
-			previousBlockHash: job.previousBlockHash,
-			minerAddress,
-			expiresAt: job.expiresAt,
-			targetBlockTimeMs: TARGET_BLOCK_TIME_MS,
-		}
+		return workResultFromJob(job)
 	} catch (error) {
 		loggingErr({
 			message: error instanceof Error ? error.message : 'Unknown error',
@@ -512,7 +532,7 @@ const executeSubmit = async (rawParams?: unknown): Promise<SubmitResult> => {
 		if (!meetsDifficulty(hash, job.difficulty)) {
 			return {
 				status: false,
-				error: `Hash does not meet difficulty ${job.difficulty} bits`,
+				error: `Hash does not meet difficulty ${formatBits(job.difficulty)}`,
 			}
 		}
 
@@ -533,8 +553,8 @@ const executeSubmit = async (rawParams?: unknown): Promise<SubmitResult> => {
 		mineLog(block)
 		logToConsole(
 			`Block #${job.height} ${formatStr(hash)} committed ` +
-				`(difficulty ${job.difficulty} bits, ${block.block.transactions.length} tx, ` +
-				`miner ${job.minerAddress})`,
+				`(bits 0x${job.difficulty.toString(16).padStart(8, '0')}, ` +
+				`${block.block.transactions.length} tx, miner ${job.minerAddress})`,
 		)
 
 		// Sebarkan blok hasil mining ke jaringan lewat bus netral. Core tidak
@@ -546,7 +566,7 @@ const executeSubmit = async (rawParams?: unknown): Promise<SubmitResult> => {
 			status: true,
 			height: job.height,
 			hash,
-			difficulty: job.difficulty,
+			difficulty: formatBits(job.difficulty),
 			minerAddress: job.minerAddress,
 		}
 	} catch (error) {

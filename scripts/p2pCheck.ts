@@ -52,6 +52,7 @@ import {
 	P2P_PROTOCOL_VERSION,
 	MAX_INV_BATCH,
 } from 'src/p2p/protocol/messages'
+import { difficultyToBits } from 'src/core/consensus/difficulty'
 import {
 	loadP2PConfig,
 	parsePeerList,
@@ -1299,14 +1300,18 @@ await run('round-trip genesis: field di luar preimage ikut utuh', () => {
 	)
 })
 
-await run('round-trip: difficulty pecahan tetap eksak (0.25 bit)', () => {
-	// `clampDifficulty` mengkuantisasi difficulty ke kelipatan 0.25 bit, jadi
-	// nilai pecahan seperti 21.5 SAH dan muncul di rantai nyata. Bug nyata
-	// (ditemukan `p2p:fork`): encoding integer MENOLAK blok seperti itu dengan
-	// "header.difficulty harus bilangan bulat aman >= 0", sehingga blok tak
-	// pernah terkirim lewat P2P. Fixture integer saja tidak menangkap ini.
+await run('round-trip: compact bits tetap eksak', () => {
+	// Sejak fork `bits`, difficulty uint32 bulat; encoding float64 dulu
+	// membocorkan presisi dan round-trip. Uji beberapa nilai nyata hasil
+	// retarget, bukan hanya satu konstanta genesis.
 	const template = buildGenesisBlock().block
-	for (const difficulty of [21.5, 21.25, 20.75, 8.5, 131_072]) {
+	for (const difficulty of [
+		difficultyToBits(8),
+		difficultyToBits(20),
+		difficultyToBits(20.25),
+		difficultyToBits(27.5),
+		difficultyToBits(48),
+	]) {
 		const block: blockStruct = {
 			...template,
 			header: { ...template.header, difficulty },

@@ -1,6 +1,7 @@
 /** @format */
 
 import { Block } from 'src/core/block/blockModel'
+import { formatBits } from 'src/core/consensus/difficulty'
 import { emit } from './fileSink'
 
 /**
@@ -20,7 +21,7 @@ export const mineLog = (status: Block): void => {
 			`Block ${status.block.header.hash} created successfully — ` +
 				`height ${status.block.height}, ` +
 				`${status.block.transactions.length} tx, ` +
-				`${status.block.header.difficulty} bits`,
+				`bits ${formatBits(status.block.header.difficulty)}`,
 		)
 		emit('debug', JSON.stringify(status.block, null, 2), {
 			namespace: 'mining',

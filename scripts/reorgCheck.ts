@@ -79,7 +79,8 @@ const headerCache =
 	await import('src/core/block/query/onChain/block/blockHeaderCache')
 const { prepareBlockForHashing } = await import('src/core/block/prepareBlock')
 const { createPowHasher } = await import('src/core/consensus/Pow')
-const { meetsDifficulty } = await import('src/core/consensus/difficulty')
+const { meetsDifficulty, difficultyToBits } =
+	await import('src/core/consensus/difficulty')
 
 await rocksState.open()
 await rocksHistory.open()
@@ -112,7 +113,7 @@ const fakeBlock = (
 ): InstanceType<typeof Block> =>
 	new Block({
 		header: {
-			difficulty,
+			difficulty: difficultyToBits(difficulty),
 			hash,
 			nonce: 0,
 			previousBlockHash: prevHash,
@@ -283,16 +284,20 @@ console.log('\nGROUP 1 — fork choice murni:')
 
 ok(
 	'difficultyToWork monoton naik',
-	forkChoice.difficultyToWork(20) < forkChoice.difficultyToWork(20.25) &&
-		forkChoice.difficultyToWork(20.25) < forkChoice.difficultyToWork(21),
+	forkChoice.difficultyToWork(difficultyToBits(20)) <
+		forkChoice.difficultyToWork(difficultyToBits(20.25)) &&
+		forkChoice.difficultyToWork(difficultyToBits(20.25)) <
+			forkChoice.difficultyToWork(difficultyToBits(21)),
 )
 ok(
 	'0.25 bit = ×2 kerja (20.25 vs 20)',
-	forkChoice.difficultyToWork(20.25) === forkChoice.difficultyToWork(20) * 2n,
+	forkChoice.difficultyToWork(difficultyToBits(20.25)) ===
+		forkChoice.difficultyToWork(difficultyToBits(20)) * 2n,
 )
 ok(
 	'1 bit = ×16 kerja (21 vs 20)',
-	forkChoice.difficultyToWork(21) === forkChoice.difficultyToWork(20) * 16n,
+	forkChoice.difficultyToWork(difficultyToBits(21)) ===
+		forkChoice.difficultyToWork(difficultyToBits(20)) * 16n,
 )
 ok('difficultyToWork(0) minimal 1n', forkChoice.difficultyToWork(0) === 1n)
 ok(

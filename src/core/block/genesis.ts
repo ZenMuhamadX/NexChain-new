@@ -75,10 +75,13 @@ export const GENESIS_MESSAGE = 'NexChain Devnet Genesis — Bitcoin-style PoW'
  *     nonce & hash di-re-solve. Genesis baru membuat node yang lupa wipe data
  *     lama tidak bisa bertukar blok dengan jaringan baru (identitas jaringan).
  *   - chainId 26 → 2010: chainId ikut preimage → nonce & hash di-re-solve.
+ *   - fork `bits`: difficulty jadi compact uint32 ala Bitcoin dan field
+ *     `transactions` dikeluarkan dari preimage → nonce & hash di-re-solve,
+ *     genesis lama tidak lagi dikenali (data dir wajib direset).
  */
-export const GENESIS_NONCE = 1019443
+export const GENESIS_NONCE = 1639958
 export const GENESIS_HASH =
-	'000004ee01185c8ea128bc168336b34c9610a09e1be1afea9aa3d1e6d5580b05'
+	'00000f0b8d335573570d96fdc0399f669e963078feed43de1b97ade9309dc423'
 
 /**
  * Susun blok genesis sesuai konstanta. Murni & deterministik — tidak

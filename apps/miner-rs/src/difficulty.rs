@@ -1,50 +1,28 @@
 //! Salinan aturan `meetsDifficulty` node (`src/core/consensus/difficulty.ts`).
 //!
-//! Dipakai langsung pada digest 32 byte (bukan string hex) supaya jalur panas
-//! tidak perlu mengubah digest jadi hex. Aturannya SAMA PERSIS, termasuk bit
-//! pecahan 0.25: syaratnya bukan "jumlah leading zero bit", melainkan
-//! `nibble < 2^(4-remainder)` — jadi bits 20.25 menerima nibble 13.
+//! `bits` adalah compact target ala Bitcoin: eksponen 1 byte + mantissa 23 bit,
+//! `target = mantissa << 8*(eksponen-3)`. Hash 32 byte big-endian lolos bila
+//! `hash <= target`. Perbandingan langsung pada byte, tanpa mengubah hash ke hex.
 
-/// Apakah `hash` memenuhi difficulty `bits`? Satu-satunya definisi "kerja cukup".
-pub fn meets_difficulty(hash: &[u8; 32], bits: f64) -> bool {
-    if !bits.is_finite() {
-        return false;
+/// Apakah hash memenuhi compact `bits`? Satu-satunya definisi "kerja cukup".
+pub fn meets_difficulty(hash: &[u8; 32], bits: u32) -> bool {
+    if bits & 0x800000 != 0 {
+        return false
     }
-    if bits <= 0.0 {
-        return true;
-    }
-
-    let zero_digits = (bits / 4.0).floor();
-    if zero_digits > 64.0 {
-        return false;
-    }
-    let zero_digits = zero_digits as usize;
-
-    for i in 0..zero_digits {
-        let byte = hash[i / 2];
-        let nibble = if i % 2 == 0 { byte >> 4 } else { byte & 0x0f };
-        if nibble != 0 {
-            return false;
-        }
-    }
-    // bits == 256 → seluruh 64 nibble harus nol; tidak ada sisa untuk dicek.
-    if zero_digits == 64 {
-        return hash.iter().all(|byte| *byte == 0);
+    let exponent = (bits >> 24) as usize;
+    let mantissa = bits & 0x7fffff;
+    if !(3..=32).contains(&exponent) || mantissa == 0 {
+        return false
     }
 
-    let remainder = bits - zero_digits as f64 * 4.0;
-    if remainder > 0.0 {
-        let byte = hash[zero_digits / 2];
-        let nibble = if zero_digits % 2 == 0 {
-            byte >> 4
-        } else {
-            byte & 0x0f
-        };
-        if (nibble as f64) >= 2f64.powf(4.0 - remainder) {
-            return false;
-        }
-    }
-    true
+    let mut target = [0u8; 32];
+    let start = 32 - exponent;
+    let m = mantissa.to_be_bytes();
+    target[start] = m[1];
+    target[start + 1] = m[2];
+    target[start + 2] = m[3];
+
+    hash <= &target
 }
 
 #[cfg(test)]
@@ -59,155 +37,43 @@ mod tests {
         out
     }
 
-    /// Dihasilkan dari `meetsDifficulty` JS (sumber kebenaran node), termasuk
-    /// batas pecahan 0.25 di mana nibble 13 masih diterima.
-    const VECTORS: &[(&str, f64, bool)] = &[
+    /// Dihasilkan dari `meetsDifficulty` JS; drift antara node dan miner
+    /// harus gagal di sini, bukan setelah nonce ditemukan lalu ditolak node.
+    const VECTORS: &[(&str, u32, bool)] = &[
         (
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            0.0,
+            "00000f7117e28ab1237b19406c6ad9dc120f3597c25436409d1c6f227e4e0b09",
+            0x1e100000,
             true,
         ),
         (
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.0,
-            false,
-        ),
-        (
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.25,
+            "00000f7117e28ab1237b19406c6ad9dc120f3597c25436409d1c6f227e4e0b09",
+            0x1e0f0000,
             false,
         ),
         (
             "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            47.75,
+            0x1e100000,
             false,
         ),
         (
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            48.0,
-            false,
-        ),
-        (
-            "00000dffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.25,
+            "0000000000000000000000000000000000000000000000000000000000000001",
+            0x20010000,
             true,
-        ),
-        (
-            "00000effffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.25,
-            false,
-        ),
-        (
-            "00000bffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.5,
-            true,
-        ),
-        (
-            "00000cffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.5,
-            false,
-        ),
-        (
-            "000009ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.75,
-            true,
-        ),
-        (
-            "00000affffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.75,
-            false,
-        ),
-        (
-            "000007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            21.0,
-            true,
-        ),
-        (
-            "000008ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            21.0,
-            false,
-        ),
-        (
-            "00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.0,
-            true,
-        ),
-        (
-            "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            20.0,
-            false,
-        ),
-        (
-            "0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            4.0,
-            true,
-        ),
-        (
-            "1fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            4.0,
-            false,
-        ),
-        (
-            "000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            48.0,
-            true,
-        ),
-        (
-            "000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            48.0,
-            false,
-        ),
-        (
-            "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
-            1.0,
-            true,
-        ),
-        (
-            "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
-            0.25,
-            true,
-        ),
-        (
-            "1bc594ab02ae05d2ad519258bf26d18bf7e59d776e6e0e06de457a45de5ec935",
-            0.0,
-            true,
-        ),
-        (
-            "0000abcd00000000000000000000000000000000000000000000000000000000",
-            17.5,
-            false,
-        ),
-        (
-            "0000abcd00000000000000000000000000000000000000000000000000000000",
-            17.75,
-            false,
         ),
     ];
 
     #[test]
-    fn matches_node_vectors() {
+    fn parity_with_node() {
         for (hex, bits, expected) in VECTORS {
-            assert_eq!(
-                meets_difficulty(&unhex(hex), *bits),
-                *expected,
-                "hash={hex} bits={bits}"
-            );
+            assert_eq!(meets_difficulty(&unhex(hex), *bits), *expected);
         }
     }
 
     #[test]
-    fn non_finite_and_non_positive() {
-        let h = unhex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        assert!(!meets_difficulty(&h, f64::NAN));
-        assert!(!meets_difficulty(&h, f64::INFINITY));
-        assert!(meets_difficulty(&h, -1.0));
-        assert!(meets_difficulty(&h, 0.0));
-    }
-
-    #[test]
-    fn all_zero_hash_passes_everything() {
-        let zero = [0u8; 32];
-        assert!(meets_difficulty(&zero, 48.0));
-        assert!(meets_difficulty(&zero, 20.25));
+    fn rejects_invalid_bits() {
+        let h = unhex("0000000000000000000000000000000000000000000000000000000000000000");
+        assert!(!meets_difficulty(&h, 0x1e900000)); // bit tanda mantissa
+        assert!(!meets_difficulty(&h, 0x02100000)); // eksponen < 3
+        assert!(!meets_difficulty(&h, 0x1e000000)); // mantissa 0
     }
 }

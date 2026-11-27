@@ -1,5 +1,5 @@
 /**
- * Kontrak pesan P2P NexChain (protokol v0.1 / wire versi 0).
+ * Kontrak pesan P2P NexChain (protokol v0.3 / wire versi 2).
  *
  * Semua pesan adalah objek JSON dengan field `type` sebagai diskriminan.
  * Modul ini SENGAJA murni (tanpa I/O, tanpa Node API) supaya bisa dipakai
@@ -37,11 +37,14 @@ import { isTxHash } from 'src/core/encoding/rlp/txHash'
  * (`keccak(uncompressed pubkey)`). Identitas akun berubah total, jadi chain
  * direset. Nilai wire `1`.
  *
+ * v0.3: fork `bits` — `header.difficulty` jadi compact uint32 dan field
+ * `transactions` keluar dari preimage. Semua hash blok berubah. Nilai wire `2`.
+ *
  * Node lama dan node baru saling menolak di handshake (fatal → ban, jalur yang
  * sama seperti bump sebelumnya). Semua node dan semua `NEX_P2P_PEERS` harus
  * naik bersamaan.
  */
-export const P2P_PROTOCOL_VERSION = 1
+export const P2P_PROTOCOL_VERSION = 2
 
 /** Batas jumlah hash dalam satu `inv` / item dalam satu `getdata`. */
 export const MAX_INV_BATCH = 256

@@ -67,6 +67,7 @@ import {
 	GENESIS_COINBASE_RECEIVER,
 } from 'src/core/block/genesis'
 import { CHAIN_ID } from 'src/crypto/chainId'
+import { difficultyToBits } from 'src/core/consensus/difficulty'
 import { Block } from 'src/core/block/blockModel'
 import type { blockStruct } from 'src/types/block'
 import { prepareBlockForHashing } from 'src/core/block/prepareBlock'
@@ -95,7 +96,7 @@ const MAX_FORK_NONCE = 8_000_000
  * P2P), jadi angka kecil membuat harness cepat tanpa mengorbankan
  * kesahihan: blok tetap benar-benar lolos `verifyPow` + `verifyBlockHash`.
  */
-const FORK_DIFFICULTY_BITS = 16
+const FORK_DIFFICULTY_BITS = difficultyToBits(16)
 
 // ---------------------------------------------------------------------------
 // Utilitas kecil

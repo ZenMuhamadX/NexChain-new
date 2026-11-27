@@ -241,11 +241,9 @@ mod tests {
     #[test]
     #[ignore = "benchmark: cargo test --release -- --ignored --nocapture"]
     fn throughput() {
-        // Payload blok nyata (567 byte, sisa 55 byte): sisa + 7 digit + padding
-        // melewati 64 byte, jadi tiap nonce butuh 2 kompresi ekor. Ini angka
-        // yang jujur untuk chain nyata; payload yang sisanya < 49 byte hanya
-        // butuh 1 kompresi dan bisa ~2x lebih cepat.
-        let payload = r#"{"previousBlockHash":"00000f7117e28ab1237b19406c6ad9dc120f3597c25436409d1c6f227e4e0b09","timestamp":1792940078359,"version":"1.0.0","hashingAlgorithm":"SHA256","difficulty":20,"height":1,"merkleRoot":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","chainId":26,"status":"confirmed","blockReward":1250000000,"minerId":"NxCaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","totalReward":1250000000,"coinbaseTransaction":{"amount":1250000000,"receiver":"NxCaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","extraData":"0x426c6f636b20726577617264"},"transactions":[]}"#;
+        // Payload blok nyata pasca-fork (tanpa array transaksi): sisa + digit
+        // + padding menentukan 1 atau 2 kompresi ekor tiap nonce.
+        let payload = r#"{"previousBlockHash":"00000f7117e28ab1237b19406c6ad9dc120f3597c25436409d1c6f227e4e0b09","timestamp":1792940078359,"version":"1.0.0","hashingAlgorithm":"SHA256","difficulty":504365056,"height":1,"merkleRoot":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","chainId":26,"status":"confirmed","blockReward":1250000000,"minerId":"NxCaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","totalReward":1250000000,"coinbaseTransaction":{"amount":1250000000,"receiver":"NxCaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","extraData":"0x426c6f636b20726577617264"}}"#;
         let mut hasher = PowHasher::new(payload);
         for n in 0..100_000u64 {
             hasher.hash(n);

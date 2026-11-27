@@ -20,7 +20,10 @@ import {
 } from 'node:worker_threads'
 import { cpus } from 'node:os'
 import { hashWithNonce, createPowHasher } from 'src/core/consensus/Pow'
-import { meetsDifficulty } from 'src/core/consensus/difficulty'
+import {
+	INITIAL_DIFFICULTY_BITS,
+	meetsDifficulty,
+} from 'src/core/consensus/difficulty'
 
 const PAYLOAD = JSON.stringify({
 	previousBlockHash:
@@ -34,7 +37,6 @@ const PAYLOAD = JSON.stringify({
 	chainId: 1,
 	status: 'confirmed',
 	blockReward: '5000000000',
-	transactions: [],
 })
 
 const N = 2_000_000
@@ -76,15 +78,17 @@ if (!isMainThread) {
 	const hasher = createPowHasher(PAYLOAD)
 	bench('createPowHasher (baru)', (n) => hasher.hash(n))
 
-	console.log('\ndengan meetsDifficulty(difficulty=20):')
+	console.log(
+		`\ndengan meetsDifficulty(bits=0x${INITIAL_DIFFICULTY_BITS.toString(16)}):`,
+	)
 	bench('hashWithNonce + cek', (n) => {
 		const h = hashWithNonce(PAYLOAD, n)
-		return meetsDifficulty(h, 20) ? 'y' : ''
+		return meetsDifficulty(h, INITIAL_DIFFICULTY_BITS) ? 'y' : ''
 	})
 	const hasher2 = createPowHasher(PAYLOAD)
 	bench('createPowHasher + cek', (n) => {
 		const h = hasher2.hash(n)
-		return meetsDifficulty(h, 20) ? 'y' : ''
+		return meetsDifficulty(h, INITIAL_DIFFICULTY_BITS) ? 'y' : ''
 	})
 
 	// ---- 2. skala worker nyata -------------------------------------------

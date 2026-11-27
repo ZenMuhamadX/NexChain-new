@@ -17,7 +17,7 @@
  * preimage dari `prepareBlockForHashing`: `previousBlockHash`, `timestamp`,
  * `version`, `hashingAlgorithm`, `difficulty`, `stateRoot`, `height`,
  * `merkleRoot`, `chainId`, `status`, `blockReward`, `minerId`, `totalReward`,
- * `coinbaseTransaction`, `transactions`. Karena hash dihitung dari
+ * `coinbaseTransaction`. Karena hash dihitung dari
  * REPRESENTASI OBJEK, setiap field di preimage harus round-trip nilai DAN
  * urutan key-nya (JSON.stringify sensitif urutan). Field di luar preimage
  * (`size`, `metadata`, `totalTransactionFees`, `header.hash`) tetap dikirim
@@ -41,13 +41,11 @@
  *     11 metadata: [] bila absen, selain itu [ txCount, created_at, extraData ]
  *     12 transactions: [ payload tx, ... ]
  *
- * ## `difficulty` juga float64
+ * ## `difficulty` = compact bits uint32
  *
- * `clampDifficulty` mengkuantisasi difficulty ke kelipatan 0.25 bit, jadi nilai
- * seperti 21.5 sah dan benar-benar muncul di rantai nyata (retarget naik 2 bit
- * saat jeda antar-blok nyaris nol). Encoding integer akan MENOLAK blok seperti
- * itu dan mematikan pengiriman blok lewat P2P — karena itu ia memakai float64,
- * sama seperti `size`.
+ * Sejak fork `bits`, difficulty adalah angka bulat 32-bit (eksponen + mantissa,
+ * seperti nBits Bitcoin), bukan bilangan pecahan 0.25 bit. Ia di-encode sebagai
+ * integer big-endian minimal, bukan float64. `size` tetap float64.
  *
  * ## `totalTransactionFees` WAJIB, bukan opsional
  *
@@ -137,11 +135,8 @@ export const blockToRlpList = (block: blockStruct): RlpInput[] => {
 		hexToBytes(block.header.hash),
 		uint(block.header.nonce, 'header.nonce'),
 		stringToBytes(block.header.version),
-		// `difficulty` BUKAN bilangan bulat: `clampDifficulty` mengkuantisasi ke
-		// kelipatan 0.25 bit (`QUANTUM_BITS`), jadi nilai seperti 21.5 sah dan
-		// memang muncul di rantai nyata. `uint` akan menolaknya dan menggagalkan
-		// pengiriman blok. float64 = round-trip eksak, sama seperti `size`.
-		float64ToBytes(block.header.difficulty, 'header.difficulty', LABEL),
+		// Compact bits uint32 — bulat, jadi cukup integer big-endian minimal.
+		numberToBytes(block.header.difficulty, 'header.difficulty', LABEL),
 		// Opsional di Joi: absen → byte string kosong (bukan string kosong).
 		block.header.hashingAlgorithm === undefined
 			? new Uint8Array(0)
@@ -280,7 +275,7 @@ export const rlpListToBlock = (list: RlpInput): blockStruct => {
 			'header.version',
 			LABEL,
 		),
-		difficulty: bytesToFloat64(
+		difficulty: bytesToNumber(
 			item(headerItems, 5, 'header.difficulty'),
 			'header.difficulty',
 			LABEL,
