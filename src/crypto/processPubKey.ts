@@ -28,6 +28,11 @@ export const withPubKeyBatch = <T>(txCount: number, run: () => T): T => {
 	}
 }
 
+/** Hitung satu ecrecover saat batch decode aktif. */
+export const notePubKeyBatch = (): void => {
+	if (batching) batchCount++
+}
+
 /**
  * Processes a public key and generates its SHA256 hash.
  * @param publicKey - The public key in hexadecimal string format.
@@ -38,8 +43,8 @@ export const withPubKeyBatch = <T>(txCount: number, run: () => T): T => {
  * Hasilnya identik dengan crypto.createHash('sha256').update(bytes).digest().
  */
 export const processPubKey = (publicKey: string): Uint8Array | undefined => {
-	if (batching) batchCount++
-	else loggingDebug('processPubKey', 'Processing public key...')
+	notePubKeyBatch()
+	if (!batching) loggingDebug('processPubKey', 'Processing public key...')
 
 	try {
 		if (!isValidHexPublicKey(publicKey)) {

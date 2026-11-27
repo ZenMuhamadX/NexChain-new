@@ -4,8 +4,10 @@ import { EMPTY_STATE_ROOT } from 'src/core/state/root'
  *
  * Jalankan:  bun run check:consensus
  *
- * Tiga aturan yang dicegah regresi di sini:
+ * Aturan yang dicegah regresi di sini:
  *
+ *   0. **EIP-155 v** — `decodeV` hanya menerima bentuk kanonik; format legacy
+ *      `v = recovery + 26` ditolak.
  *   1. **Low-S (EIP-2)** — `recoverPublicKey` menolak signature `s > n/2`
  *      (dan `s < 1`, `s > n-1`). Tanpa ini transaksi bisa di-malleate:
  *      satu niat kirim menghasilkan dua `txHash` berbeda, dan setiap
@@ -29,6 +31,7 @@ import { EMPTY_STATE_ROOT } from 'src/core/state/root'
  * Seluruhnya murni: tanpa RPC, tanpa LevelDB, tanpa side effect —
  * aman dijalankan kapan pun tanpa node hidup.
  */
+import { decodeV, encodeV } from 'src/crypto/chainId'
 import { generateKeysFromMnemonic } from 'src/crypto/generateKeyFromMnemonic'
 import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
 import { signTransaction } from 'src/crypto/signTransaction'
@@ -77,6 +80,23 @@ const caught = (fn: () => unknown): Error | null => {
 		return error instanceof Error ? error : new Error(String(error))
 	}
 }
+
+// ---------------------------------------------------------------------------
+// 0. EIP-155 v — satu canonical encoding
+// ---------------------------------------------------------------------------
+
+console.log('RULE 0 — EIP-155 v (canonical):')
+ok(
+	'encodeV → decodeV balik ke recovery',
+	decodeV(encodeV(0)) === 0 && decodeV(encodeV(1)) === 1,
+)
+let legacyVRejected = false
+try {
+	decodeV(26)
+} catch {
+	legacyVRejected = true
+}
+ok('legacy v = recovery + 26 ditolak', legacyVRejected)
 
 // ---------------------------------------------------------------------------
 // 1. Low-S (EIP-2)

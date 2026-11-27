@@ -12,9 +12,9 @@
  * memulihkan pengirim dan cara membaca field.
  */
 
-import { ec as EC } from 'elliptic'
 import { CHAIN_ID } from 'src/crypto/chainId'
-import { recoverPublicKey, type sign } from 'src/crypto/recoverPublicKey'
+import type { sign } from 'src/crypto/recoverPublicKey'
+import { recoverSignerAddress } from 'src/crypto/verifySignature'
 import { sha256 } from 'src/core/encoding/sha256'
 import { keccak256 } from 'src/core/encoding/keccak256'
 import type { HexString } from 'src/types/block'
@@ -37,7 +37,6 @@ import {
 export const ETH_TX_TYPE = 0x03
 
 const WEI_PER_NEXU = 10n ** 10n
-const ec = new EC('secp256k1')
 
 interface EthFields {
 	nonce: number
@@ -159,13 +158,7 @@ export const ethTxFrom = (raw: Uint8Array): string | undefined => {
 	try {
 		const fields = parseEthFields(raw)
 		const hash = hexToBytes(keccak256(preimage(fields)))
-		const { publicKey } = recoverPublicKey(hash, fields.sign)
-		const key = ec.keyFromPublic(publicKey, 'hex')
-		if (!key.verify(hash, { r: fields.sign.r, s: fields.sign.s }))
-			return undefined
-		const uncompressed = key.getPublic(false, 'hex')
-		const eth = keccak256(hexToBytes(uncompressed.slice(2))).slice(-40)
-		return `NxC${eth}`
+		return recoverSignerAddress(hash, fields.sign)
 	} catch {
 		return undefined
 	}

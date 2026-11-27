@@ -6,7 +6,8 @@ Semua primitif kriptografi. Dulu berada di `key/` + `sign/`.
 
 - `ecc.ts` — kurva eliptik secp256k1.
 - `createSignature.ts` / `verifySignature.ts` — tanda tangan & verifikasi.
-- `generateAddressFromPublicKey.ts` — turunkan alamat `NxC…`.
+- `generateAddressFromPublicKey.ts` — turunkan alamat `NxC…` dari
+  `keccak256(uncompressed pubkey tanpa 0x04)[-20:]` (sama dengan MetaMask).
 - `generateKeyFromMnemonic.ts` / `generateRandomMnemonic.ts` / `validateMnemonic.ts` — seed BIP39.
 - `recoverPublicKey.ts` — pulihkan public key dari signature.
 - `hashMessage.ts` — hashing pesan.

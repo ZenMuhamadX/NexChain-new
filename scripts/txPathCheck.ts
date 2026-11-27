@@ -51,7 +51,7 @@ const ok = (name: string, cond: boolean, extra = '') => {
 // Mnemonic BIP39 tetap -> address deterministik (snapshot Phase A).
 const MNEMONIC =
 	'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
-const SNAPSHOT_ADDRESS = 'NxC606b3a2b15a6b71275fc9e732617ca98d725dff7'
+const SNAPSHOT_ADDRESS = 'NxC9858effd232b4033e47d90003d41ec34ecaeda94'
 
 const { privateKey, publicKey } = generateKeysFromMnemonic(MNEMONIC)
 

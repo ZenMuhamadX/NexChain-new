@@ -80,6 +80,8 @@ interface EncryptedBlob {
 
 - Yang dienkripsi **hanya mnemonic**. Private key diturunkan ulang saat
   `unlock` (BIP39 → BIP32 `m/44'/60'/0'/0/0` → secp256k1).
+- Alamat = `NxC` + `keccak256(uncompressed pubkey tanpa 0x04)[-20:]`, sama
+  dengan MetaMask (`0x…`), hanya prefix yang beda.
 - API: `create()`, `importMnemonic()`, `unlock()`, `lock()`, `wipe()`,
   `getUnlocked()`. `unlock` memverifikasi alamat hasil turunan sama dengan
   `record.address` — record korup ditolak.
@@ -134,8 +136,8 @@ RPC param = base64(payload)
 - `encodeTx()` → base64 payload; `decodeTx()` menghitung ulang `from` dan
   `txHash`, tidak mempercayai nilai dari luar.
 - `v = recoveryParam + chainId*2 + 35` (EIP-155; chainId 2010 → 4055/4056).
-  `decodeV` memakai `CHAIN_ID` yang sama, tanpa angka chain hardcoded, dan
-  tetap menerima legacy `v = recovery + 26` untuk transaksi lama.
+  `decodeV` memakai `CHAIN_ID` yang sama dan menerima **hanya** bentuk EIP-155
+  itu; format legacy `v = recovery + 26` ditolak.
 - ECDSA secp256k1 dengan `canonical: true` (low-s) → anti-malleability.
   `r`/`s` di-pad 64 hex lowercase.
 - Integer RLP = big-endian minimal kanonik (nol depan ditolak); `0 → empty`.

@@ -42,14 +42,13 @@ tidak mencetak `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`.
 20 byte alamat adalah identitas ledger. `0x…` (MetaMask) dan `NxC…` (NexChain)
 adalah byte yang **sama persis**, hanya prefix yang beda:
 
-- MetaMask: `0x…` = `keccak(pubkey)[-20:]`
-- NexChain: `NxC…` = 20 byte yang sama
+- MetaMask: `0x…` = `keccak(uncompressed pubkey tanpa 0x04)[-20:]`
+- NexChain: `NxC…` = 20 byte yang sama (sama juga untuk wallet native)
 
 Ini wajib karena `to` di raw Ethereum terikat tanda tangan — gateway tidak
-boleh menimpanya dengan alamat hasil turunan lain. Akun lama yang memakai
-`keccak(0x00 ‖ sha256(pubkey))` tidak dipakai lagi; mapping lamanya sudah
-dihapus dan harus registrasi ulang. Kirim dana ke alamat `NxC…` yang ditampilkan
-halaman onboarding, bukan ke string `0x…`.
+boleh menimpanya dengan alamat hasil turunan lain. Skema lama
+`keccak(0x00 ‖ sha256(pubkey))` sudah dihapus bersama chain lamanya. Kirim dana
+ke alamat `NxC…` yang ditampilkan halaman onboarding, bukan ke string `0x…`.
 
 ## Registrasi
 

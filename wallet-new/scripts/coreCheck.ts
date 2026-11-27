@@ -6,6 +6,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { ec as EC } from 'elliptic'
+import { keccak256 } from '../../src/core/encoding/keccak256'
+import { hexToBytes } from '../../src/core/encoding/sha256'
 import {
 	ACTIVITY_PAGE_SIZE,
 	CHAIN_ID,
@@ -156,6 +159,28 @@ ok(
 	!isValidAddress(`NxC${'A'.repeat(40)}`) &&
 		!isValidAddress(`NxC${'g'.repeat(40)}`),
 )
+
+// Satu seed harus menguasai satu akun yang sama di native dan MetaMask.
+const METAMASK_SEED =
+	'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+const metaKeys = generateKeysFromMnemonic(METAMASK_SEED)
+const metaAddress = generateAddressFromPublicKey(metaKeys.publicKey)
+const uncompressed = new EC('secp256k1')
+	.keyFromPublic(metaKeys.publicKey, 'hex')
+	.getPublic(false, 'hex')
+	.slice(2)
+const ethAddress = `0x${keccak256(hexToBytes(uncompressed)).slice(-40)}`
+ok(
+	'address: native NxC == MetaMask keccak(uncompressed)',
+	metaAddress === `NxC${ethAddress.slice(2)}`,
+	`${metaAddress} vs NxC${ethAddress.slice(2)}`,
+)
+ok(
+	'address: vector MetaMask terkunci',
+	metaAddress === 'NxC9858effd232b4033e47d90003d41ec34ecaeda94',
+	metaAddress,
+)
+
 ok(
 	'txHash: TxC plus 64 hex (not bare 64)',
 	isTxHash(`TxC${'a'.repeat(64)}`) && !isTxHash('a'.repeat(64)),

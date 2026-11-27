@@ -7,14 +7,12 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { ec as EC } from 'elliptic'
 import { CHAIN_ID, encodeV } from 'src/crypto/chainId'
+import { generateAddressFromPublicKey } from 'src/crypto/generateAddressFromPublicKey'
 import { recoverPublicKey } from 'src/crypto/recoverPublicKey'
 import { keccak256 } from 'src/core/encoding/keccak256'
 import { sha256 } from 'src/core/encoding/sha256'
 import { dataPath } from 'src/core/state/db/dataDir'
-
-const ec = new EC('secp256k1')
 
 export const CHAIN_ID_HEX = `0x${CHAIN_ID.toString(16)}`
 
@@ -313,12 +311,8 @@ const parseSignature = (
 	return { r: hex.slice(0, 64), s: hex.slice(64, 128), recovery }
 }
 
-const addressFromPublicKey = (publicKey: string): string => {
-	const uncompressed = ec
-		.keyFromPublic(publicKey, 'hex')
-		.getPublic(false, 'hex')
-	return `0x${keccak256(Buffer.from(uncompressed.slice(2), 'hex')).slice(-40)}`
-}
+const addressFromPublicKey = (publicKey: string): string =>
+	nexToEthAddress(generateAddressFromPublicKey(publicKey))
 
 export interface RegistrationResult {
 	eth: string

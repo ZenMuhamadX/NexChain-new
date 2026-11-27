@@ -1,24 +1,26 @@
-﻿import { processPubKey } from './processPubKey'
+﻿import { ec as EC } from 'elliptic'
 import { keccak256 } from 'src/core/encoding/keccak256'
+import { hexToBytes } from 'src/core/encoding/sha256'
+
+const ec = new EC('secp256k1')
 
 /**
  * Generate wallet address dari public key.
  *
- * Alur (identik dengan versi lama yang pakai Buffer, tapi tanpa Node API):
- *   1. sha256(pubkey bytes)
- *   2. prepend version byte 0x00
- *   3. keccak256 -> 40 char terakhir -> "NxC..."
+ * Sama seperti MetaMask: keccak256 dari public key uncompressed tanpa byte
+ * `0x04`, 20 byte terakhir, lalu prefix `NxC`. Public key invalid ditolak —
+ * tidak ada fallback ke alamat lain.
  */
 export const generateAddressFromPublicKey = (publicKey: string): string => {
-	const hashed = processPubKey(publicKey)
-	if (!hashed) {
+	let uncompressed: string
+	try {
+		uncompressed = ec
+			.keyFromPublic(publicKey, 'hex')
+			.getPublic(false, 'hex')
+			.slice(2)
+	} catch {
 		throw new Error('Invalid public key for address generation')
 	}
 
-	// Gabungkan version byte (0x00) + hash  ->  pengganti Buffer.concat
-	const versionAddress = new Uint8Array(hashed.length + 1)
-	versionAddress[0] = 0x00
-	versionAddress.set(hashed, 1)
-
-	return `NxC${keccak256(versionAddress).slice(-40)}`
+	return `NxC${keccak256(hexToBytes(uncompressed)).slice(-40)}`
 }

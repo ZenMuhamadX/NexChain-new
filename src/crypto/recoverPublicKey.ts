@@ -1,4 +1,5 @@
 ﻿import { ec as EC } from 'elliptic'
+import { notePubKeyBatch } from './processPubKey'
 import { decodeV } from './chainId'
 
 const ec = new EC('secp256k1')
@@ -92,6 +93,8 @@ export const recoverPublicKey = (
 	const publicKey = ec
 		.recoverPubKey(sighash, { r: sign.r, s: sign.s }, recoveryParam)
 		.encode('hex', true)
+
+	notePubKeyBatch()
 
 	return { publicKey }
 }

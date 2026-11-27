@@ -22,8 +22,9 @@ const readEnvChainId = (): number | undefined => {
 	const raw = process.env?.NEX_CHAIN_ID
 	if (raw === undefined) return undefined
 	const parsed = Number(raw)
-	if (Number.isInteger(parsed) && parsed > 0) return parsed
-	return undefined
+	if (!Number.isSafeInteger(parsed) || parsed <= 0)
+		throw new Error(`NEX_CHAIN_ID tidak valid: ${raw}`)
+	return parsed
 }
 
 export const CHAIN_ID = readEnvChainId() ?? FALLBACK_CHAIN_ID
@@ -38,15 +39,11 @@ export const encodeV = (recoveryParam: number): number =>
 
 /**
  * EIP-155: decode value `v` kembali ke recovery param (0/1) untuk elliptic.
- * Mendukung juga legacy format (v = recovery + 26) untuk transaksi lama.
+ * Satu-satunya bentuk yang diterima: `recovery + CHAIN_ID * 2 + 35`.
  */
 export const decodeV = (v: number): number => {
-	const eip155 = v - (CHAIN_ID * 2 + 35)
-	if (eip155 === 0 || eip155 === 1) return eip155
-
-	// Fallback legacy: v = recovery + 26
-	const legacy = v - 26
-	if (legacy === 0 || legacy === 1) return legacy
+	const recovery = v - (CHAIN_ID * 2 + 35)
+	if (recovery === 0 || recovery === 1) return recovery
 
 	throw new Error(`Invalid signature v value: ${v}`)
 }
