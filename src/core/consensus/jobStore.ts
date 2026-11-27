@@ -21,8 +21,12 @@ export interface MiningJob {
 	jobId: string
 	/** Template blok siap-PoW (belum ada nonce/hash/sign/size). */
 	block: Block
-	/** Preimage PoW = prepareBlockForHashing(template) — yang di-hash miner. */
-	payload: string
+	/**
+	 * Payload PoW kanonik = `buildMiningPayload(template)` (byte, lihat
+	 * `docs/POW_PAYLOAD_FORMAT.md`). Yang dikirim ke miner adalah hex-nya;
+	 * node menyimpan byte supaya bisa memverifikasi ulang submit tanpa decode.
+	 */
+	payload: Uint8Array
 	difficulty: number
 	height: number
 	previousBlockHash: string

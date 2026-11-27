@@ -157,7 +157,7 @@ const blockStub = {} as Block
 const mkJob = (difficulty: number) =>
 	createJob({
 		block: blockStub,
-		payload: 'payload-stub',
+		payload: new Uint8Array([1]),
 		difficulty,
 		height: 1,
 		previousBlockHash: '0xstub',
@@ -186,7 +186,7 @@ console.log('cache getWork:')
 const CACHED_ADDR = 'NxC000000000000000000000000000000000000002'
 const cached = createJob({
 	block: blockStub,
-	payload: 'payload-cache',
+	payload: new Uint8Array([2]),
 	difficulty: difficultyToBits(20),
 	height: 1,
 	previousBlockHash: '0xstub',
@@ -204,7 +204,7 @@ ok(
 
 const expiredCached = createJob({
 	block: blockStub,
-	payload: 'payload-expired-cache',
+	payload: new Uint8Array([3]),
 	difficulty: difficultyToBits(20),
 	height: 1,
 	previousBlockHash: '0xstub',

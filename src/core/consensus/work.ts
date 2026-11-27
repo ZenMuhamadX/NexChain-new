@@ -2,7 +2,11 @@ import { MemPool } from 'src/core/transaction/memPool'
 import { TxInterface } from 'src/types/transaction'
 import { Block } from 'src/core/block/blockModel'
 import { createBlockTemplate } from 'src/core/block/createBlockTemplate'
-import { prepareBlockForHashing } from 'src/core/block/prepareBlock'
+import {
+	buildMiningPayload,
+	readPayloadBits,
+} from 'src/core/block/miningPayload'
+import { bytesToHex } from 'src/core/encoding/rlp/codecScalars'
 import { getBlockByHeight } from 'src/core/block/query/onChain/block/getBlockByHeight'
 import { getCurrentBlock } from 'src/core/block/query/onChain/block/getCurrentBlock'
 import { isChainsValid } from 'src/core/block/isChainValid'
@@ -42,7 +46,7 @@ import { MAX_BLOCK_WIRE_BYTES, MAX_TX_PER_BLOCK } from './blockLimits'
  *       coinbase + merkle + retarget difficulty), daftarkan job, kirim
  *       {jobId, payload, difficulty, height, ...} untuk di-hash miner.
  *   nex_submitWork({jobId, nonce, hash})
- *     → node verifikasi ULANG sha256(payload+nonce), difficulty, dan
+ *     → node verifikasi ULANG SHA256d(payload dengan nonce di slot akhir), difficulty, dan
  *       kesegaran tip; bila lolos, finalisasi (nonce/hash/size — blok
  *       produksi TIDAK ditandatangani siapa pun, standar PoW Bitcoin) dan
  *       commitBlock — hadiah terkredit lewat processTransact (coinbase).
@@ -72,7 +76,11 @@ import { MAX_BLOCK_WIRE_BYTES, MAX_TX_PER_BLOCK } from './blockLimits'
 export interface WorkOk {
 	status: true
 	jobId: string
-	/** Preimage PoW — miner mencari nonce agar sha256(payload+nonce) lolos. */
+	/**
+	 * Payload PoW kanonik sebagai HEX (JSON-RPC tidak bisa membawa byte).
+	 * Miner hanya menambal 4 byte nonce terakhir lalu menghitung SHA256d —
+	 * lihat `docs/POW_PAYLOAD_FORMAT.md`.
+	 */
 	payload: string
 	/** Compact bits dalam hex `0x…` (kontrak JSON-RPC). */
 	difficulty: string
@@ -92,7 +100,7 @@ export type WorkResult = WorkOk | WorkErr
 const workResultFromJob = (job: MiningJob): WorkOk => ({
 	status: true,
 	jobId: job.jobId,
-	payload: job.payload,
+	payload: bytesToHex(job.payload),
 	difficulty: formatBits(job.difficulty),
 	height: job.height,
 	previousBlockHash: job.previousBlockHash,
@@ -144,7 +152,12 @@ const parseSubmit = (raw: unknown): ParsedSubmit | undefined => {
 	const record = value as Record<string, unknown>
 	const { jobId, nonce, hash } = record
 	if (typeof jobId !== 'string' || jobId.length === 0) return undefined
-	if (typeof nonce !== 'number' || !Number.isSafeInteger(nonce) || nonce < 0) {
+	if (
+		typeof nonce !== 'number' ||
+		!Number.isSafeInteger(nonce) ||
+		nonce < 0 ||
+		nonce > 0xffffffff
+	) {
 		return undefined
 	}
 	if (typeof hash !== 'string' || hash.length !== 64) return undefined
@@ -443,7 +456,7 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 		// per-pengirim tetap terjaga (lihat `prioritizeByFeeRate`).
 		const selected = prioritizeByFeeRate(gapFree)
 		const template = await createBlockTemplate(selected, minerAddress)
-		const payload = prepareBlockForHashing(template)
+		const payload = buildMiningPayload(template)
 
 		const job = createJob({
 			block: template,
@@ -454,6 +467,18 @@ const executeGetWork = async (rawParams?: unknown): Promise<WorkResult> => {
 			minerAddress,
 			cacheKey,
 		})
+
+		// Metadata job harus mencerminkan field yang BENAR-BENAR di-hash.
+		// `difficulty` (bits) adalah bagian payload, jadi selisih di sini
+		// berarti miner menambang target yang berbeda dari yang diverifikasi.
+		if (readPayloadBits(job.payload) !== job.difficulty) {
+			deleteJob(job.jobId)
+			return {
+				status: false,
+				error:
+					'Internal: job difficulty tidak sama dengan bits di payload PoW',
+			}
+		}
 
 		logToConsole(
 			`Work ${job.jobId} → height ${job.height}, ` +
@@ -525,6 +550,7 @@ const executeSubmit = async (rawParams?: unknown): Promise<SubmitResult> => {
 		}
 
 		// Verifikasi ulang PoW di sisi node — jangan percaya hash miner.
+		// `job.payload` adalah byte kanonik; nonce ditambal ke 4 byte akhir.
 		const recomputed = hashWithNonce(job.payload, nonce)
 		if (recomputed !== hash) {
 			return { status: false, error: 'Hash does not match payload+nonce' }

@@ -56,7 +56,10 @@ const blockStructSchema = Joi.object({
 		previousBlockHash: Joi.string().required(),
 		timestamp: Joi.number().required(),
 		hash: Joi.string().required(),
-		nonce: Joi.number().required(),
+		// Nonce PoW adalah `u32le` di slot akhir payload — nilai di luar
+		// uint32 tidak bisa direkonstruksi menjadi payload yang sama, jadi
+		// blok seperti itu ditolak di sini (fail-closed).
+		nonce: Joi.number().integer().min(0).max(0xffffffff).required(),
 		version: Joi.string().required(),
 		difficulty: Joi.number().integer().min(0).max(0xffffffff).required(),
 		hashingAlgorithm: Joi.string().optional(),

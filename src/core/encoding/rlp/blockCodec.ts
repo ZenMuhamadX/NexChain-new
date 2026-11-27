@@ -13,16 +13,18 @@
  *
  * ## Field mana yang wajib eksak
  *
- * Identitas blok adalah `sha256(JSON.stringify(preimage) ‖ nonce)` dengan
- * preimage dari `prepareBlockForHashing`: `previousBlockHash`, `timestamp`,
- * `version`, `hashingAlgorithm`, `difficulty`, `stateRoot`, `height`,
- * `merkleRoot`, `chainId`, `status`, `blockReward`, `minerId`, `totalReward`,
- * `coinbaseTransaction`. Karena hash dihitung dari
- * REPRESENTASI OBJEK, setiap field di preimage harus round-trip nilai DAN
- * urutan key-nya (JSON.stringify sensitif urutan). Field di luar preimage
- * (`size`, `metadata`, `totalTransactionFees`, `header.hash`) tetap dikirim
- * supaya blok hasil decode sama utuh dengan aslinya; kesalahan di sana tidak
- * mengubah hash, `verifyStruct`/`verifyReward` yang menjaganya.
+ * Identitas blok adalah `SHA256d(payload)` dengan payload byte kanonik dari
+ * `buildMiningPayload` (lihat `docs/POW_PAYLOAD_FORMAT.md`): magic `NXM1`,
+ * field-field berikut sebagai byte LE, dan slot nonce `u32le` di AKHIR.
+ * Field yang dikomit: `previousBlockHash`, `timestamp`, `version`,
+ * `hashingAlgorithm`, `difficulty`, `stateRoot`, `height`, `merkleRoot`,
+ * `chainId`, `status`, `blockReward`, `minerId`, `totalReward`,
+ * `coinbaseTransaction` (+ `extraData`). Karena hash dihitung dari BYTE
+ * (bukan JSON), setiap field di preimage harus round-trip NILAI-nya persis —
+ * urutan key JSON tidak lagi berarti. Field di luar preimage (`size`,
+ * `metadata`, `totalTransactionFees`, `header.hash`) tetap dikirim supaya blok
+ * hasil decode sama utuh dengan aslinya; kesalahan di sana tidak mengubah
+ * hash, `verifyStruct`/`verifyReward` yang menjaganya.
  *
  * Urutan list — KONTRAK, jangan diubah tanpa menaikkan versi protokol:
  *
@@ -209,8 +211,8 @@ export const rlpListToBlock = (list: RlpInput): blockStruct => {
 	if (metadataList.length === METADATA_ITEM_COUNT) {
 		const extraData = bytesToData(item(metadataList, 2, 'metadata.extraData'))
 		// Cast: interface menandai `extraData` wajib, Joi `optional`. Saat
-		// absen key-nya memang hilang dari JSON.stringify — persis seperti blok
-		// aslinya — jadi cast ini tidak menutupi nilai yang salah.
+		// absen key-nya memang hilang — persis seperti blok aslinya — jadi cast
+		// ini tidak menutupi nilai yang salah.
 		metadataValue = {
 			txCount: bytesToNumber(
 				item(metadataList, 0, 'metadata.txCount'),
@@ -250,7 +252,7 @@ export const rlpListToBlock = (list: RlpInput): blockStruct => {
 	)
 
 	// `coinbaseTransaction.extraData` opsional: saat absen, key-nya hilang
-	// (bukan bernilai `undefined`) supaya `JSON.stringify` preimage identik.
+	// (bukan bernilai `undefined`) supaya payload byte identik.
 	const coinbaseExtra = bytesToData(
 		item(coinbaseItems, 2, 'coinbaseTransaction.extraData'),
 	)
@@ -281,8 +283,8 @@ export const rlpListToBlock = (list: RlpInput): blockStruct => {
 			LABEL,
 		),
 		// Byte kosong = absen (Joi `optional`). Cast: interface menandainya
-		// wajib, Joi tidak — `undefined` membuat key hilang dari JSON.stringify,
-		// persis seperti blok aslinya.
+		// wajib, Joi tidak — `undefined` membuat key hilang, persis seperti blok
+		// aslinya.
 		hashingAlgorithm: (hashingAlgorithm || undefined) as string,
 		stateRoot: bytesToHex(item(headerItems, 7, 'header.stateRoot')),
 	}
@@ -314,11 +316,9 @@ export const rlpListToBlock = (list: RlpInput): blockStruct => {
 			'totalReward',
 			LABEL,
 		),
-		// URUTAN KEY DI SINI ADALAH KONSENSUS. `coinbaseTransaction` ikut
-		// preimage hash dan `JSON.stringify` sensitif urutan, jadi urutan ini
-		// harus sama dengan yang dipakai PEMBUAT blok — `genesis.ts` dan
-		// `createBlockTemplate.ts` sama-sama memakai `amount, receiver,
-		// extraData`. Mengubahnya mengubah hash setiap blok.
+		// `coinbaseTransaction` ikut payload byte (amount, receiver, extraData
+		// masing-masing di offset tetap). Urutan key objek di sini tidak lagi
+		// konsensus — `buildMiningPayload` menulis field per posisi byte.
 		coinbaseTransaction: {
 			amount: bytesToNumber(
 				item(coinbaseItems, 1, 'coinbaseTransaction.amount'),

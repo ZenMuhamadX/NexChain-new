@@ -16,7 +16,7 @@ import {
 	GENESIS_NONCE,
 	assertGenesisValid,
 } from 'src/core/block/genesis'
-import { prepareBlockForHashing } from 'src/core/block/prepareBlock'
+import { buildMiningPayload } from 'src/core/block/miningPayload'
 import { hashWithNonce } from 'src/core/consensus/Pow'
 import {
 	formatBits,
@@ -28,7 +28,7 @@ import { CHAIN_ID } from 'src/crypto/chainId'
 const solve = process.argv.includes('--solve')
 
 if (solve) {
-	const payload = prepareBlockForHashing(buildGenesisBlock())
+	const payload = buildMiningPayload(buildGenesisBlock())
 	let nonce = 0
 	let hash = hashWithNonce(payload, nonce)
 	while (!meetsDifficulty(hash, INITIAL_DIFFICULTY_BITS)) {

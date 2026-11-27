@@ -33,7 +33,8 @@ import {
  *      transaksi isinya (lihat `blockLimits.ts`);
  *   2. `verifyHashLength` — hash 64 digit;
  *   3. `verifyPow`     — hash memenuhi `header.difficulty`;
- *   4. `verifyBlockHash` — hash = SHA-256(preimage ‖ nonce);
+ *   4. `verifyBlockHash` — hash = SHA256d(payload byte dengan nonce di slot
+ *      akhir, `buildMiningPayload`);
  *   5. `verifyMerkleRoot` — merkle cocok dengan transaksi (kecuali genesis);
  *   6. `verifyBlockReward` — hadiah/fee/coinbase direhitung dari
  *      fungsi deterministik (kecuali genesis, lihat pengecualian di bawah);

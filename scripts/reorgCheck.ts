@@ -77,7 +77,7 @@ const verify = await import('src/core/consensus/verify/verifyIntegrity')
 const verifyMarker = await import('src/core/consensus/verify/verifyMarker')
 const headerCache =
 	await import('src/core/block/query/onChain/block/blockHeaderCache')
-const { prepareBlockForHashing } = await import('src/core/block/prepareBlock')
+const { buildMiningPayload } = await import('src/core/block/miningPayload')
 const { createPowHasher } = await import('src/core/consensus/Pow')
 const { meetsDifficulty, difficultyToBits } =
 	await import('src/core/consensus/difficulty')
@@ -153,7 +153,7 @@ const commit = async (
  * Dipakai `GROUP 0`/`GROUP 3` untuk membuktikan jalur verifikasi nyata.
  */
 const mine = (template: InstanceType<typeof Block>): void => {
-	const payload = prepareBlockForHashing(template)
+	const payload = buildMiningPayload(template)
 	const hasher = createPowHasher(payload)
 	const bits = template.block.header.difficulty
 	let nonce = 0

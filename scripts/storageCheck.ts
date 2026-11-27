@@ -77,7 +77,7 @@ const jobData = (
 			merkleRoot: `MerkleRoot-${height}`,
 		},
 	} as unknown as Block,
-	payload: `payload-${height}`,
+	payload: new Uint8Array([height & 0xff]),
 	difficulty,
 	height,
 	previousBlockHash,

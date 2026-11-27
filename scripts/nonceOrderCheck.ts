@@ -27,6 +27,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { createHash } from 'node:crypto'
 import type { TxInterface } from 'src/types/transaction'
 import type { Block } from 'src/core/block/blockModel'
 
@@ -121,7 +122,9 @@ const makeTx = (
 		receiver: RECEIVER,
 		amount,
 		from,
-		txHash: `TxC${`${from.slice(-6)}-${tag}-${nonce}`.padEnd(64, '0')}`,
+		txHash: `TxC${createHash('sha256')
+			.update(`${from}:${tag}:${nonce}`)
+			.digest('hex')}`,
 		// r/s 32 byte huruf kecil supaya `encodeTxPayload` bisa menghitung
 		// ukuran wire (dipakai seleksi berprioritas laju-fee); tanda tangan
 		// tetap palsu — `commitBlock` tidak memeriksanya.
@@ -178,7 +181,8 @@ console.log('\nGROUP 5 — klasifikasi P2P connectBlock (nonce FATAL):')
 const SENDER_P2P = `NxC${'98'.repeat(20)}`
 await fund(SENDER_P2P)
 {
-	const { prepareBlockForHashing } = await import('src/core/block/prepareBlock')
+	const { buildMiningPayload } =
+		await import('src/core/block/miningPayload')
 	const { createPowHasher } = await import('src/core/consensus/Pow')
 	const { meetsDifficulty } = await import('src/core/consensus/difficulty')
 	const { verifyPow } =
@@ -212,7 +216,7 @@ await fund(SENDER_P2P)
 	// Tambang PoW nyata: `connectBlock` memverifikasi PoW + hash blok
 	// SEBELUM mencapai pra-penerbangan nonce.
 	const targetDiff = bad.block.header.difficulty
-	const hasher = createPowHasher(prepareBlockForHashing(bad))
+	const hasher = createPowHasher(buildMiningPayload(bad))
 	let solved = -1
 	for (let n = 0; n < 50_000_000; n++) {
 		if (meetsDifficulty(hasher.hash(n), targetDiff)) {

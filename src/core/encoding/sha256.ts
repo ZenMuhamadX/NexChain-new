@@ -8,12 +8,39 @@
  * `Uint8Array<ArrayBufferLike>`) karena API Web Crypto (crypto.subtle)
  * menerima `BufferSource` yang hanya memuat `ArrayBuffer` — bukan
  * `SharedArrayBuffer`.
+ *
+ * Catatan: fungsi ini LENIENT (prefix `0x` dibuang, hex rusak jadi NaN).
+ * Untuk input yang dipercaya (mis. payload PoW dari wire) pakai
+ * `hexToBytesStrict` — lihat di bawah.
  */
 export const hexToBytes = (hex: string): Uint8Array<ArrayBuffer> => {
 	const clean = hex.startsWith('0x') ? hex.slice(2) : hex
 	const out = new Uint8Array(clean.length >> 1)
 	for (let i = 0; i < out.length; i++) {
 		out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16)
+	}
+	return out
+}
+
+/**
+ * Hex ketat (tanpa prefix `0x`) → byte. Fail-closed: panjang ganjil atau
+ * karakter non-hex MELEMPAR, bukan menghasilkan byte NaN. Dipakai payload
+ * PoW yang datang dari wire — di sana decoding yang diam-diam salah berarti
+ * hash yang tidak pernah cocok.
+ */
+export const hexToBytesStrict = (hex: string): Uint8Array<ArrayBuffer> => {
+	if (typeof hex !== 'string') {
+		throw new Error('hexToBytesStrict: input harus string')
+	}
+	if (hex.length % 2 !== 0) {
+		throw new Error(`hexToBytesStrict: panjang hex ganjil (${hex.length})`)
+	}
+	if (!/^[0-9a-fA-F]*$/.test(hex)) {
+		throw new Error('hexToBytesStrict: karakter non-hex')
+	}
+	const out = new Uint8Array(hex.length >> 1)
+	for (let i = 0; i < out.length; i++) {
+		out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
 	}
 	return out
 }
@@ -39,83 +66,22 @@ export const sha256 = (
 	return enc === 'hex' ? hex : hexToBytes(hex)
 }
 
-/** Digit '0'..'9' sebagai byte ASCII — tabel kecil untuk menulis nonce. */
-const ASCII_DIGITS = /* @__PURE__ */ (() => {
-	const t = new Uint8Array(10)
-	for (let i = 0; i < 10; i++) t[i] = 48 + i
-	return t
-})()
-
 /**
- * Hasher PoW yang di-precompute untuk satu payload tetap.
+ * SHA-256 ganda (`SHA256(SHA256(data))`) sebagai hex big-endian.
  *
- * Ini adalah jalur PANAS Proof-of-Work: satu payload (preimage blok) di-hash
- * dengan ribuan / jutaan nonce berturut-turut. Implementasi naif
- * `sha256(`${payload}${nonce}`)` membayar tiga biaya berulang per iterasi —
- * number→string, concat string panjang, dan encoding UTF-8 oleh js-sha256 —
- * yang totalnya lebih mahal dari hashing itu sendiri.
+ * Ini primitif PoW NexChain sejak fork `pow-bytes`: `hash = SHA256d(payload)`
+ * dengan `payload` byte dari `buildMiningPayload`. Hanya memakai js-sha256 —
+ * TIDAK ada `node:crypto` di jalur shared core, supaya modul ini tetap bisa
+ * di-bundle ke wallet browser (`check:browser`).
  *
- * Kelas ini mengubah payload menjadi byte SEKALI, lalu tiap `hash(nonce)`
- * hanya menuliskan digit nonce ke buffer tetap (tanpa alokasi string, tanpa
- * GC), dan menghash `[payloadBytes ‖ nonceDigits]`.
- *
- * **Identik byte-per-byte** dengan `sha256(payload + nonce)` biasa:
- * `prepareBlockForHashing` selalu menghasilkan JSON dengan karakter printable
- * ASCII, dan `String(nonce)` juga ASCII, jadi encoding UTF-8 dari
- * `payload + nonce` persis sama dengan penggabungan byte di sini. Diverifikasi
- * oleh gate `check:pow` (lihat `scripts/powParityCheck.ts`).
- *
- * Catatan: hasher js-sha256 TIDAK dapat dipakai ulang antar-hash (state tidak
- * ter-reset), sehingga `create()` dipanggil per hash — itu memang wajib.
+ * Hex yang dikembalikan adalah urutan byte digest APA ADANYA (big-endian),
+ * bukan konvensi tampilan Bitcoin yang dibalik. Pembandingan target
+ * (`meetsDifficulty`) juga memakai urutan ini — jangan dibalik.
  */
-export class PowHasher {
-	private readonly payloadBytes: Uint8Array
-	private readonly combined: Uint8Array
-	private readonly base: number
-
-	constructor(payload: string) {
-		this.payloadBytes = new TextEncoder().encode(payload)
-		this.base = this.payloadBytes.length
-		// Ruang cukup untuk preimage + nonce desimal; 17 = digit maksimum
-		// Number.MAX_SAFE_INTEGER (9007199254740991) ditambah margin.
-		this.combined = new Uint8Array(this.base + 24)
-		this.combined.set(this.payloadBytes, 0)
-	}
-
-	/** SHA-256(payload ‖ nonce) sebagai hex — sama dengan `sha256(payload+nonce)` */
-	hash(nonce: number): string {
-		const buf = this.combined
-		const base = this.base
-		let len = 0
-		let n = nonce
-		if (n === 0) {
-			buf[base] = 48
-			len = 1
-		} else {
-			// Tulis digit dari yang paling tidak signifikan, lalu balik di tempat.
-			//
-			// PENTING: pakai Math.floor(n / 10), BUKAN `(n / 10) | 0`. Operator
-			// `| 0` memaksa int32 dan akan salah untuk nonce >= 2^31
-			// (mis. Number.MAX_SAFE_INTEGER), menghasilkan digit yang keliru.
-			while (n > 0) {
-				buf[base + len++] = ASCII_DIGITS[n % 10]
-				n = Math.floor(n / 10)
-			}
-			for (let i = base, j = base + len - 1; i < j; i++, j--) {
-				const t = buf[i]
-				buf[i] = buf[j]
-				buf[j] = t
-			}
-		}
-		const hasher = jsSha256.create()
-		hasher.update(buf.subarray(0, base + len))
-		return hasher.hex()
-	}
+export const sha256d = (data: Uint8Array): string => {
+	const first = jsSha256.array(data)
+	const second = jsSha256.array(new Uint8Array(first))
+	let hex = ''
+	for (const byte of second) hex += byte.toString(16).padStart(2, '0')
+	return hex
 }
-
-/**
- * Bikin hasher PoW untuk satu payload. Pakai ini di loop mining — jangan panggil
- * `sha256` dengan concat string di dalam loop.
- */
-export const createPowHasher = (payload: string): PowHasher =>
-	new PowHasher(payload)

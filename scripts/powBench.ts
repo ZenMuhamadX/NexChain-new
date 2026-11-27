@@ -2,9 +2,9 @@
  * Benchmark loop PoW — ALAT DIAGNOSTIK, bukan gate.
  *
  * Membandingkan:
- *   1. `hashWithNonce` (jalur lama: concat string tiap iterasi)
- *   2. `createPowHasher` (jalan baru: buffer-tetap)
- *   3. `meetsDifficulty` overhead (jalur lama vs baru dengan syarat lengkap)
+ *   1. `hashWithNonce` (jalur konvenien: satu hash per panggilan)
+ *   2. `createPowHasher` (loop mining: buffer-tetap, prefix disiapkan sekali)
+ *   3. `meetsDifficulty` overhead (kedua jalur dengan syarat lengkap)
  *
  * Lalu memberi SARAN jumlah worker untuk mesin ini berdasarkan skala worker
  * nyata (worker_threads) — berguna sebagai pembanding kasar sebelum menyetel
@@ -24,20 +24,12 @@ import {
 	INITIAL_DIFFICULTY_BITS,
 	meetsDifficulty,
 } from 'src/core/consensus/difficulty'
+import { buildMiningPayload } from 'src/core/block/miningPayload'
+import { buildGenesisBlock } from 'src/core/block/genesis'
 
-const PAYLOAD = JSON.stringify({
-	previousBlockHash:
-		'a3f1c9e2b7d4085f6a1c3e5b7d9f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f',
-	timestamp: 1760000000000,
-	version: 1,
-	hashingAlgorithm: 'sha256',
-	height: 1234,
-	merkleRoot:
-		'b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6',
-	chainId: 1,
-	status: 'confirmed',
-	blockReward: '5000000000',
-})
+// Payload byte kanonik nyata (genesis) — ukuran & isi sama seperti yang
+// diterima miner lewat `nex_getWork.payload`.
+const PAYLOAD = buildMiningPayload(buildGenesisBlock())
 
 const N = 2_000_000
 
@@ -59,7 +51,7 @@ if (!isMainThread) {
 	parentPort?.postMessage({ ms: Date.now() - t0, count })
 } else {
 	console.log('NexChain PoW benchmark\n')
-	console.log(`payload  : ${PAYLOAD.length} chars`)
+	console.log(`payload  : ${PAYLOAD.length} bytes`)
 	console.log(`logical  : ${cpus().length} cpu(s)\n`)
 
 	// ---- 1. jalur lama vs baru (single-thread, in-process) ----------------
@@ -74,9 +66,9 @@ if (!isMainThread) {
 	}
 
 	console.log('hash mentah (tanpa meetsDifficulty):')
-	bench('hashWithNonce (lama)', (n) => hashWithNonce(PAYLOAD, n))
+	bench('hashWithNonce (konvenien)', (n) => hashWithNonce(PAYLOAD, n))
 	const hasher = createPowHasher(PAYLOAD)
-	bench('createPowHasher (baru)', (n) => hasher.hash(n))
+	bench('createPowHasher (loop)', (n) => hasher.hash(n))
 
 	console.log(
 		`\ndengan meetsDifficulty(bits=0x${INITIAL_DIFFICULTY_BITS.toString(16)}):`,

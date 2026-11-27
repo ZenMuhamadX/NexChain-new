@@ -165,7 +165,7 @@ export function DashboardPage() {
 					<div>
 						<dt>Difficulty</dt>
 						<dd>{latest ? latest.difficulty : '—'}</dd>
-						<span>SHA256 proof-of-work</span>
+						<span>SHA256D proof-of-work</span>
 					</div>
 					<div>
 						<dt>Pending tx</dt>

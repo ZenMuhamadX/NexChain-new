@@ -45,7 +45,7 @@ import { EMPTY_STATE_ROOT } from 'src/core/state/root'
  *     PERHATIAN supaya tidak disalahartikan sebagai "pertahanan bekerja".
  *
  * Modul yang dipakai (`framing`, `handshake`, `config`) murni; blok tiruan
- * disusun lewat `prepareBlockForHashing` + `createPowHasher` yang sama
+ * disusun lewat `buildMiningPayload` + `createPowHasher` yang sama
  * dipakai node, sehingga skenario 6 benar-benar lolos `verifyPow`.
  */
 import {
@@ -70,7 +70,7 @@ import { CHAIN_ID } from 'src/crypto/chainId'
 import { difficultyToBits } from 'src/core/consensus/difficulty'
 import { Block } from 'src/core/block/blockModel'
 import type { blockStruct } from 'src/types/block'
-import { prepareBlockForHashing } from 'src/core/block/prepareBlock'
+import { buildMiningPayload } from 'src/core/block/miningPayload'
 import { createPowHasher } from 'src/core/consensus/Pow'
 import { meetsDifficulty } from 'src/core/consensus/difficulty'
 import { cutBlockReward } from 'src/core/block/distributeBlockReward'
@@ -315,10 +315,10 @@ const buildForkBlock = (): Block => {
 	}
 
 	const block = new Block(struct)
-	// `prepareBlockForHashing` tidak memuat `nonce`/`hash`, jadi payload
+	// `buildMiningPayload` menulis slot nonce 0 (template), jadi payload
 	// sudah final sebelum nonce dicari — hash hasil pencarian dijamin sama
-	// dengan yang dihitung ulang `verifyBlockHash`.
-	const payload = prepareBlockForHashing(block)
+	// dengan yang dihitung ulang `verifyBlockHash` (yang menambal nonce).
+	const payload = buildMiningPayload(block)
 	const hasher = createPowHasher(payload)
 	for (let nonce = 0; nonce < MAX_FORK_NONCE; nonce++) {
 		const hash = hasher.hash(nonce)

@@ -6,7 +6,8 @@
  * Jalur `nex_getWork` memanggil pemeriksaan integritas rantai SEBELUM
  * membangun work. Versi lama (`verifyChainIntegrity`) menelusuri SELURUH
  * rantai dari genesis tiap panggilan: `verifyStruct` (Joi) + `verifyPow` +
- * SHA-256 ulang + merkle + reward + timestamp + difficulty per blok. Miner
+ * SHA256d ulang (payload byte) + merkle + reward + timestamp + difficulty per
+ * blok. Miner
  * melakukan polling, jadi biayanya O(N) SETIAP kali — makin panjang rantai,
  * makin lambat, hingga berisiko timeout. Ini pemborosan murni: blok lama
  * sudah pernah diverifikasi dan tidak berubah.
@@ -15,7 +16,7 @@
  *
  * Marker adalah memori hasil verifikasi-SENDIRI atas data yang immutable:
  *
- *   1. blok bersifat content-addressed (hash = SHA-256 isinya) — sebuah blok
+ *   1. blok bersifat content-addressed (hash = SHA256d payload-nya) — sebuah blok
  *      di height `h` tak bisa berubah tanpa hash-nya berubah;
  *   2. verifikasi deterministik — hasil sama untuk data yang sama;
  *   3. setiap mutasi history (reorg/rollback) memanggil hook R-1 yang

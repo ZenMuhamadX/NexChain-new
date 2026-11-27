@@ -94,7 +94,8 @@ import { decodeBlock } from 'src/core/encoding/hex/block/decodeBlock'
 import { uint8ToBase64 } from 'src/core/encoding/hex/base64/uint8ToBase64'
 import { buildGenesisBlock } from 'src/core/block/genesis'
 import { Block } from 'src/core/block/blockModel'
-import { prepareBlockForHashing } from 'src/core/block/prepareBlock'
+import { buildMiningPayload } from 'src/core/block/miningPayload'
+import { bytesToHex } from 'src/core/encoding/rlp/codecScalars'
 import { createMerkleRoot } from 'src/core/transaction/utils/createMerkleRoot'
 import { createUnsignedTransaction } from 'src/client/lib/createUnsignedTransaction'
 import { signTransaction } from 'src/crypto/signTransaction'
@@ -128,6 +129,10 @@ const assertThrows = (fn: () => unknown, message: string): void => {
 /** JSON-invarian (cukup untuk data wire tanpa fungsi / undefined). */
 const sameJson = (a: unknown, b: unknown): boolean =>
 	JSON.stringify(a) === JSON.stringify(b)
+
+/** Payload PoW byte kanonik sebagai hex — pembanding identitas preimage. */
+const payloadHexOf = (block: Block): string =>
+	bytesToHex(buildMiningPayload(block))
 
 /** Jalankan satu pemeriksaan bernama; galat = FAIL, bukan menghentikan gate. */
 const run = async (
@@ -1237,10 +1242,10 @@ await run('forEachChunked: `visit` → false berhenti lebih awal', async () => {
 //
 // Sejak protokol v2 badan blok dikirim sebagai `base64(rlp(block))`, bukan JSON
 // mentah. Yang WAJIB terbukti di sini bukan sekadar "field sama", melainkan
-// bahwa PREIMAGE HASH tidak berubah: identitas blok adalah
-// `sha256(JSON.stringify(preimage) ‖ nonce)` (`prepareBlockForHashing`), jadi
-// satu perbedaan kecil pun (nilai float, urutan key, `from`/`txHash` yang
-// hilang) akan mengubah hash dan membuat blok ditolak `connectBlock`.
+// bahwa PAYLOAD PoW tidak berubah: identitas blok adalah `SHA256d(payload)`
+// dengan payload byte kanonik dari `buildMiningPayload`, jadi satu perbedaan
+// kecil pun (nilai float, `from`/`txHash` yang hilang, `merkleRoot` ber-prefix
+// `TxC`) akan mengubah hash dan membuat blok ditolak `connectBlock`.
 //
 // Fixture: blok genesis NYATA (size float, metadata + extraData, coinbase
 // extraData) dan blok ber-transaksi bertanda tangan asli (`from`/`txHash`
@@ -1261,11 +1266,11 @@ await run('terima: block dengan payload base64', () => {
 })
 
 await run('round-trip genesis: preimage hash identik', () => {
-	const before = prepareBlockForHashing(genesisBlock)
+	const before = payloadHexOf(genesisBlock)
 	const decoded = new Block(decodeBlock(encodeBlock(genesisBlock.block)))
 	assert(
-		before === prepareBlockForHashing(decoded),
-		'preimage berubah → hash blok akan ditolak',
+		before === payloadHexOf(decoded),
+		'payload berubah → hash blok akan ditolak',
 	)
 })
 
@@ -1275,7 +1280,7 @@ await run('round-trip genesis: field di luar preimage ikut utuh', () => {
 		decoded.size === genesisBlock.block.size,
 		`size float berubah: ${decoded.size} != ${genesisBlock.block.size}`,
 	)
-	// `metadata` TIDAK ikut preimage (lihat `prepareBlockForHashing`), jadi
+	// `metadata` TIDAK ikut payload PoW (lihat `buildMiningPayload`), jadi
 	// urutan key-nya bebas dan pembuat blok pun berbeda urutan
 	// (`genesis.ts` vs `createBlockTemplate.ts`). Yang harus utuh adalah
 	// nilainya, bukan urutan key.
@@ -1322,9 +1327,8 @@ await run('round-trip: compact bits tetap eksak', () => {
 			`difficulty ${difficulty} berubah jadi ${decoded.header.difficulty}`,
 		)
 		assert(
-			prepareBlockForHashing(new Block(block)) ===
-				prepareBlockForHashing(new Block(decoded)),
-			`preimage berubah untuk difficulty ${difficulty}`,
+			payloadHexOf(new Block(block)) === payloadHexOf(new Block(decoded)),
+			`payload berubah untuk difficulty ${difficulty}`,
 		)
 	}
 })
@@ -1388,9 +1392,8 @@ await run(
 
 		const decoded = decodeBlock(encodeBlock(block))
 		assert(
-			prepareBlockForHashing(new Block(block)) ===
-				prepareBlockForHashing(new Block(decoded)),
-			'preimage blok ber-transaksi berubah',
+			payloadHexOf(new Block(block)) === payloadHexOf(new Block(decoded)),
+			'payload blok ber-transaksi berubah',
 		)
 		assert(
 			sameJson(decoded.transactions, block.transactions),

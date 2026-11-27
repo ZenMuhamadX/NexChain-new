@@ -50,7 +50,7 @@ import { toNexu } from 'src/core/token/toNexu'
  * jadi Σ ini adalah batas suplai riil yang TIDAK bisa dilewati fee.
  *
  * Nilai awal & panjang epoch adalah KONSENSUS: `blockReward` ikut preimage
- * PoW (`prepareBlockForHashing`) dan `verifyBlockReward` membandingkan
+ * PoW (`buildMiningPayload`) dan `verifyBlockReward` membandingkan
  * ulang `cutBlockReward(height)` — mengubah konstanta di sini mengubah
  * seluruh rantai (RESET RANTAI DIPERLUKAN).
  */

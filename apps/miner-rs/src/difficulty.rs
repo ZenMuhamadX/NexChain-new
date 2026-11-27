@@ -1,8 +1,10 @@
 //! Salinan aturan `meetsDifficulty` node (`src/core/consensus/difficulty.ts`).
 //!
 //! `bits` adalah compact target ala Bitcoin: eksponen 1 byte + mantissa 23 bit,
-//! `target = mantissa << 8*(eksponen-3)`. Hash 32 byte big-endian lolos bila
-//! `hash <= target`. Perbandingan langsung pada byte, tanpa mengubah hash ke hex.
+//! `target = mantissa << 8*(eksponen-3)`. `hash` adalah digest SHA256d 32 byte
+//! big-endian apa adanya (NexChain tidak memakai pembalikan urutan byte ala
+//! Bitcoin); lolos bila `hash <= target`. Perbandingan langsung pada byte,
+//! tanpa mengubah hash ke hex.
 
 /// Apakah hash memenuhi compact `bits`? Satu-satunya definisi "kerja cukup".
 pub fn meets_difficulty(hash: &[u8; 32], bits: u32) -> bool {

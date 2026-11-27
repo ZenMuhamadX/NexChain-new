@@ -8,7 +8,7 @@ import {
 import { toNexu } from 'src/core/token/toNexu'
 import { stringToHex } from 'src/core/encoding/hex/stringToHex'
 import { hashWithNonce } from 'src/core/consensus/Pow'
-import { prepareBlockForHashing } from './prepareBlock'
+import { buildMiningPayload } from './miningPayload'
 import { EMPTY_STATE_ROOT } from 'src/core/state/root'
 import { CHAIN_ID } from 'src/crypto/chainId'
 import { logToConsole } from 'src/logging/logging'
@@ -34,8 +34,8 @@ import { logToConsole } from 'src/logging/logging'
  */
 
 export const GENESIS_TIMESTAMP = 1727524800000 // 2024-09-28T12:00:00Z — tetap
-export const GENESIS_VERSION = '0.1.0'
-export const GENESIS_HASHING_ALGORITHM = 'SHA256'
+export const GENESIS_VERSION = '0.2.0'
+export const GENESIS_HASHING_ALGORITHM = 'SHA256D'
 export const GENESIS_PREVIOUS_BLOCK_HASH = '0'.repeat(64)
 export const GENESIS_MERKLE_ROOT = '0'.repeat(64)
 /**
@@ -78,10 +78,14 @@ export const GENESIS_MESSAGE = 'NexChain Devnet Genesis — Bitcoin-style PoW'
  *   - fork `bits`: difficulty jadi compact uint32 ala Bitcoin dan field
  *     `transactions` dikeluarkan dari preimage → nonce & hash di-re-solve,
  *     genesis lama tidak lagi dikenali (data dir wajib direset).
+ *   - fork `pow-bytes`: preimage JSON diganti buffer byte kanonik
+ *     (`buildMiningPayload`, magic `NXM1`), hashing `SHA256` → `SHA256D`,
+ *     version 0.1.0 → 0.2.0 → nonce & hash di-re-solve (data dir wajib
+ *     direset; genesis lama bukan jaringan ini).
  */
-export const GENESIS_NONCE = 1639958
+export const GENESIS_NONCE = 323402
 export const GENESIS_HASH =
-	'00000f0b8d335573570d96fdc0399f669e963078feed43de1b97ade9309dc423'
+	'00000fb55732e4b5d3149edc806d4be984ab316e11dbbb9fd9c699ba6a6f9aff'
 
 /**
  * Susun blok genesis sesuai konstanta. Murni & deterministik — tidak
@@ -112,7 +116,7 @@ export const buildGenesisBlock = (): Block => {
 		height: 0,
 		merkleRoot: GENESIS_MERKLE_ROOT,
 		minerId: GENESIS_COINBASE_RECEIVER,
-		// chainId IKUT preimage PoW (prepareBlockForHashing) → jaringan dengan
+		// chainId IKUT payload PoW (`buildMiningPayload`) → jaringan dengan
 		// NEX_CHAIN_ID berbeda = genesis berbeda = rantai terpisah penuh.
 		chainId: CHAIN_ID,
 		size: 0,
@@ -137,14 +141,14 @@ export const buildGenesisBlock = (): Block => {
 }
 
 /**
- * Verifikasi konstanta genesis: SHA-256(preimage ‖ GENESIS_NONCE) harus
- * sama dengan `GENESIS_HASH` dan memenuhi difficulty. Gagal berarti
+ * Verifikasi konstanta genesis: SHA256d(payload dengan GENESIS_NONCE di slot
+ * akhir) harus sama dengan `GENESIS_HASH` dan memenuhi difficulty. Gagal berarti
  * konstanta diubah (atau `NEX_CHAIN_ID` berbeda) tanpa re-solve — fork
  * harus menyelesaikan nonce sendiri via `bun run genesis:solve`.
  */
 export const assertGenesisValid = (): void => {
 	const block = buildGenesisBlock()
-	const computed = hashWithNonce(prepareBlockForHashing(block), GENESIS_NONCE)
+	const computed = hashWithNonce(buildMiningPayload(block), GENESIS_NONCE)
 	if (computed !== GENESIS_HASH) {
 		throw new Error(
 			`Genesis hash mismatch: computed ${computed}, konstanta ${GENESIS_HASH}. ` +

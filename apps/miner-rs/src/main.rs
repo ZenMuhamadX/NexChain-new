@@ -4,6 +4,11 @@
 //! database, wallet, seed, atau private key: node yang memverifikasi ulang
 //! setiap submit. Miner ini hanya membantu mencari nonce.
 //!
+//! Preimage adalah byte payload kanonik dari `nex_getWork.payload` (lowercase
+//! hex, lihat `docs/POW_PAYLOAD_FORMAT.md`) dengan nonce uint32 little-endian
+//! di 4 byte terakhir, di-hash SHA256d. Miner tidak pernah membangun ulang
+//! payload dari metadata.
+//!
 //! Penggunaan:
 //!   nex-miner --address NxC... [--rpc http://localhost:8000/rpc] [--threads N]
 //!
@@ -42,7 +47,7 @@ struct Args {
 }
 
 fn usage() -> &'static str {
-    "nex-miner — miner PoW NexChain (RPC-only, tanpa key)\n\
+    "nex-miner — miner PoW NexChain SHA256d (RPC-only, tanpa key)\n\
 	 \n\
 	 Pemakaian:\n\
 	   nex-miner --address NxC... [opsi]\n\
@@ -362,7 +367,8 @@ impl Rpc {
 #[derive(Debug)]
 struct Work {
     job_id: String,
-    payload: String,
+    /// Byte payload kanonik yang sudah divalidasi (bukan hex, bukan metadata).
+    payload: Vec<u8>,
     difficulty: u32,
     height: u64,
     expires_at: u64,
@@ -381,6 +387,30 @@ fn parse_difficulty_hex(value: &Value) -> Result<u32, String> {
         return Err("difficulty bukan hex uint32 8 digit".to_string());
     }
     u32::from_str_radix(digits, 16).map_err(|_| "difficulty bukan uint32".to_string())
+}
+
+/// Decode `nex_getWork.payload` secara ketat: hanya hex lowercase, panjang
+/// genap. Validasi magic/layout/panjang dilakukan `PowHasher::new` setelahnya.
+fn decode_payload_hex(value: &str) -> Result<Vec<u8>, String> {
+    let bytes = value.as_bytes();
+    if bytes.len() % 2 != 0 {
+        return Err(format!("payload hex panjangnya ganjil ({} digit)", bytes.len()));
+    }
+    let mut out = Vec::with_capacity(bytes.len() / 2);
+    for pair in bytes.chunks_exact(2) {
+        out.push((hex_nibble(pair[0])? << 4) | hex_nibble(pair[1])?);
+    }
+    Ok(out)
+}
+
+fn hex_nibble(byte: u8) -> Result<u8, String> {
+    match byte {
+        b'0'..=b'9' => Ok(byte - b'0'),
+        b'a'..=b'f' => Ok(byte - b'a' + 10),
+        _ => Err(format!(
+            "payload hex bukan lowercase hex (byte 0x{byte:02x})"
+        )),
+    }
 }
 
 fn get_work(rpc: &mut Rpc, address: &str) -> Result<Work, GetWorkError> {
@@ -405,31 +435,42 @@ fn get_work(rpc: &mut Rpc, address: &str) -> Result<Work, GetWorkError> {
             .ok_or_else(|| format!("respons getWork tanpa {name}"))
     };
 
+    let job_id = field("jobId")
+        .map_err(GetWorkError::Retry)?
+        .as_str()
+        .ok_or_else(|| GetWorkError::Retry("jobId bukan string".to_string()))?
+        .to_string();
+
+    let payload_hex = field("payload")
+        .map_err(GetWorkError::Retry)?
+        .as_str()
+        .ok_or_else(|| GetWorkError::Retry("payload bukan string".to_string()))?
+        .to_string();
+    let payload = decode_payload_hex(&payload_hex).map_err(GetWorkError::Retry)?;
+    PowHasher::new(&payload)
+        .map_err(|reason| GetWorkError::Retry(format!("payload tidak valid: {reason}")))?;
+
+    let difficulty = parse_difficulty_hex(&field("difficulty").map_err(GetWorkError::Retry)?)
+        .map_err(GetWorkError::Retry)?;
+    let height = field("height")
+        .map_err(GetWorkError::Retry)?
+        .as_u64()
+        .ok_or_else(|| GetWorkError::Retry("height bukan angka".to_string()))?;
+    let expires_at = field("expiresAt")
+        .map_err(GetWorkError::Retry)?
+        .as_u64()
+        .ok_or_else(|| GetWorkError::Retry("expiresAt bukan angka".to_string()))?;
+
     Ok(Work {
-        job_id: field("jobId")
-            .map_err(GetWorkError::Retry)?
-            .as_str()
-            .ok_or_else(|| GetWorkError::Retry("jobId bukan string".to_string()))?
-            .to_string(),
-        payload: field("payload")
-            .map_err(GetWorkError::Retry)?
-            .as_str()
-            .ok_or_else(|| GetWorkError::Retry("payload bukan string".to_string()))?
-            .to_string(),
-        difficulty: parse_difficulty_hex(&field("difficulty").map_err(GetWorkError::Retry)?)
-            .map_err(GetWorkError::Retry)?,
-        height: field("height")
-            .map_err(GetWorkError::Retry)?
-            .as_u64()
-            .ok_or_else(|| GetWorkError::Retry("height bukan angka".to_string()))?,
-        expires_at: field("expiresAt")
-            .map_err(GetWorkError::Retry)?
-            .as_u64()
-            .ok_or_else(|| GetWorkError::Retry("expiresAt bukan angka".to_string()))?,
+        job_id,
+        payload,
+        difficulty,
+        height,
+        expires_at,
     })
 }
 
-fn submit(rpc: &mut Rpc, work: &Work, nonce: u64, hash_hex: &str) -> Result<(), String> {
+fn submit(rpc: &mut Rpc, work: &Work, nonce: u32, hash_hex: &str) -> Result<(), String> {
     let result = rpc
         .call_auth(
             "nex_submitWork",
@@ -458,12 +499,19 @@ fn submit(rpc: &mut Rpc, work: &Work, nonce: u64, hash_hex: &str) -> Result<(), 
 }
 
 struct Outcome {
-    nonce: u64,
+    nonce: u32,
     hash: [u8; 32],
 }
 
 /// Cari satu nonce. Return `(solusi, total hash, detik)`.
 fn mine(work: &Work, threads: usize) -> (Option<Outcome>, u64, f64) {
+    // Payload sudah divalidasi `get_work`; kalau tetap gagal, jangan panic —
+    // kembalikan tanpa solusi supaya loop meminta job baru.
+    let template = match PowHasher::new(&work.payload) {
+        Ok(hasher) => hasher,
+        Err(_) => return (None, 0, 0.0),
+    };
+
     let cursor = AtomicU64::new(0);
     let stop = AtomicBool::new(false);
     let done = AtomicBool::new(false);
@@ -474,7 +522,7 @@ fn mine(work: &Work, threads: usize) -> (Option<Outcome>, u64, f64) {
     std::thread::scope(|scope| {
         for _ in 0..threads {
             scope.spawn(|| {
-                let mut hasher = PowHasher::new(&work.payload);
+                let mut hasher = template.clone();
                 loop {
                     if stop.load(Ordering::Relaxed) {
                         return;
@@ -488,12 +536,12 @@ fn mine(work: &Work, threads: usize) -> (Option<Outcome>, u64, f64) {
                     let mut local = 0u64;
                     for nonce in start..end {
                         local += 1;
-                        let digest = hasher.hash(nonce);
+                        let digest = hasher.hash(nonce as u32);
                         if meets_difficulty(&digest, work.difficulty) {
                             let mut guard = solution.lock().unwrap();
                             if guard.is_none() {
                                 *guard = Some(Outcome {
-                                    nonce,
+                                    nonce: nonce as u32,
                                     hash: digest,
                                 });
                             }
@@ -534,14 +582,16 @@ fn mine(work: &Work, threads: usize) -> (Option<Outcome>, u64, f64) {
 }
 
 fn run() -> Result<(), String> {
-    let args = parse_args()?;
-
+    // Fail fast sebelum parse argumen/prompt: binary atau CPU yang salah harus
+    // berhenti di sini, bukan setelah nonce ditemukan lalu ditolak node.
     if !midstate::self_check() {
         return Err(
-            "FATAL: hasher midstate tidak identik dengan SHA-256 rujukan — miner dihentikan."
+            "FATAL: hasher SHA256d (payload byte kanonik) tidak identik dengan node:crypto — miner dihentikan."
                 .to_string(),
         );
     }
+
+    let args = parse_args()?;
 
     let mut rpc = Rpc::new(&args);
 
@@ -569,6 +619,7 @@ fn run() -> Result<(), String> {
         }
     );
     println!("  threads : {}", args.threads);
+    println!("  pow     : SHA256d, nonce uint32");
     println!(
         "  node    : OK — chainId {}{}\n",
         chain_id
@@ -592,20 +643,22 @@ fn run() -> Result<(), String> {
         };
 
         println!(
-            "Job {} | height #{} | difficulty 0x{:08x}",
+            "Job {} | height #{} | difficulty 0x{:08x} | SHA256d",
             work.job_id, work.height, work.difficulty
         );
 
         let (solution, hashes, elapsed) = mine(&work, args.threads);
         let Some(solution) = solution else {
-            println!("Job kedaluwarsa tanpa solusi — minta job baru...");
+            println!(
+                "Nonce uint32 habis atau job kedaluwarsa tanpa solusi — minta job baru..."
+            );
             continue;
         };
 
         let hash_hex = to_hex(&solution.hash);
         let rate = hashes as f64 / elapsed.max(0.001);
         println!(
-            "Solusi: nonce {} hash {} ({:.1}s @ {}) — submit...",
+            "Solusi: nonce {} (uint32) hash {} ({:.1}s @ {}) — submit...",
             solution.nonce,
             hash_hex,
             elapsed,
@@ -677,5 +730,25 @@ mod tests {
         assert!(!is_valid_address("NxC"));
         assert!(!is_valid_address(&format!("NxC{}", "a".repeat(41))));
         assert!(!is_valid_address(&format!("NxA{}", "a".repeat(40))));
+    }
+
+    #[test]
+    fn payload_hex_is_strict_lowercase() {
+        assert_eq!(decode_payload_hex("00ff").unwrap(), vec![0x00, 0xff]);
+        for bad in ["0", "0g", "0A", "FF", "0x00", " abc"] {
+            assert!(decode_payload_hex(bad).is_err(), "{bad:?} harus ditolak");
+        }
+    }
+
+    #[test]
+    fn payload_validation_rejects_bad_magic_and_length() {
+        let mut payload = decode_payload_hex(midstate::PARITY_VECTORS[0].0).unwrap();
+        assert!(PowHasher::new(&payload).is_ok());
+
+        payload[0] ^= 0xff;
+        assert!(PowHasher::new(&payload).is_err());
+
+        let valid = decode_payload_hex(midstate::PARITY_VECTORS[0].0).unwrap();
+        assert!(PowHasher::new(&valid[..valid.len() - 1]).is_err());
     }
 }

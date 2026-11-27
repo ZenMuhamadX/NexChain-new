@@ -112,7 +112,7 @@ const simulateStateRoot = async (
  *
  * Pemisahan inilah yang membuat node tidak pernah menjalankan loop PoW:
  * template dikirim ke miner eksternal sebagai `payload`
- * (= `prepareBlockForHashing(template)`), miner mencari nonce, node
+ * (= `buildMiningPayload(template)`, byte kanonik), miner mencari nonce, node
  * memverifikasi ulang dan menyelesaikan blok.
  *
  * Difficulty dihitung deterministik dari data rantai lewat `expectedDifficulty`
@@ -187,8 +187,8 @@ export const createBlockTemplate = async (
 			nonce: 0,
 			previousBlockHash: latestBlock.block.header.hash,
 			timestamp,
-			version: '0.1.0',
-			hashingAlgorithm: 'SHA256',
+			version: '0.2.0',
+			hashingAlgorithm: 'SHA256D',
 			// Diisi hasil simulasi di bawah — placeholder tidak pernah keluar
 			// dari fungsi ini, jadi tidak bisa masuk preimage PoW yang dikirim.
 			stateRoot: EMPTY_STATE_ROOT,

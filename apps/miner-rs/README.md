@@ -4,13 +4,19 @@ Miner PoW NexChain sebagai **binary native**. Tugasnya hanya satu: minta job,
 cari nonce, submit.
 
 ```
-nex_getWork(minerAddress) → hash payload‖nonce → nex_submitWork(jobId, nonce, hash) → ulangi
+nex_getWork(minerAddress) → SHA256d(payloadBytes + nonce LE uint32) → nex_submitWork(jobId, nonce, hash) → ulangi
 ```
+
+`nex_getWork.payload` adalah **hex lowercase dari byte buffer kanonik** (spesifikasi
+`docs/POW_PAYLOAD_FORMAT.md`), bukan JSON dan bukan teks nonce. Miner hanya
+men-decode byte itu, menulis nonce uint32 little-endian ke 4 byte terakhir, lalu
+menghitung SHA256d. Miner **tidak pernah** membangun ulang payload dari metadata
+(`height`, `previousBlockHash`, dan seterusnya hanya untuk tampilan/log).
 
 Tidak ada database, wallet, seed, atau private key. Node memverifikasi ulang
 setiap submit; miner tidak bisa memanipulasi rantai. Hanya tiga aturan
-konsensus yang disalin: SHA-256, `meetsDifficulty`, dan format alamat — dan
-ketiganya dijaga test paritas terhadap vektor Bun (`cargo test`).
+konsensus yang disalin: SHA256d, `meetsDifficulty`, dan format alamat — dan
+ketiganya dijaga test paritas terhadap vektor `node:crypto` (`cargo test`).
 
 ## Build
 
@@ -29,6 +35,10 @@ Hasil:
 Binary-nya mandiri — boleh disalin ke mesin lain yang punya Rust tidak.
 `cargo build` pertama mengunduh empat crate (`sha2`, `serde_json`, `ureq`,
 `rpassword`), sesudahnya offline.
+
+> **Fork `pow-bytes`:** binary lama menghitung preimage ASCII/JSON lama dan akan
+> ditolak node. Setelah menarik perubahan fork ini, **wajib** jalankan ulang
+> `cargo build --release` sebelum menambang.
 
 ## Jalankan
 

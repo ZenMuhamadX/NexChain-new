@@ -10,8 +10,8 @@
  *     1 NXC  =  NEXU_PER_NXC  nexu (satuan terkecil on-chain)
  *
  * Mengubah konstanta ini = mengubah SELURUH nilai on-chain (reward, saldo,
- * fee) sekaligus preimage PoW (`prepareBlockForHashing` memuat
- * `blockReward`), sehingga genesis hash berubah dan rantai harus di-reset.
+ * fee) sekaligus payload PoW (`buildMiningPayload` memuat `blockReward`),
+ * sehingga genesis hash berubah dan rantai harus di-reset.
  * Perubahan semacam itu adalah hard fork — lakukan hanya sebelum jaringan
  * punya node eksternal.
  *
